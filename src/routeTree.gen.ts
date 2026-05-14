@@ -9,12 +9,32 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PatientRouteImport } from './routes/patient'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PatientIndexRouteImport } from './routes/patient.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as PatientHistoryRouteImport } from './routes/patient.history'
+import { Route as AppTenantRouteImport } from './routes/app.$tenant'
+import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 import { Route as AuthSignupRouteImport } from './routes/_auth.signup'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth.reset-password'
 import { Route as AuthLoginRouteImport } from './routes/_auth.login'
+import { Route as AppTenantIndexRouteImport } from './routes/app.$tenant.index'
+import { Route as AppTenantValidateRouteImport } from './routes/app.$tenant.validate'
+import { Route as AppTenantPatientsRouteImport } from './routes/app.$tenant.patients'
 
+const PatientRoute = PatientRouteImport.update({
+  id: '/patient',
+  path: '/patient',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
   getParentRoute: () => rootRouteImport,
@@ -23,6 +43,31 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PatientIndexRoute = PatientIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PatientRoute,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const PatientHistoryRoute = PatientHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => PatientRoute,
+} as any)
+const AppTenantRoute = AppTenantRouteImport.update({
+  id: '/app/$tenant',
+  path: '/app/$tenant',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminTenantsRoute = AdminTenantsRouteImport.update({
+  id: '/tenants',
+  path: '/tenants',
+  getParentRoute: () => AdminRoute,
 } as any)
 const AuthSignupRoute = AuthSignupRouteImport.update({
   id: '/signup',
@@ -39,48 +84,142 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => AuthRoute,
 } as any)
+const AppTenantIndexRoute = AppTenantIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppTenantRoute,
+} as any)
+const AppTenantValidateRoute = AppTenantValidateRouteImport.update({
+  id: '/validate',
+  path: '/validate',
+  getParentRoute: () => AppTenantRoute,
+} as any)
+const AppTenantPatientsRoute = AppTenantPatientsRouteImport.update({
+  id: '/patients',
+  path: '/patients',
+  getParentRoute: () => AppTenantRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/patient': typeof PatientRouteWithChildren
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
+  '/admin/tenants': typeof AdminTenantsRoute
+  '/app/$tenant': typeof AppTenantRouteWithChildren
+  '/patient/history': typeof PatientHistoryRoute
+  '/admin/': typeof AdminIndexRoute
+  '/patient/': typeof PatientIndexRoute
+  '/app/$tenant/patients': typeof AppTenantPatientsRoute
+  '/app/$tenant/validate': typeof AppTenantValidateRoute
+  '/app/$tenant/': typeof AppTenantIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
+  '/admin/tenants': typeof AdminTenantsRoute
+  '/patient/history': typeof PatientHistoryRoute
+  '/admin': typeof AdminIndexRoute
+  '/patient': typeof PatientIndexRoute
+  '/app/$tenant/patients': typeof AppTenantPatientsRoute
+  '/app/$tenant/validate': typeof AppTenantValidateRoute
+  '/app/$tenant': typeof AppTenantIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteWithChildren
+  '/admin': typeof AdminRouteWithChildren
+  '/patient': typeof PatientRouteWithChildren
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/signup': typeof AuthSignupRoute
+  '/admin/tenants': typeof AdminTenantsRoute
+  '/app/$tenant': typeof AppTenantRouteWithChildren
+  '/patient/history': typeof PatientHistoryRoute
+  '/admin/': typeof AdminIndexRoute
+  '/patient/': typeof PatientIndexRoute
+  '/app/$tenant/patients': typeof AppTenantPatientsRoute
+  '/app/$tenant/validate': typeof AppTenantValidateRoute
+  '/app/$tenant/': typeof AppTenantIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/reset-password' | '/signup'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/patient'
+    | '/login'
+    | '/reset-password'
+    | '/signup'
+    | '/admin/tenants'
+    | '/app/$tenant'
+    | '/patient/history'
+    | '/admin/'
+    | '/patient/'
+    | '/app/$tenant/patients'
+    | '/app/$tenant/validate'
+    | '/app/$tenant/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/reset-password' | '/signup'
+  to:
+    | '/'
+    | '/login'
+    | '/reset-password'
+    | '/signup'
+    | '/admin/tenants'
+    | '/patient/history'
+    | '/admin'
+    | '/patient'
+    | '/app/$tenant/patients'
+    | '/app/$tenant/validate'
+    | '/app/$tenant'
   id:
     | '__root__'
     | '/'
     | '/_auth'
+    | '/admin'
+    | '/patient'
     | '/_auth/login'
     | '/_auth/reset-password'
     | '/_auth/signup'
+    | '/admin/tenants'
+    | '/app/$tenant'
+    | '/patient/history'
+    | '/admin/'
+    | '/patient/'
+    | '/app/$tenant/patients'
+    | '/app/$tenant/validate'
+    | '/app/$tenant/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRouteWithChildren
+  AdminRoute: typeof AdminRouteWithChildren
+  PatientRoute: typeof PatientRouteWithChildren
+  AppTenantRoute: typeof AppTenantRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/patient': {
+      id: '/patient'
+      path: '/patient'
+      fullPath: '/patient'
+      preLoaderRoute: typeof PatientRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_auth': {
       id: '/_auth'
       path: ''
@@ -94,6 +233,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/patient/': {
+      id: '/patient/'
+      path: '/'
+      fullPath: '/patient/'
+      preLoaderRoute: typeof PatientIndexRouteImport
+      parentRoute: typeof PatientRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/patient/history': {
+      id: '/patient/history'
+      path: '/history'
+      fullPath: '/patient/history'
+      preLoaderRoute: typeof PatientHistoryRouteImport
+      parentRoute: typeof PatientRoute
+    }
+    '/app/$tenant': {
+      id: '/app/$tenant'
+      path: '/app/$tenant'
+      fullPath: '/app/$tenant'
+      preLoaderRoute: typeof AppTenantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/tenants': {
+      id: '/admin/tenants'
+      path: '/tenants'
+      fullPath: '/admin/tenants'
+      preLoaderRoute: typeof AdminTenantsRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/_auth/signup': {
       id: '/_auth/signup'
@@ -116,6 +290,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthLoginRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/app/$tenant/': {
+      id: '/app/$tenant/'
+      path: '/'
+      fullPath: '/app/$tenant/'
+      preLoaderRoute: typeof AppTenantIndexRouteImport
+      parentRoute: typeof AppTenantRoute
+    }
+    '/app/$tenant/validate': {
+      id: '/app/$tenant/validate'
+      path: '/validate'
+      fullPath: '/app/$tenant/validate'
+      preLoaderRoute: typeof AppTenantValidateRouteImport
+      parentRoute: typeof AppTenantRoute
+    }
+    '/app/$tenant/patients': {
+      id: '/app/$tenant/patients'
+      path: '/patients'
+      fullPath: '/app/$tenant/patients'
+      preLoaderRoute: typeof AppTenantPatientsRouteImport
+      parentRoute: typeof AppTenantRoute
+    }
   }
 }
 
@@ -133,10 +328,64 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
+interface AdminRouteChildren {
+  AdminTenantsRoute: typeof AdminTenantsRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminTenantsRoute: AdminTenantsRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
+interface PatientRouteChildren {
+  PatientHistoryRoute: typeof PatientHistoryRoute
+  PatientIndexRoute: typeof PatientIndexRoute
+}
+
+const PatientRouteChildren: PatientRouteChildren = {
+  PatientHistoryRoute: PatientHistoryRoute,
+  PatientIndexRoute: PatientIndexRoute,
+}
+
+const PatientRouteWithChildren =
+  PatientRoute._addFileChildren(PatientRouteChildren)
+
+interface AppTenantRouteChildren {
+  AppTenantPatientsRoute: typeof AppTenantPatientsRoute
+  AppTenantValidateRoute: typeof AppTenantValidateRoute
+  AppTenantIndexRoute: typeof AppTenantIndexRoute
+}
+
+const AppTenantRouteChildren: AppTenantRouteChildren = {
+  AppTenantPatientsRoute: AppTenantPatientsRoute,
+  AppTenantValidateRoute: AppTenantValidateRoute,
+  AppTenantIndexRoute: AppTenantIndexRoute,
+}
+
+const AppTenantRouteWithChildren = AppTenantRoute._addFileChildren(
+  AppTenantRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRouteWithChildren,
+  AdminRoute: AdminRouteWithChildren,
+  PatientRoute: PatientRouteWithChildren,
+  AppTenantRoute: AppTenantRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
