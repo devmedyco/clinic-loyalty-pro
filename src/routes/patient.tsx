@@ -38,6 +38,7 @@ function PatientLayout() {
         { to: "/patient/subscription", label: "Assinatura", icon: Icons.cash },
         { to: "/patient/history", label: "Histórico", icon: Icons.history },
         { to: "/patient/network", label: "Rede credenciada", icon: Icons.building },
+        { to: "/patient/terms", label: "Termos", icon: Icons.shield },
         { to: "/patient/profile", label: "Perfil", icon: Icons.cog },
       ]}
     >

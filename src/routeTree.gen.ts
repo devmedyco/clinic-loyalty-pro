@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PatientIndexRouteImport } from './routes/patient.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as PatientTermsRouteImport } from './routes/patient.terms'
 import { Route as PatientSubscriptionRouteImport } from './routes/patient.subscription'
 import { Route as PatientProfileRouteImport } from './routes/patient.profile'
 import { Route as PatientNetworkRouteImport } from './routes/patient.network'
@@ -68,6 +69,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminRoute,
+} as any)
+const PatientTermsRoute = PatientTermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => PatientRoute,
 } as any)
 const PatientSubscriptionRoute = PatientSubscriptionRouteImport.update({
   id: '/subscription',
@@ -209,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/patient/network': typeof PatientNetworkRoute
   '/patient/profile': typeof PatientProfileRoute
   '/patient/subscription': typeof PatientSubscriptionRoute
+  '/patient/terms': typeof PatientTermsRoute
   '/admin/': typeof AdminIndexRoute
   '/patient/': typeof PatientIndexRoute
   '/app/$tenant/billing': typeof AppTenantBillingRoute
@@ -237,6 +244,7 @@ export interface FileRoutesByTo {
   '/patient/network': typeof PatientNetworkRoute
   '/patient/profile': typeof PatientProfileRoute
   '/patient/subscription': typeof PatientSubscriptionRoute
+  '/patient/terms': typeof PatientTermsRoute
   '/admin': typeof AdminIndexRoute
   '/patient': typeof PatientIndexRoute
   '/app/$tenant/billing': typeof AppTenantBillingRoute
@@ -270,6 +278,7 @@ export interface FileRoutesById {
   '/patient/network': typeof PatientNetworkRoute
   '/patient/profile': typeof PatientProfileRoute
   '/patient/subscription': typeof PatientSubscriptionRoute
+  '/patient/terms': typeof PatientTermsRoute
   '/admin/': typeof AdminIndexRoute
   '/patient/': typeof PatientIndexRoute
   '/app/$tenant/billing': typeof AppTenantBillingRoute
@@ -303,6 +312,7 @@ export interface FileRouteTypes {
     | '/patient/network'
     | '/patient/profile'
     | '/patient/subscription'
+    | '/patient/terms'
     | '/admin/'
     | '/patient/'
     | '/app/$tenant/billing'
@@ -331,6 +341,7 @@ export interface FileRouteTypes {
     | '/patient/network'
     | '/patient/profile'
     | '/patient/subscription'
+    | '/patient/terms'
     | '/admin'
     | '/patient'
     | '/app/$tenant/billing'
@@ -363,6 +374,7 @@ export interface FileRouteTypes {
     | '/patient/network'
     | '/patient/profile'
     | '/patient/subscription'
+    | '/patient/terms'
     | '/admin/'
     | '/patient/'
     | '/app/$tenant/billing'
@@ -429,6 +441,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/patient/terms': {
+      id: '/patient/terms'
+      path: '/terms'
+      fullPath: '/patient/terms'
+      preLoaderRoute: typeof PatientTermsRouteImport
+      parentRoute: typeof PatientRoute
     }
     '/patient/subscription': {
       id: '/patient/subscription'
@@ -640,6 +659,7 @@ interface PatientRouteChildren {
   PatientNetworkRoute: typeof PatientNetworkRoute
   PatientProfileRoute: typeof PatientProfileRoute
   PatientSubscriptionRoute: typeof PatientSubscriptionRoute
+  PatientTermsRoute: typeof PatientTermsRoute
   PatientIndexRoute: typeof PatientIndexRoute
 }
 
@@ -648,6 +668,7 @@ const PatientRouteChildren: PatientRouteChildren = {
   PatientNetworkRoute: PatientNetworkRoute,
   PatientProfileRoute: PatientProfileRoute,
   PatientSubscriptionRoute: PatientSubscriptionRoute,
+  PatientTermsRoute: PatientTermsRoute,
   PatientIndexRoute: PatientIndexRoute,
 }
 

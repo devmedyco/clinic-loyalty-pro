@@ -49,7 +49,7 @@ export const validateCard = createServerFn({ method: "POST" })
     const { data: card, error: cardError } = await supabase
       .from("benefit_cards")
       .select(
-        "id, tenant_id, patient_id, card_number, qr_token, active, expires_at, patients(id, full_name, cpf, status, email, phone)",
+        "id, tenant_id, patient_id, card_number, qr_token, active, expires_at, patients(id, user_id, full_name, cpf, status, email, phone)",
       )
       .or(`qr_token.eq.${token},card_number.eq.${token}`)
       .maybeSingle();
@@ -69,7 +69,10 @@ export const validateCard = createServerFn({ method: "POST" })
     }
 
     const patient = Array.isArray(card.patients) ? card.patients[0] : card.patients;
-    const denialReason = getDenialReason(card, patient);
+    const legalDenialReason = patient?.user_id
+      ? await getLegalDenialReason(supabase, patient.id, patient.user_id)
+      : "Paciente ainda não assinou o termo de uso do cartão";
+    const denialReason = getDenialReason(card, patient) ?? legalDenialReason;
     const outcome = denialReason ? "denied" : "approved";
 
     const { data: validation, error: validationError } = await recordValidation(supabase, {
@@ -124,6 +127,27 @@ function getDenialReason(
   if (patient?.status === "inactive") return "Paciente inativo";
   if (patient?.status === "delinquent") return "Paciente inadimplente";
   return null;
+}
+
+async function getLegalDenialReason(supabase: SupabaseClient, patientId: string, userId: string) {
+  const { data: documents, error: documentsError } = await supabase
+    .from("legal_documents")
+    .select("id")
+    .eq("active", true)
+    .eq("required_for_patient", true);
+  if (documentsError) throw new Error(documentsError.message);
+  if (!documents || documents.length === 0) return null;
+
+  const { data: acceptances, error: acceptancesError } = await supabase
+    .from("legal_acceptances")
+    .select("document_id")
+    .eq("patient_id", patientId)
+    .eq("user_id", userId);
+  if (acceptancesError) throw new Error(acceptancesError.message);
+
+  const accepted = new Set((acceptances ?? []).map((item) => item.document_id));
+  const hasPending = documents.some((document) => !accepted.has(document.id));
+  return hasPending ? "Paciente ainda não assinou o termo de uso do cartão" : null;
 }
 
 function deniedResult(reason: string) {

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import { getRequiredLegalStatus } from "@/lib/legal.functions";
 
 const updatePatientProfileSchema = z.object({
   full_name: z.string().trim().min(2).max(160),
@@ -43,6 +44,7 @@ export const getPatientPortal = createServerFn({ method: "GET" })
     const subscription = Array.isArray(patient.subscriptions)
       ? patient.subscriptions[0]
       : patient.subscriptions;
+    const legal = await getRequiredLegalStatus(supabase, patient.id, userId);
 
     const [{ data: executions, error: executionsError }, { data: payments, error: paymentsError }] =
       await Promise.all([
@@ -68,6 +70,7 @@ export const getPatientPortal = createServerFn({ method: "GET" })
       tenant,
       card,
       subscription,
+      legal,
       payments: payments ?? [],
       executions: executions ?? [],
       totals: {

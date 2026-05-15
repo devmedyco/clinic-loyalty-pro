@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
@@ -36,11 +37,26 @@ function PatientCard() {
 
   const active =
     data.card.active &&
-    (!data.card.expires_at || new Date(data.card.expires_at).getTime() > Date.now());
+    (!data.card.expires_at || new Date(data.card.expires_at).getTime() > Date.now()) &&
+    data.legal?.accepted;
 
   return (
     <>
       <PageHeader title="Seu cartão" subtitle="Apresente este token na recepção da clínica." />
+      {!data.legal?.accepted && (
+        <Card className="mb-6 border-warning/30 bg-warning/10 p-5">
+          <div className="text-sm font-medium text-foreground">Assinatura pendente</div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Para liberar o uso do cartão, aceite o termo de uso do benefício.
+          </p>
+          <Link
+            to="/patient/terms"
+            className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+          >
+            Assinar termo
+          </Link>
+        </Card>
+      )}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <div
