@@ -2,6 +2,8 @@ import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { Icons, PortalShell } from "@/components/portal/Shell";
+import { useRequireSession } from "@/hooks/use-auth-session";
+import { getMyAccess } from "@/lib/auth.functions";
 import { getTenantBySlug } from "@/lib/tenants.functions";
 
 export const Route = createFileRoute("/app/$tenant")({
@@ -11,13 +13,21 @@ export const Route = createFileRoute("/app/$tenant")({
 function ClinicLayout() {
   const { tenant } = Route.useParams();
   const params = { tenant };
+  const session = useRequireSession();
   const fetchTenant = useServerFn(getTenantBySlug);
+  const fetchAccess = useServerFn(getMyAccess);
   const { data, isLoading, error } = useQuery({
     queryKey: ["tenant", tenant],
     queryFn: () => fetchTenant({ data: { slug: tenant } }),
+    enabled: session.isAuthenticated,
+  });
+  const { data: access } = useQuery({
+    queryKey: ["my-access"],
+    queryFn: () => fetchAccess(),
+    enabled: session.isAuthenticated,
   });
 
-  if (isLoading) {
+  if (session.isLoading || isLoading) {
     return <div className="p-8 text-sm text-muted-foreground">Carregando clínica…</div>;
   }
   if (error || !data?.tenant) {
@@ -34,7 +44,10 @@ function ClinicLayout() {
   return (
     <PortalShell
       brand={{ name: data.tenant.name, subtitle: "Clínica" }}
-      user={{ name: "Você", role: "Tenant Admin" }}
+      user={{
+        name: access?.user.name ?? "Você",
+        role: access?.isSuperAdmin ? "Super Admin" : "Tenant Admin",
+      }}
       items={[
         { to: "/app/$tenant", params, label: "Visão geral", icon: Icons.home },
         { to: "/app/$tenant/patients", params, label: "Pacientes", icon: Icons.users },
