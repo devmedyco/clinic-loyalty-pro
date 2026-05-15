@@ -83,11 +83,13 @@ create table public.benefit_cards (
 
 create table public.card_validations (
   id uuid primary key default gen_random_uuid(),
-  card_id uuid not null references public.benefit_cards(id) on delete cascade,
+  card_id uuid references public.benefit_cards(id) on delete set null,
   tenant_id uuid not null references public.tenants(id) on delete cascade,
   validated_by uuid references auth.users(id) on delete set null,
   validated_at timestamptz not null default now(),
   outcome text not null default 'approved',
+  reason text,
+  qr_token_snapshot text,
   notes text
 );
 
