@@ -1,21 +1,57 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase-ext/client";
 
 export const Route = createFileRoute("/_auth/signup")({
   component: SignupPage,
 });
 
 function SignupPage() {
+  const navigate = useNavigate();
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setInfo(null);
+    setLoading(true);
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName },
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    if (!data.session) {
+      setInfo("Verifique seu e-mail para confirmar a conta antes de entrar.");
+      return;
+    }
+    navigate({ to: "/admin" });
+  }
+
   return (
     <div>
-      <h1 className="font-display text-3xl tracking-tight text-foreground">Criar plataforma</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Configure sua clínica em minutos.</p>
-      <form className="mt-8 space-y-4" onSubmit={(e) => e.preventDefault()}>
-        <Field label="Nome da clínica" placeholder="Clínica Santa Vida" />
-        <Field label="Subdomínio" placeholder="santavida" prefix="app.medyco.com.br/" />
-        <Field label="E-mail" type="email" placeholder="voce@clinica.com.br" />
-        <Field label="Senha" type="password" placeholder="••••••••" />
-        <button className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90">
-          Criar minha plataforma
+      <h1 className="font-display text-3xl tracking-tight text-foreground">Criar conta</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Configure sua plataforma em minutos.</p>
+      <form className="mt-8 space-y-4" onSubmit={onSubmit}>
+        <Field label="Nome completo" placeholder="Dra. Camila Andrade" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+        <Field label="E-mail" type="email" placeholder="voce@clinica.com.br" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <Field label="Senha" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        {info && <p className="text-sm text-foreground">{info}</p>}
+        <button disabled={loading} className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60">
+          {loading ? "Criando..." : "Criar minha conta"}
         </button>
       </form>
       <div className="mt-6 text-center text-sm text-muted-foreground">
@@ -25,17 +61,14 @@ function SignupPage() {
   );
 }
 
-function Field({ label, prefix, ...props }: { label: string; prefix?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+function Field({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className="block">
       <span className="text-xs font-medium text-foreground">{label}</span>
-      <div className="mt-1.5 flex overflow-hidden rounded-lg border border-input bg-surface-elevated shadow-soft transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20">
-        {prefix && <span className="flex items-center bg-muted px-3 text-xs text-muted-foreground">{prefix}</span>}
-        <input
-          {...props}
-          className="block w-full bg-transparent px-3 py-2.5 text-sm text-foreground outline-none"
-        />
-      </div>
+      <input
+        {...props}
+        className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground shadow-soft outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+      />
     </label>
   );
 }
