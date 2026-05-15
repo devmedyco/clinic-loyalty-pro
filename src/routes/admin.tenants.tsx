@@ -1,60 +1,181 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Card, PageHeader } from "@/components/portal/Shell";
+import { listMyTenants, createTenant } from "@/lib/tenants.functions";
 
 export const Route = createFileRoute("/admin/tenants")({
   component: TenantsPage,
 });
 
-const rows = [
-  ["Clínica Santa Vida", "santavida", "Professional", 482, "Ativo"],
-  ["Odonto Premium", "odontopremium", "Starter", 96, "Ativo"],
-  ["Centro Médico Sul", "cmsul", "Enterprise", 2140, "Ativo"],
-  ["Estética Aurora", "aurora", "Professional", 318, "Trial"],
-  ["Lab Vitalis", "vitalis", "Starter", 54, "Pausado"],
-] as const;
-
 function TenantsPage() {
+  const router = useRouter();
+  const fetchTenants = useServerFn(listMyTenants);
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["tenants"],
+    queryFn: () => fetchTenants(),
+  });
+  const [open, setOpen] = useState(false);
+
+  const tenants = data?.tenants ?? [];
+
   return (
     <>
       <PageHeader
         title="Tenants"
         subtitle="Clínicas operando na infraestrutura Medyco."
         action={
-          <button className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90">
+          <button
+            onClick={() => setOpen(true)}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+          >
             Novo tenant
           </button>
         }
       />
+
+      {open && (
+        <NewTenantModal
+          onClose={() => setOpen(false)}
+          onCreated={() => {
+            setOpen(false);
+            refetch();
+            router.invalidate();
+          }}
+        />
+      )}
+
       <Card className="overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-surface text-left text-xs uppercase tracking-wider text-muted-foreground">
-            <tr>
-              <th className="px-5 py-3">Nome</th>
-              <th className="px-5 py-3">Slug</th>
-              <th className="px-5 py-3">Plano</th>
-              <th className="px-5 py-3">Pacientes</th>
-              <th className="px-5 py-3">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r[1]} className="border-t border-border">
-                <td className="px-5 py-4 font-medium text-foreground">{r[0]}</td>
-                <td className="px-5 py-4 text-muted-foreground">/{r[1]}</td>
-                <td className="px-5 py-4">{r[2]}</td>
-                <td className="px-5 py-4">{r[3].toLocaleString("pt-BR")}</td>
-                <td className="px-5 py-4">
-                  <span className={`rounded-md px-2 py-0.5 text-xs ${
-                    r[4] === "Ativo" ? "bg-success/15 text-success" :
-                    r[4] === "Trial" ? "bg-brand-soft text-brand" :
-                    "bg-muted text-muted-foreground"
-                  }`}>{r[4]}</span>
-                </td>
+        {isLoading ? (
+          <div className="px-5 py-8 text-sm text-muted-foreground">Carregando…</div>
+        ) : error ? (
+          <div className="px-5 py-8 text-sm text-destructive">{(error as Error).message}</div>
+        ) : tenants.length === 0 ? (
+          <div className="px-5 py-12 text-center text-sm text-muted-foreground">
+            Nenhuma clínica ainda. Crie a primeira para começar.
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-surface text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-5 py-3">Nome</th>
+                <th className="px-5 py-3">Slug</th>
+                <th className="px-5 py-3">Plano</th>
+                <th className="px-5 py-3">Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {tenants.map((t) => (
+                <tr key={t.id} className="border-t border-border">
+                  <td className="px-5 py-4 font-medium text-foreground">{t.name}</td>
+                  <td className="px-5 py-4 text-muted-foreground">/{t.slug}</td>
+                  <td className="px-5 py-4 capitalize">{t.plan}</td>
+                  <td className="px-5 py-4">
+                    <span
+                      className={`rounded-md px-2 py-0.5 text-xs ${
+                        t.status === "active"
+                          ? "bg-success/15 text-success"
+                          : t.status === "trial"
+                          ? "bg-brand-soft text-brand"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {t.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </Card>
     </>
+  );
+}
+
+function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const create = useServerFn(createTenant);
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [plan, setPlan] = useState<"starter" | "professional" | "enterprise">("starter");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    setLoading(true);
+    try {
+      await create({ data: { name, slug, plan } });
+      onCreated();
+    } catch (e: any) {
+      setErr(e?.message ?? "Erro ao criar clínica");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-xl border border-border bg-surface-elevated p-6 shadow-elegant"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="font-display text-xl text-foreground">Nova clínica</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Você será o admin desta clínica.</p>
+        <form className="mt-5 space-y-4" onSubmit={onSubmit}>
+          <Field label="Nome" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Field
+            label="Slug (URL)"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value.toLowerCase())}
+            placeholder="minha-clinica"
+            pattern="[a-z0-9\-]+"
+            required
+          />
+          <label className="block">
+            <span className="text-xs font-medium text-foreground">Plano</span>
+            <select
+              value={plan}
+              onChange={(e) => setPlan(e.target.value as any)}
+              className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
+            >
+              <option value="starter">Starter</option>
+              <option value="professional">Professional</option>
+              <option value="enterprise">Enterprise</option>
+            </select>
+          </label>
+          {err && <p className="text-sm text-destructive">{err}</p>}
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-lg border border-border px-4 py-2 text-sm hover:bg-surface"
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={loading}
+              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
+            >
+              {loading ? "Criando…" : "Criar clínica"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <label className="block">
+      <span className="text-xs font-medium text-foreground">{label}</span>
+      <input
+        {...props}
+        className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground shadow-soft outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+      />
+    </label>
   );
 }
