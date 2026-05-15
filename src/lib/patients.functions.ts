@@ -1,7 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase-ext/client.server";
+import { patientInviteEmail } from "@/lib/email-templates";
+import { sendEmail } from "@/lib/email.server";
 
 const patientStatusSchema = z.enum(["active", "inactive", "delinquent"]);
 
@@ -11,10 +16,11 @@ const optionalText = (max = 160) =>
     z.string().trim().max(max).optional(),
   );
 
-const cpfSchema = z.preprocess(
-  (value) => (typeof value === "string" ? onlyDigits(value) : value),
-  z.string().length(11, "CPF deve ter 11 dígitos").refine(isValidCpf, "CPF inválido").optional(),
-);
+const cpfSchema = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+  const digits = onlyDigits(value);
+  return digits || undefined;
+}, z.string().length(11, "CPF deve ter 11 dígitos").refine(isValidCpf, "CPF inválido").optional());
 
 const tenantSlugSchema = z.object({
   tenant: z.string().min(1).max(60),
@@ -40,6 +46,27 @@ const getPatientSchema = tenantSlugSchema.extend({
   id: z.string().uuid(),
 });
 
+const invitePatientSchema = getPatientSchema;
+
+const acceptPatientInvitationSchema = z.object({
+  token: z.string().min(16).max(200),
+});
+
+const importPatientsSchema = tenantSlugSchema.extend({
+  patients: z
+    .array(
+      z.object({
+        full_name: z.string().trim().min(2).max(160),
+        cpf: cpfSchema,
+        email: optionalText(160).pipe(z.string().email("E-mail inválido").optional()),
+        phone: optionalText(40),
+        status: patientStatusSchema.default("active"),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
+
 export const listPatients = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => listPatientsSchema.parse(input))
@@ -50,7 +77,7 @@ export const listPatients = createServerFn({ method: "GET" })
     let query = supabase
       .from("patients")
       .select(
-        "id, tenant_id, user_id, full_name, email, phone, cpf, status, created_at, updated_at, benefit_cards(id, card_number, qr_token, active, expires_at, created_at)",
+        "id, tenant_id, user_id, full_name, email, phone, cpf, status, created_at, updated_at, benefit_cards(id, card_number, qr_token, active, expires_at, created_at), patient_invitations(id, email, status, expires_at, created_at)",
       )
       .eq("tenant_id", tenant.id)
       .order("created_at", { ascending: false });
@@ -188,6 +215,177 @@ export const deletePatient = createServerFn({ method: "POST" })
     return { tenant, deleted: true };
   });
 
+export const invitePatientToPortal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => invitePatientSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const tenant = await resolveTenant(supabase, data.tenant);
+
+    const { data: patient, error: patientError } = await supabase
+      .from("patients")
+      .select("id, tenant_id, full_name, email, user_id")
+      .eq("tenant_id", tenant.id)
+      .eq("id", data.id)
+      .maybeSingle();
+    if (patientError) throw new Error(patientError.message);
+    if (!patient) throw new Error("Paciente não encontrado.");
+    if (!patient.email) throw new Error("Informe o e-mail do paciente antes de enviar convite.");
+    if (patient.user_id) throw new Error("Este paciente já possui acesso ao portal.");
+
+    await expireOldPatientInvitation(supabase, tenant.id, patient.id);
+
+    const { data: invitation, error } = await supabaseAdmin
+      .from("patient_invitations")
+      .insert({
+        tenant_id: tenant.id,
+        patient_id: patient.id,
+        email: patient.email.toLowerCase(),
+        invited_by: userId,
+      })
+      .select("id, token, email, status, expires_at")
+      .single();
+    if (error) throw new Error(error.message);
+
+    const inviteUrl = buildPatientInviteUrl(invitation.token);
+    const template = patientInviteEmail({
+      tenantName: tenant.name,
+      patientName: patient.full_name,
+      inviteUrl,
+      expiresAt: invitation.expires_at,
+    });
+    const emailResult = await sendEmail({ to: invitation.email, ...template });
+
+    return { tenant, invitation, inviteUrl, emailResult };
+  });
+
+export const acceptPatientInvitation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => acceptPatientInvitationSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, user, userId } = context as {
+      supabase: SupabaseClient;
+      user: User;
+      userId: string;
+    };
+
+    const { data: invitation, error } = await supabase
+      .from("patient_invitations")
+      .select("id, tenant_id, patient_id, email, status, expires_at, tenants(id, slug, name)")
+      .eq("token", data.token)
+      .eq("status", "pending")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!invitation) throw new Error("Convite não encontrado ou já utilizado.");
+    if (new Date(invitation.expires_at).getTime() < Date.now()) {
+      throw new Error("Este convite expirou.");
+    }
+    if ((user.email ?? "").toLowerCase() !== invitation.email.toLowerCase()) {
+      throw new Error("Entre com o mesmo e-mail que recebeu o convite.");
+    }
+
+    const { error: patientError } = await supabaseAdmin
+      .from("patients")
+      .update({ user_id: userId })
+      .eq("tenant_id", invitation.tenant_id)
+      .eq("id", invitation.patient_id);
+    if (patientError) throw new Error(patientError.message);
+
+    const { error: roleError } = await supabaseAdmin.from("user_roles").insert({
+      user_id: userId,
+      tenant_id: invitation.tenant_id,
+      role: "patient",
+    });
+    if (roleError && !roleError.message.includes("duplicate key")) {
+      throw new Error(roleError.message);
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from("patient_invitations")
+      .update({
+        status: "accepted",
+        accepted_by: userId,
+        accepted_at: new Date().toISOString(),
+      })
+      .eq("id", invitation.id);
+    if (updateError) throw new Error(updateError.message);
+
+    const tenantRelation = Array.isArray(invitation.tenants)
+      ? invitation.tenants[0]
+      : invitation.tenants;
+    return { accepted: true, tenant: tenantRelation };
+  });
+
+export const importPatients = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => importPatientsSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const tenant = await resolveTenant(supabase, data.tenant);
+    const created: Array<{ id: string; full_name: string; email?: string | null }> = [];
+    const skipped: Array<{ full_name: string; reason: string }> = [];
+
+    for (const input of data.patients) {
+      try {
+        const { data: existing, error: existingError } = input.cpf
+          ? await supabase
+              .from("patients")
+              .select("id")
+              .eq("tenant_id", tenant.id)
+              .eq("cpf", input.cpf)
+              .maybeSingle()
+          : { data: null, error: null };
+        if (existingError) throw new Error(existingError.message);
+        if (existing) {
+          skipped.push({ full_name: input.full_name, reason: "CPF já cadastrado" });
+          continue;
+        }
+
+        const { data: patient, error: patientError } = await supabase
+          .from("patients")
+          .insert({
+            tenant_id: tenant.id,
+            full_name: input.full_name,
+            cpf: input.cpf,
+            email: input.email,
+            phone: input.phone,
+            status: input.status,
+          })
+          .select("id, full_name, email")
+          .single();
+        if (patientError) throw new Error(patientError.message);
+
+        const [cardResult, subscriptionResult] = await Promise.all([
+          supabase.from("benefit_cards").insert({
+            tenant_id: tenant.id,
+            patient_id: patient.id,
+            card_number: createCardNumber(),
+            qr_token: createQrToken(),
+            active: true,
+          }),
+          supabase.from("subscriptions").insert({
+            tenant_id: tenant.id,
+            patient_id: patient.id,
+            plan: "benefits",
+            status: input.status === "delinquent" ? "past_due" : "active",
+            next_due_date: nextDueDate(),
+          }),
+        ]);
+        if (cardResult.error) throw new Error(cardResult.error.message);
+        if (subscriptionResult.error) throw new Error(subscriptionResult.error.message);
+
+        created.push(patient);
+      } catch (err) {
+        skipped.push({
+          full_name: input.full_name,
+          reason: err instanceof Error ? err.message : "Erro ao importar",
+        });
+      }
+    }
+
+    return { tenant, created, skipped };
+  });
+
 async function resolveTenant(supabase: SupabaseClient, slug: string) {
   const { data, error } = await supabase
     .from("tenants")
@@ -198,6 +396,27 @@ async function resolveTenant(supabase: SupabaseClient, slug: string) {
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Clínica não encontrada ou sem acesso");
   return data;
+}
+
+async function expireOldPatientInvitation(
+  supabase: SupabaseClient,
+  tenantId: string,
+  patientId: string,
+) {
+  const { error } = await supabase
+    .from("patient_invitations")
+    .update({ status: "expired" })
+    .eq("tenant_id", tenantId)
+    .eq("patient_id", patientId)
+    .eq("status", "pending");
+  if (error) throw new Error(error.message);
+}
+
+function buildPatientInviteUrl(token: string) {
+  const request = getRequest();
+  const requestOrigin = request ? new URL(request.url).origin : undefined;
+  const baseUrl = process.env.APP_BASE_URL || requestOrigin || "https://medyco.com.br";
+  return `${baseUrl.replace(/\/$/, "")}/patient-invite/${token}`;
 }
 
 function sanitizeSearch(search?: string) {

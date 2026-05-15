@@ -9,8 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermosRouteImport } from './routes/termos'
+import { Route as PrivacidadeRouteImport } from './routes/privacidade'
+import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as PatientRouteImport } from './routes/patient'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as ContatoRouteImport } from './routes/contato'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -21,6 +25,7 @@ import { Route as PatientSubscriptionRouteImport } from './routes/patient.subscr
 import { Route as PatientProfileRouteImport } from './routes/patient.profile'
 import { Route as PatientNetworkRouteImport } from './routes/patient.network'
 import { Route as PatientHistoryRouteImport } from './routes/patient.history'
+import { Route as PatientInviteTokenRouteImport } from './routes/patient-invite.$token'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AppTenantRouteImport } from './routes/app.$tenant'
@@ -43,6 +48,21 @@ import { Route as AppTenantExecutionsRouteImport } from './routes/app.$tenant.ex
 import { Route as AppTenantContractsRouteImport } from './routes/app.$tenant.contracts'
 import { Route as AppTenantBillingRouteImport } from './routes/app.$tenant.billing'
 
+const TermosRoute = TermosRouteImport.update({
+  id: '/termos',
+  path: '/termos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacidadeRoute = PrivacidadeRouteImport.update({
+  id: '/privacidade',
+  path: '/privacidade',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanosRoute = PlanosRouteImport.update({
+  id: '/planos',
+  path: '/planos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PatientRoute = PatientRouteImport.update({
   id: '/patient',
   path: '/patient',
@@ -51,6 +71,11 @@ const PatientRoute = PatientRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContatoRoute = ContatoRouteImport.update({
+  id: '/contato',
+  path: '/contato',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -101,6 +126,11 @@ const PatientHistoryRoute = PatientHistoryRouteImport.update({
   id: '/history',
   path: '/history',
   getParentRoute: () => PatientRoute,
+} as any)
+const PatientInviteTokenRoute = PatientInviteTokenRouteImport.update({
+  id: '/patient-invite/$token',
+  path: '/patient-invite/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
@@ -211,8 +241,12 @@ const AppTenantBillingRoute = AppTenantBillingRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/contato': typeof ContatoRoute
   '/onboarding': typeof OnboardingRoute
   '/patient': typeof PatientRouteWithChildren
+  '/planos': typeof PlanosRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/termos': typeof TermosRoute
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
@@ -224,6 +258,7 @@ export interface FileRoutesByFullPath {
   '/app/$tenant': typeof AppTenantRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/patient-invite/$token': typeof PatientInviteTokenRoute
   '/patient/history': typeof PatientHistoryRoute
   '/patient/network': typeof PatientNetworkRoute
   '/patient/profile': typeof PatientProfileRoute
@@ -244,7 +279,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/contato': typeof ContatoRoute
   '/onboarding': typeof OnboardingRoute
+  '/planos': typeof PlanosRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/termos': typeof TermosRoute
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
@@ -255,6 +294,7 @@ export interface FileRoutesByTo {
   '/admin/tenants': typeof AdminTenantsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/patient-invite/$token': typeof PatientInviteTokenRoute
   '/patient/history': typeof PatientHistoryRoute
   '/patient/network': typeof PatientNetworkRoute
   '/patient/profile': typeof PatientProfileRoute
@@ -278,8 +318,12 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteWithChildren
   '/admin': typeof AdminRouteWithChildren
+  '/contato': typeof ContatoRoute
   '/onboarding': typeof OnboardingRoute
   '/patient': typeof PatientRouteWithChildren
+  '/planos': typeof PlanosRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/termos': typeof TermosRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/signup': typeof AuthSignupRoute
@@ -291,6 +335,7 @@ export interface FileRoutesById {
   '/app/$tenant': typeof AppTenantRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/patient-invite/$token': typeof PatientInviteTokenRoute
   '/patient/history': typeof PatientHistoryRoute
   '/patient/network': typeof PatientNetworkRoute
   '/patient/profile': typeof PatientProfileRoute
@@ -314,8 +359,12 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/contato'
     | '/onboarding'
     | '/patient'
+    | '/planos'
+    | '/privacidade'
+    | '/termos'
     | '/login'
     | '/reset-password'
     | '/signup'
@@ -327,6 +376,7 @@ export interface FileRouteTypes {
     | '/app/$tenant'
     | '/auth/callback'
     | '/invite/$token'
+    | '/patient-invite/$token'
     | '/patient/history'
     | '/patient/network'
     | '/patient/profile'
@@ -347,7 +397,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/contato'
     | '/onboarding'
+    | '/planos'
+    | '/privacidade'
+    | '/termos'
     | '/login'
     | '/reset-password'
     | '/signup'
@@ -358,6 +412,7 @@ export interface FileRouteTypes {
     | '/admin/tenants'
     | '/auth/callback'
     | '/invite/$token'
+    | '/patient-invite/$token'
     | '/patient/history'
     | '/patient/network'
     | '/patient/profile'
@@ -380,8 +435,12 @@ export interface FileRouteTypes {
     | '/'
     | '/_auth'
     | '/admin'
+    | '/contato'
     | '/onboarding'
     | '/patient'
+    | '/planos'
+    | '/privacidade'
+    | '/termos'
     | '/_auth/login'
     | '/_auth/reset-password'
     | '/_auth/signup'
@@ -393,6 +452,7 @@ export interface FileRouteTypes {
     | '/app/$tenant'
     | '/auth/callback'
     | '/invite/$token'
+    | '/patient-invite/$token'
     | '/patient/history'
     | '/patient/network'
     | '/patient/profile'
@@ -416,15 +476,41 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
+  ContatoRoute: typeof ContatoRoute
   OnboardingRoute: typeof OnboardingRoute
   PatientRoute: typeof PatientRouteWithChildren
+  PlanosRoute: typeof PlanosRoute
+  PrivacidadeRoute: typeof PrivacidadeRoute
+  TermosRoute: typeof TermosRoute
   AppTenantRoute: typeof AppTenantRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  PatientInviteTokenRoute: typeof PatientInviteTokenRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/termos': {
+      id: '/termos'
+      path: '/termos'
+      fullPath: '/termos'
+      preLoaderRoute: typeof TermosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacidade': {
+      id: '/privacidade'
+      path: '/privacidade'
+      fullPath: '/privacidade'
+      preLoaderRoute: typeof PrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/planos': {
+      id: '/planos'
+      path: '/planos'
+      fullPath: '/planos'
+      preLoaderRoute: typeof PlanosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/patient': {
       id: '/patient'
       path: '/patient'
@@ -437,6 +523,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contato': {
+      id: '/contato'
+      path: '/contato'
+      fullPath: '/contato'
+      preLoaderRoute: typeof ContatoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -508,6 +601,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/patient/history'
       preLoaderRoute: typeof PatientHistoryRouteImport
       parentRoute: typeof PatientRoute
+    }
+    '/patient-invite/$token': {
+      id: '/patient-invite/$token'
+      path: '/patient-invite/$token'
+      fullPath: '/patient-invite/$token'
+      preLoaderRoute: typeof PatientInviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/invite/$token': {
       id: '/invite/$token'
@@ -748,11 +848,16 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
+  ContatoRoute: ContatoRoute,
   OnboardingRoute: OnboardingRoute,
   PatientRoute: PatientRouteWithChildren,
+  PlanosRoute: PlanosRoute,
+  PrivacidadeRoute: PrivacidadeRoute,
+  TermosRoute: TermosRoute,
   AppTenantRoute: AppTenantRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
   InviteTokenRoute: InviteTokenRoute,
+  PatientInviteTokenRoute: PatientInviteTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -124,7 +124,26 @@ export function PortalShell({
             </button>
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-6 lg:p-8">{children}</main>
+        <main className="flex-1 overflow-auto p-4 pb-24 sm:p-6 lg:p-8 lg:pb-8">{children}</main>
+        <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-border bg-background/95 px-2 py-2 backdrop-blur lg:hidden">
+          {items.slice(0, 5).map((it) => {
+            const href = resolve(it.to, it.params);
+            const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+            return (
+              <Link
+                key={href}
+                to={it.to as never}
+                params={it.params as never}
+                className={`flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[10px] transition ${
+                  active ? "bg-accent text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                <it.icon className="h-4 w-4 shrink-0" />
+                <span className="w-full truncate text-center">{it.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
     </div>
   );

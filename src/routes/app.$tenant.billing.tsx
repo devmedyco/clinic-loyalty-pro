@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CreditCard, ExternalLink, Plus, Send } from "lucide-react";
+import { CreditCard, Download, ExternalLink, Mail, Plus, Send } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
@@ -9,6 +9,7 @@ import {
   createAsaasCharge,
   createManualPayment,
   getTenantBilling,
+  sendPaymentReminder,
   updateSubscriptionStatus,
 } from "@/lib/billing.functions";
 
@@ -50,6 +51,7 @@ function BillingPage() {
   const fetchBilling = useServerFn(getTenantBilling);
   const createPayment = useServerFn(createManualPayment);
   const createCharge = useServerFn(createAsaasCharge);
+  const sendReminder = useServerFn(sendPaymentReminder);
   const updateSubscription = useServerFn(updateSubscriptionStatus);
   const [paymentFor, setPaymentFor] = useState<Subscription | null>(null);
 
@@ -109,6 +111,18 @@ function BillingPage() {
     onError: (err) => toast.error((err as Error).message),
   });
 
+  const reminderMutation = useMutation({
+    mutationFn: (payment_id: string) => sendReminder({ data: { tenant, payment_id } }),
+    onSuccess: (result) => {
+      toast.success(
+        result.emailResult.sent
+          ? "E-mail de cobrança enviado"
+          : "Lembrete criado, mas o e-mail não foi enviado. Verifique Resend.",
+      );
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+
   const subscriptions = (data?.subscriptions ?? []) as Subscription[];
   const payments = (data?.payments ?? []) as Payment[];
 
@@ -118,14 +132,23 @@ function BillingPage() {
         title="Assinaturas"
         subtitle="Controle recorrência, inadimplência e pagamentos dos pacientes."
         action={
-          <button
-            disabled={!subscriptions[0]}
-            onClick={() => setPaymentFor(subscriptions[0])}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
-          >
-            <Plus className="h-4 w-4" />
-            Registrar pagamento
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => downloadPaymentsCsv(payments)}
+              className="inline-flex items-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
+            >
+              <Download className="h-4 w-4" />
+              Exportar
+            </button>
+            <button
+              disabled={!subscriptions[0]}
+              onClick={() => setPaymentFor(subscriptions[0])}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+            >
+              <Plus className="h-4 w-4" />
+              Registrar pagamento
+            </button>
+          </div>
         }
       />
 
@@ -283,6 +306,16 @@ function BillingPage() {
                           Abrir cobrança
                           <ExternalLink className="h-3 w-3" />
                         </a>
+                      )}
+                      {payment.status !== "paid" && (
+                        <button
+                          disabled={reminderMutation.isPending}
+                          onClick={() => reminderMutation.mutate(payment.id)}
+                          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-foreground hover:text-brand disabled:opacity-60"
+                        >
+                          <Mail className="h-3 w-3" />
+                          Enviar cobrança
+                        </button>
                       )}
                     </div>
                     <div className="text-right">
@@ -568,6 +601,35 @@ function formatDate(value: string) {
     month: "2-digit",
     year: "2-digit",
   }).format(new Date(value));
+}
+
+function downloadPaymentsCsv(payments: Payment[]) {
+  const rows = [
+    ["paciente", "valor", "metodo", "status", "vencimento", "pago_em", "link"],
+    ...payments.map((payment) => [
+      payment.patients?.full_name ?? "",
+      String(payment.amount),
+      payment.payment_method,
+      payment.status,
+      payment.due_date ?? "",
+      payment.paid_at ?? "",
+      payment.asaas_invoice_url ?? "",
+    ]),
+  ];
+  downloadCsv("pagamentos-medyco.csv", rows);
+}
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function defaultDueDate(value?: string | null) {

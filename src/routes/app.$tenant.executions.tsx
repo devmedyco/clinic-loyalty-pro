@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
@@ -76,13 +76,22 @@ function ExecutionsPage() {
         title="Atendimentos"
         subtitle="Registre a execução de serviços autorizados pelo programa."
         action={
-          <button
-            onClick={() => setFormOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
-          >
-            <Plus className="h-4 w-4" />
-            Novo atendimento
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => downloadExecutionsCsv(executions)}
+              className="inline-flex items-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
+            >
+              <Download className="h-4 w-4" />
+              Exportar
+            </button>
+            <button
+              onClick={() => setFormOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" />
+              Novo atendimento
+            </button>
+          </div>
         }
       />
 
@@ -341,4 +350,33 @@ function formatDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function downloadExecutionsCsv(executions: Execution[]) {
+  const rows = [
+    ["paciente", "cpf", "servico", "valor_original", "desconto", "valor_final", "data"],
+    ...executions.map((execution) => [
+      execution.patients?.full_name ?? "",
+      execution.patients?.cpf ?? "",
+      execution.services?.name ?? "",
+      String(execution.original_amount),
+      String(execution.discount_amount),
+      String(execution.final_amount),
+      execution.created_at,
+    ]),
+  ];
+  downloadCsv("atendimentos-medyco.csv", rows);
+}
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }

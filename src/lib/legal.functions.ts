@@ -3,6 +3,8 @@ import { getRequest } from "@tanstack/react-start/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import { termAcceptedEmail } from "@/lib/email-templates";
+import { sendEmail } from "@/lib/email.server";
 
 const acceptDocumentSchema = z.object({
   document_id: z.string().uuid(),
@@ -51,7 +53,7 @@ export const acceptLegalDocument = createServerFn({ method: "POST" })
 
     const { data: document, error: documentError } = await supabase
       .from("legal_documents")
-      .select("id, tenant_id, active")
+      .select("id, tenant_id, active, version")
       .eq("id", data.document_id)
       .maybeSingle();
     if (documentError) throw new Error(documentError.message);
@@ -80,6 +82,15 @@ export const acceptLegalDocument = createServerFn({ method: "POST" })
       .single();
 
     if (error && !error.message.includes("duplicate key")) throw new Error(error.message);
+    if (patient.email) {
+      const tenant = await getTenantById(supabase, patient.tenant_id);
+      const template = termAcceptedEmail({
+        tenantName: tenant?.name ?? "Medyco",
+        patientName: patient.full_name,
+        version: document.version ?? "vigente",
+      });
+      await sendEmail({ to: patient.email, ...template });
+    }
     return { accepted: true, acceptance };
   });
 
@@ -234,6 +245,16 @@ async function resolveTenant(supabase: SupabaseClient, slug: string) {
 
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Clínica não encontrada ou sem acesso");
+  return data;
+}
+
+async function getTenantById(supabase: SupabaseClient, tenantId: string) {
+  const { data, error } = await supabase
+    .from("tenants")
+    .select("id, name")
+    .eq("id", tenantId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
   return data;
 }
 

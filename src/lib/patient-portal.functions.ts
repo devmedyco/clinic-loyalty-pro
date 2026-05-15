@@ -44,7 +44,7 @@ export const getPatientPortal = createServerFn({ method: "GET" })
     const subscription = Array.isArray(patient.subscriptions)
       ? patient.subscriptions[0]
       : patient.subscriptions;
-    const legal = await getRequiredLegalStatus(supabase, patient.id, userId);
+    const legal = await getRequiredLegalStatus(supabase, patient.id, userId, patient.tenant_id);
 
     const [{ data: executions, error: executionsError }, { data: payments, error: paymentsError }] =
       await Promise.all([

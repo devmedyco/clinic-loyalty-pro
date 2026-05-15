@@ -1,12 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download, Send, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
 import {
   createPatient,
   deletePatient,
+  importPatients,
+  invitePatientToPortal,
   listPatients,
   updatePatient,
 } from "@/lib/patients.functions";
@@ -17,6 +20,7 @@ export const Route = createFileRoute("/app/$tenant/patients")({
 
 type Patient = {
   id: string;
+  user_id: string | null;
   full_name: string;
   cpf: string | null;
   email: string | null;
@@ -27,6 +31,13 @@ type Patient = {
     card_number: string;
     active: boolean;
     expires_at: string | null;
+  }>;
+  patient_invitations?: Array<{
+    id: string;
+    email: string;
+    status: string;
+    expires_at: string;
+    created_at: string;
   }>;
 };
 
@@ -54,8 +65,11 @@ function PatientsPage() {
   const create = useServerFn(createPatient);
   const update = useServerFn(updatePatient);
   const remove = useServerFn(deletePatient);
+  const invite = useServerFn(invitePatientToPortal);
+  const bulkImport = useServerFn(importPatients);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState<PatientFormState | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const queryKey = useMemo(() => ["patients", tenant, search], [tenant, search]);
   const { data, isLoading, error } = useQuery({
@@ -87,6 +101,45 @@ function PatientsPage() {
     onError: (err) => toast.error((err as Error).message),
   });
 
+  const inviteMutation = useMutation({
+    mutationFn: (id: string) => invite({ data: { tenant, id } }),
+    onSuccess: async (result) => {
+      toast.success(
+        result.emailResult.sent
+          ? "Convite enviado para o paciente"
+          : "Convite criado, mas o e-mail não foi enviado. Verifique Resend.",
+      );
+      await queryClient.invalidateQueries({ queryKey: ["patients", tenant] });
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+
+  const importMutation = useMutation({
+    mutationFn: (rows: Array<PatientFormState>) =>
+      bulkImport({
+        data: {
+          tenant,
+          patients: rows.map((row) => ({
+            full_name: row.full_name,
+            cpf: row.cpf,
+            email: row.email,
+            phone: row.phone,
+            status: row.status,
+          })),
+        },
+      }),
+    onSuccess: async (result) => {
+      toast.success(
+        `${result.created.length} pacientes importados${
+          result.skipped.length ? `, ${result.skipped.length} ignorados` : ""
+        }`,
+      );
+      setImportOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ["patients", tenant] });
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+
   const patients = (data?.patients ?? []) as Patient[];
 
   return (
@@ -95,14 +148,37 @@ function PatientsPage() {
         title="Pacientes"
         subtitle="Gerencie titulares e dependentes do programa."
         action={
-          <button
-            onClick={() => setForm(emptyPatient)}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
-          >
-            Novo paciente
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => downloadPatientsCsv(patients)}
+              className="inline-flex items-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
+            >
+              <Download className="h-4 w-4" />
+              Exportar
+            </button>
+            <button
+              onClick={() => setImportOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
+            >
+              <Upload className="h-4 w-4" />
+              Importar CSV
+            </button>
+            <button
+              onClick={() => setForm(emptyPatient)}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+            >
+              Novo paciente
+            </button>
+          </div>
         }
       />
+      {importOpen && (
+        <ImportModal
+          loading={importMutation.isPending}
+          onClose={() => setImportOpen(false)}
+          onImport={(rows) => importMutation.mutate(rows)}
+        />
+      )}
       {form && (
         <PatientModal
           initialValue={form}
@@ -172,6 +248,18 @@ function PatientsPage() {
                             Editar
                           </button>
                           <button
+                            disabled={inviteMutation.isPending || Boolean(patient.user_id)}
+                            onClick={() => inviteMutation.mutate(patient.id)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent disabled:opacity-60"
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            {patient.user_id
+                              ? "Com acesso"
+                              : lastInvitation(patient)?.status === "pending"
+                                ? "Reenviar"
+                                : "Convidar"}
+                          </button>
+                          <button
                             disabled={deleteMutation.isPending}
                             onClick={() => {
                               if (window.confirm(`Remover ${patient.full_name}?`))
@@ -192,6 +280,79 @@ function PatientsPage() {
         )}
       </Card>
     </>
+  );
+}
+
+function ImportModal({
+  loading,
+  onClose,
+  onImport,
+}: {
+  loading: boolean;
+  onClose: () => void;
+  onImport: (rows: PatientFormState[]) => void;
+}) {
+  const [csvText, setCsvText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      const rows = parsePatientsCsv(csvText);
+      if (rows.length === 0) throw new Error("Nenhum paciente encontrado no CSV.");
+      onImport(rows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "CSV inválido.");
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl rounded-xl border border-border bg-surface-elevated p-6 shadow-elegant"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 className="font-display text-xl text-foreground">Importar pacientes</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Use colunas: nome, cpf, email, telefone, status. Status pode ser ativo, inadimplente ou
+          inativo.
+        </p>
+        <form className="mt-5 space-y-4" onSubmit={submit}>
+          <textarea
+            value={csvText}
+            onChange={(event) => {
+              setCsvText(event.target.value);
+              setError(null);
+            }}
+            rows={10}
+            placeholder={
+              "nome,cpf,email,telefone,status\nMaria Silva,12345678909,maria@email.com,11999990000,ativo"
+            }
+            className="block w-full resize-y rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm leading-6 text-foreground shadow-soft outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+            required
+          />
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-lg border border-border px-4 py-2 text-sm hover:bg-surface"
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={loading}
+              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
+            >
+              {loading ? "Importando..." : "Importar pacientes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -309,6 +470,95 @@ function Field({
       />
     </label>
   );
+}
+
+function lastInvitation(patient: Patient) {
+  return patient.patient_invitations?.[0];
+}
+
+function parsePatientsCsv(value: string): PatientFormState[] {
+  const lines = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length < 2) return [];
+
+  const headers = splitCsvLine(lines[0]).map(normalizeHeader);
+  return lines.slice(1).map((line) => {
+    const cells = splitCsvLine(line);
+    const row = Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""]));
+    return {
+      full_name: row.nome || row.full_name || row.name,
+      cpf: row.cpf ?? "",
+      email: row.email ?? "",
+      phone: row.telefone || row.phone || "",
+      status: normalizeStatus(row.status),
+    };
+  });
+}
+
+function splitCsvLine(line: string) {
+  const cells: string[] = [];
+  let current = "";
+  let quoted = false;
+  for (const char of line) {
+    if (char === '"') {
+      quoted = !quoted;
+      continue;
+    }
+    if ((char === "," || char === ";") && !quoted) {
+      cells.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  cells.push(current.trim());
+  return cells;
+}
+
+function normalizeHeader(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_");
+}
+
+function normalizeStatus(value?: string): PatientFormState["status"] {
+  const normalized = normalizeHeader(value ?? "");
+  if (normalized === "inadimplente" || normalized === "delinquent") return "delinquent";
+  if (normalized === "inativo" || normalized === "inactive") return "inactive";
+  return "active";
+}
+
+function downloadPatientsCsv(patients: Patient[]) {
+  const rows = [
+    ["nome", "cpf", "email", "telefone", "status", "cartao", "acesso"],
+    ...patients.map((patient) => [
+      patient.full_name,
+      patient.cpf ?? "",
+      patient.email ?? "",
+      patient.phone ?? "",
+      patient.status,
+      patient.benefit_cards?.[0]?.card_number ?? "",
+      patient.user_id ? "sim" : "nao",
+    ]),
+  ];
+  downloadCsv("pacientes-medyco.csv", rows);
+}
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function StatusBadge({ status }: { status: string }) {

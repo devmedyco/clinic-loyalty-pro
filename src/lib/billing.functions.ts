@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
 import { createAsaasCustomer, createAsaasPayment, isAsaasConfigured } from "@/lib/asaas.server";
+import { paymentReminderEmail } from "@/lib/email-templates";
+import { sendEmail } from "@/lib/email.server";
 
 const tenantSlugSchema = z.object({
   tenant: z.string().min(1).max(60),
@@ -27,6 +29,10 @@ const createAsaasPaymentSchema = tenantSlugSchema.extend({
   amount: z.coerce.number().min(1).max(999999),
   billing_type: z.enum(["PIX", "BOLETO", "CREDIT_CARD"]).default("PIX"),
   due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+const sendPaymentReminderSchema = tenantSlugSchema.extend({
+  payment_id: z.string().uuid(),
 });
 
 export const getTenantBilling = createServerFn({ method: "GET" })
@@ -212,6 +218,39 @@ export const createAsaasCharge = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     return { tenant, payment, invoiceUrl: charge.invoiceUrl };
+  });
+
+export const sendPaymentReminder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => sendPaymentReminderSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const tenant = await resolveTenant(supabase, data.tenant);
+
+    const { data: payment, error } = await supabase
+      .from("payments")
+      .select("id, amount, due_date, asaas_invoice_url, status, patients(full_name, email)")
+      .eq("tenant_id", tenant.id)
+      .eq("id", data.payment_id)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    if (!payment) throw new Error("Pagamento não encontrado.");
+    if (payment.status === "paid") throw new Error("Este pagamento já está pago.");
+
+    const patient = Array.isArray(payment.patients) ? payment.patients[0] : payment.patients;
+    if (!patient?.email) throw new Error("Paciente sem e-mail cadastrado.");
+
+    const template = paymentReminderEmail({
+      tenantName: tenant.name,
+      patientName: patient.full_name,
+      amount: Number(payment.amount),
+      dueDate: payment.due_date,
+      invoiceUrl: payment.asaas_invoice_url,
+    });
+    const emailResult = await sendEmail({ to: patient.email, ...template });
+
+    return { tenant, emailResult };
   });
 
 async function ensurePatientSubscriptions(supabase: SupabaseClient, tenantId: string) {
