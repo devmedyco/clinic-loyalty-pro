@@ -1,7 +1,11 @@
 // SERVER-ONLY admin client for the external Supabase project.
 // Uses service_role key — bypasses RLS. Never import from client code.
 import { createClient } from "@supabase/supabase-js";
-import { SUPABASE_EXT_URL } from "./client";
+
+const SUPABASE_EXT_URL =
+  process.env.EXT_SUPABASE_URL ||
+  import.meta.env.VITE_EXT_SUPABASE_URL ||
+  "https://bpupkgstumvgbxhdhlrx.supabase.co";
 
 function createSupabaseAdmin() {
   const key = process.env.EXT_SUPABASE_SERVICE_ROLE_KEY;

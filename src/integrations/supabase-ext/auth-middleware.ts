@@ -2,7 +2,7 @@
 import { createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
-import { SUPABASE_EXT_URL, SUPABASE_EXT_ANON_KEY } from "./client";
+import { SUPABASE_EXT_URL, SUPABASE_EXT_PUBLISHABLE_KEY } from "./client";
 
 export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
@@ -13,7 +13,7 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
     }
     const token = authHeader.slice("Bearer ".length);
 
-    const supabase = createClient(SUPABASE_EXT_URL, SUPABASE_EXT_ANON_KEY, {
+    const supabase = createClient(SUPABASE_EXT_URL, SUPABASE_EXT_PUBLISHABLE_KEY, {
       global: { headers: { Authorization: `Bearer ${token}` } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
