@@ -26,6 +26,7 @@ import { Route as AppTenantValidateRouteImport } from './routes/app.$tenant.vali
 import { Route as AppTenantSettingsRouteImport } from './routes/app.$tenant.settings'
 import { Route as AppTenantServicesRouteImport } from './routes/app.$tenant.services'
 import { Route as AppTenantPatientsRouteImport } from './routes/app.$tenant.patients'
+import { Route as AppTenantFinanceRouteImport } from './routes/app.$tenant.finance'
 import { Route as AppTenantExecutionsRouteImport } from './routes/app.$tenant.executions'
 
 const PatientRoute = PatientRouteImport.update({
@@ -112,6 +113,11 @@ const AppTenantPatientsRoute = AppTenantPatientsRouteImport.update({
   path: '/patients',
   getParentRoute: () => AppTenantRoute,
 } as any)
+const AppTenantFinanceRoute = AppTenantFinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => AppTenantRoute,
+} as any)
 const AppTenantExecutionsRoute = AppTenantExecutionsRouteImport.update({
   id: '/executions',
   path: '/executions',
@@ -131,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/patient/': typeof PatientIndexRoute
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
+  '/app/$tenant/finance': typeof AppTenantFinanceRoute
   '/app/$tenant/patients': typeof AppTenantPatientsRoute
   '/app/$tenant/services': typeof AppTenantServicesRoute
   '/app/$tenant/settings': typeof AppTenantSettingsRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/patient': typeof PatientIndexRoute
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
+  '/app/$tenant/finance': typeof AppTenantFinanceRoute
   '/app/$tenant/patients': typeof AppTenantPatientsRoute
   '/app/$tenant/services': typeof AppTenantServicesRoute
   '/app/$tenant/settings': typeof AppTenantSettingsRoute
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/patient/': typeof PatientIndexRoute
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
+  '/app/$tenant/finance': typeof AppTenantFinanceRoute
   '/app/$tenant/patients': typeof AppTenantPatientsRoute
   '/app/$tenant/services': typeof AppTenantServicesRoute
   '/app/$tenant/settings': typeof AppTenantSettingsRoute
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/patient/'
     | '/app/$tenant/executions'
+    | '/app/$tenant/finance'
     | '/app/$tenant/patients'
     | '/app/$tenant/services'
     | '/app/$tenant/settings'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/patient'
     | '/app/$tenant/executions'
+    | '/app/$tenant/finance'
     | '/app/$tenant/patients'
     | '/app/$tenant/services'
     | '/app/$tenant/settings'
@@ -225,6 +236,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/patient/'
     | '/app/$tenant/executions'
+    | '/app/$tenant/finance'
     | '/app/$tenant/patients'
     | '/app/$tenant/services'
     | '/app/$tenant/settings'
@@ -361,6 +373,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTenantPatientsRouteImport
       parentRoute: typeof AppTenantRoute
     }
+    '/app/$tenant/finance': {
+      id: '/app/$tenant/finance'
+      path: '/finance'
+      fullPath: '/app/$tenant/finance'
+      preLoaderRoute: typeof AppTenantFinanceRouteImport
+      parentRoute: typeof AppTenantRoute
+    }
     '/app/$tenant/executions': {
       id: '/app/$tenant/executions'
       path: '/executions'
@@ -412,6 +431,7 @@ const PatientRouteWithChildren =
 
 interface AppTenantRouteChildren {
   AppTenantExecutionsRoute: typeof AppTenantExecutionsRoute
+  AppTenantFinanceRoute: typeof AppTenantFinanceRoute
   AppTenantPatientsRoute: typeof AppTenantPatientsRoute
   AppTenantServicesRoute: typeof AppTenantServicesRoute
   AppTenantSettingsRoute: typeof AppTenantSettingsRoute
@@ -421,6 +441,7 @@ interface AppTenantRouteChildren {
 
 const AppTenantRouteChildren: AppTenantRouteChildren = {
   AppTenantExecutionsRoute: AppTenantExecutionsRoute,
+  AppTenantFinanceRoute: AppTenantFinanceRoute,
   AppTenantPatientsRoute: AppTenantPatientsRoute,
   AppTenantServicesRoute: AppTenantServicesRoute,
   AppTenantSettingsRoute: AppTenantSettingsRoute,
