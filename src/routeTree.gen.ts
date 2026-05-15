@@ -38,6 +38,7 @@ import { Route as AppTenantServicesRouteImport } from './routes/app.$tenant.serv
 import { Route as AppTenantPatientsRouteImport } from './routes/app.$tenant.patients'
 import { Route as AppTenantFinanceRouteImport } from './routes/app.$tenant.finance'
 import { Route as AppTenantExecutionsRouteImport } from './routes/app.$tenant.executions'
+import { Route as AppTenantBillingRouteImport } from './routes/app.$tenant.billing'
 
 const PatientRoute = PatientRouteImport.update({
   id: '/patient',
@@ -183,6 +184,11 @@ const AppTenantExecutionsRoute = AppTenantExecutionsRouteImport.update({
   path: '/executions',
   getParentRoute: () => AppTenantRoute,
 } as any)
+const AppTenantBillingRoute = AppTenantBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AppTenantRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -205,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/patient/subscription': typeof PatientSubscriptionRoute
   '/admin/': typeof AdminIndexRoute
   '/patient/': typeof PatientIndexRoute
+  '/app/$tenant/billing': typeof AppTenantBillingRoute
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
   '/app/$tenant/finance': typeof AppTenantFinanceRoute
   '/app/$tenant/patients': typeof AppTenantPatientsRoute
@@ -232,6 +239,7 @@ export interface FileRoutesByTo {
   '/patient/subscription': typeof PatientSubscriptionRoute
   '/admin': typeof AdminIndexRoute
   '/patient': typeof PatientIndexRoute
+  '/app/$tenant/billing': typeof AppTenantBillingRoute
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
   '/app/$tenant/finance': typeof AppTenantFinanceRoute
   '/app/$tenant/patients': typeof AppTenantPatientsRoute
@@ -264,6 +272,7 @@ export interface FileRoutesById {
   '/patient/subscription': typeof PatientSubscriptionRoute
   '/admin/': typeof AdminIndexRoute
   '/patient/': typeof PatientIndexRoute
+  '/app/$tenant/billing': typeof AppTenantBillingRoute
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
   '/app/$tenant/finance': typeof AppTenantFinanceRoute
   '/app/$tenant/patients': typeof AppTenantPatientsRoute
@@ -296,6 +305,7 @@ export interface FileRouteTypes {
     | '/patient/subscription'
     | '/admin/'
     | '/patient/'
+    | '/app/$tenant/billing'
     | '/app/$tenant/executions'
     | '/app/$tenant/finance'
     | '/app/$tenant/patients'
@@ -323,6 +333,7 @@ export interface FileRouteTypes {
     | '/patient/subscription'
     | '/admin'
     | '/patient'
+    | '/app/$tenant/billing'
     | '/app/$tenant/executions'
     | '/app/$tenant/finance'
     | '/app/$tenant/patients'
@@ -354,6 +365,7 @@ export interface FileRouteTypes {
     | '/patient/subscription'
     | '/admin/'
     | '/patient/'
+    | '/app/$tenant/billing'
     | '/app/$tenant/executions'
     | '/app/$tenant/finance'
     | '/app/$tenant/patients'
@@ -579,6 +591,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTenantExecutionsRouteImport
       parentRoute: typeof AppTenantRoute
     }
+    '/app/$tenant/billing': {
+      id: '/app/$tenant/billing'
+      path: '/billing'
+      fullPath: '/app/$tenant/billing'
+      preLoaderRoute: typeof AppTenantBillingRouteImport
+      parentRoute: typeof AppTenantRoute
+    }
   }
 }
 
@@ -636,6 +655,7 @@ const PatientRouteWithChildren =
   PatientRoute._addFileChildren(PatientRouteChildren)
 
 interface AppTenantRouteChildren {
+  AppTenantBillingRoute: typeof AppTenantBillingRoute
   AppTenantExecutionsRoute: typeof AppTenantExecutionsRoute
   AppTenantFinanceRoute: typeof AppTenantFinanceRoute
   AppTenantPatientsRoute: typeof AppTenantPatientsRoute
@@ -647,6 +667,7 @@ interface AppTenantRouteChildren {
 }
 
 const AppTenantRouteChildren: AppTenantRouteChildren = {
+  AppTenantBillingRoute: AppTenantBillingRoute,
   AppTenantExecutionsRoute: AppTenantExecutionsRoute,
   AppTenantFinanceRoute: AppTenantFinanceRoute,
   AppTenantPatientsRoute: AppTenantPatientsRoute,

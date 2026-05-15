@@ -16,7 +16,7 @@ export const getPatientPortal = createServerFn({ method: "GET" })
     const { data: patient, error: patientError } = await supabase
       .from("patients")
       .select(
-        "id, tenant_id, full_name, cpf, email, phone, status, created_at, tenants(id, name, slug, logo_url, brand_color), benefit_cards(id, card_number, qr_token, active, expires_at, created_at)",
+        "id, tenant_id, full_name, cpf, email, phone, status, created_at, tenants(id, name, slug, logo_url, brand_color), benefit_cards(id, card_number, qr_token, active, expires_at, created_at), subscriptions(id, plan, status, next_due_date)",
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
@@ -29,8 +29,10 @@ export const getPatientPortal = createServerFn({ method: "GET" })
         patient: null,
         tenant: null,
         card: null,
+        subscription: null,
+        payments: [],
         executions: [],
-        totals: { savings: 0, executions: 0 },
+        totals: { savings: 0, paid: 0, executions: 0 },
       };
     }
 
@@ -38,24 +40,44 @@ export const getPatientPortal = createServerFn({ method: "GET" })
       ? patient.benefit_cards[0]
       : patient.benefit_cards;
     const tenant = Array.isArray(patient.tenants) ? patient.tenants[0] : patient.tenants;
+    const subscription = Array.isArray(patient.subscriptions)
+      ? patient.subscriptions[0]
+      : patient.subscriptions;
 
-    const { data: executions, error: executionsError } = await supabase
-      .from("service_executions")
-      .select("id, original_amount, discount_amount, final_amount, created_at, services(name)")
-      .eq("patient_id", patient.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    const [{ data: executions, error: executionsError }, { data: payments, error: paymentsError }] =
+      await Promise.all([
+        supabase
+          .from("service_executions")
+          .select("id, original_amount, discount_amount, final_amount, created_at, services(name)")
+          .eq("patient_id", patient.id)
+          .order("created_at", { ascending: false })
+          .limit(50),
+        supabase
+          .from("payments")
+          .select("id, amount, payment_method, status, paid_at, created_at")
+          .eq("patient_id", patient.id)
+          .order("created_at", { ascending: false })
+          .limit(20),
+      ]);
 
     if (executionsError) throw new Error(executionsError.message);
+    if (paymentsError) throw new Error(paymentsError.message);
 
     return {
       patient,
       tenant,
       card,
+      subscription,
+      payments: payments ?? [],
       executions: executions ?? [],
       totals: {
         savings: (executions ?? []).reduce(
           (total, execution) => total + Number(execution.discount_amount || 0),
+          0,
+        ),
+        paid: (payments ?? []).reduce(
+          (total, payment) =>
+            payment.status === "paid" ? total + Number(payment.amount || 0) : total,
           0,
         ),
         executions: executions?.length ?? 0,

@@ -128,6 +128,19 @@ export const createPatient = createServerFn({ method: "POST" })
       throw new Error(cardError.message);
     }
 
+    const { error: subscriptionError } = await supabase.from("subscriptions").insert({
+      tenant_id: tenant.id,
+      patient_id: patient.id,
+      plan: "benefits",
+      status: data.status === "delinquent" ? "past_due" : "active",
+      next_due_date: nextDueDate(),
+    });
+
+    if (subscriptionError) {
+      await supabase.from("patients").delete().eq("id", patient.id).eq("tenant_id", tenant.id);
+      throw new Error(subscriptionError.message);
+    }
+
     return { tenant, patient: { ...patient, benefit_cards: [card] } };
   });
 
@@ -225,4 +238,10 @@ function randomHex(bytes: number) {
   return Array.from(values)
     .map((value) => value.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function nextDueDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return date.toISOString().slice(0, 10);
 }
