@@ -48,6 +48,10 @@ function ClinicLayout() {
         name: access?.user.name ?? "Você",
         role: access?.isSuperAdmin ? "Super Admin" : "Tenant Admin",
       }}
+      tenantSwitcher={{
+        currentSlug: tenant,
+        tenants: access?.tenants ?? [],
+      }}
       items={[
         { to: "/app/$tenant", params, label: "Visão geral", icon: Icons.home },
         { to: "/app/$tenant/patients", params, label: "Pacientes", icon: Icons.users },

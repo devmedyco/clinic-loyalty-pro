@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Chrome } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase-ext/client";
+import { getPostLoginRoute } from "@/lib/access-routing";
 import { getMyAccess } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/_auth/login")({
@@ -148,13 +149,6 @@ function getPortalContext(): "clinic" | "patient" | "admin" {
   if (portal === "patient" || redirect.startsWith("/patient")) return "patient";
   if (portal === "admin" || redirect.startsWith("/admin")) return "admin";
   return "clinic";
-}
-
-function getPostLoginRoute(access: { isSuperAdmin?: boolean; tenants?: Array<{ slug: string }> }) {
-  if (access.isSuperAdmin) return "/admin";
-  const tenant = access.tenants?.[0];
-  if (tenant) return `/app/${tenant.slug}`;
-  return "/admin/tenants";
 }
 
 function Field({

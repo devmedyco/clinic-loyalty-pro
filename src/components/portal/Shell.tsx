@@ -15,11 +15,16 @@ export function PortalShell({
   brand,
   items,
   user,
+  tenantSwitcher,
   children,
 }: {
   brand?: { name: string; subtitle?: string };
   items: NavItem[];
   user: { name: string; role: string };
+  tenantSwitcher?: {
+    currentSlug: string;
+    tenants: Array<{ slug: string; name: string }>;
+  };
   children: React.ReactNode;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -42,6 +47,19 @@ export function PortalShell({
               {brand.subtitle ?? "Tenant"}
             </div>
             <div className="mt-0.5 truncate font-medium text-sidebar-foreground">{brand.name}</div>
+            {tenantSwitcher && tenantSwitcher.tenants.length > 1 && (
+              <select
+                value={tenantSwitcher.currentSlug}
+                onChange={(event) => navigate({ to: `/app/${event.target.value}` as never })}
+                className="mt-3 w-full rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-2 py-2 text-xs text-sidebar-foreground outline-none transition focus:border-brand"
+              >
+                {tenantSwitcher.tenants.map((tenant) => (
+                  <option key={tenant.slug} value={tenant.slug}>
+                    {tenant.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         )}
         <nav className="flex-1 space-y-0.5 p-3">

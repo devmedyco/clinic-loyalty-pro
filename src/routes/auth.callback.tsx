@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase-ext/client";
+import { getPostLoginRoute } from "@/lib/access-routing";
 import { getMyAccess } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/auth/callback")({
@@ -41,7 +42,7 @@ function AuthCallbackPage() {
         return;
       }
 
-      window.location.replace(getSafeNext(rawNext) ?? "/admin/tenants");
+      window.location.replace(getSafeNext(rawNext) ?? "/onboarding");
     }
 
     finishAuth().catch((error) => {
@@ -58,13 +59,6 @@ function AuthCallbackPage() {
       </section>
     </main>
   );
-}
-
-function getPostLoginRoute(access: { isSuperAdmin?: boolean; tenants?: Array<{ slug: string }> }) {
-  if (access.isSuperAdmin) return "/admin";
-  const tenant = access.tenants?.[0];
-  if (tenant) return `/app/${tenant.slug}`;
-  return "/admin/tenants";
 }
 
 function getSafeNext(value: string | null) {

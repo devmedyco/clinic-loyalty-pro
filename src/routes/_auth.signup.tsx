@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Chrome } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase-ext/client";
+import { getPostLoginRoute } from "@/lib/access-routing";
 import { getMyAccess } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/_auth/signup")({
@@ -30,7 +31,7 @@ function SignupPage() {
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/admin/tenants`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
       },
     });
     setLoading(false);
@@ -48,8 +49,7 @@ function SignupPage() {
       return;
     }
     const access = await fetchAccess();
-    const firstTenant = access.tenants?.[0];
-    navigate({ to: (firstTenant ? `/app/${firstTenant.slug}` : "/admin/tenants") as never });
+    navigate({ to: getPostLoginRoute(access) as never });
   }
 
   async function onGoogleSignup() {
@@ -59,7 +59,7 @@ function SignupPage() {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-          redirect ?? "/admin/tenants",
+          redirect ?? "/onboarding",
         )}`,
       },
     });
