@@ -60,6 +60,7 @@ function ClinicLayout() {
         { to: "/app/$tenant/services", params, label: "Serviços", icon: Icons.tag },
         { to: "/app/$tenant/staff", params, label: "Funcionários", icon: Icons.staff },
         { to: "/app/$tenant/billing", params, label: "Assinaturas", icon: Icons.card },
+        { to: "/app/$tenant/contracts", params, label: "Contratos", icon: Icons.shield },
         { to: "/app/$tenant/finance", params, label: "Financeiro", icon: Icons.cash },
         { to: "/app/$tenant/settings", params, label: "Configurações", icon: Icons.cog },
       ]}

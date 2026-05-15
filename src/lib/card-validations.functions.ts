@@ -70,7 +70,7 @@ export const validateCard = createServerFn({ method: "POST" })
 
     const patient = Array.isArray(card.patients) ? card.patients[0] : card.patients;
     const legalDenialReason = patient?.user_id
-      ? await getLegalDenialReason(supabase, patient.id, patient.user_id)
+      ? await getLegalDenialReason(supabase, patient.id, patient.user_id, tenant.id)
       : "Paciente ainda não assinou o termo de uso do cartão";
     const denialReason = getDenialReason(card, patient) ?? legalDenialReason;
     const outcome = denialReason ? "denied" : "approved";
@@ -129,12 +129,18 @@ function getDenialReason(
   return null;
 }
 
-async function getLegalDenialReason(supabase: SupabaseClient, patientId: string, userId: string) {
+async function getLegalDenialReason(
+  supabase: SupabaseClient,
+  patientId: string,
+  userId: string,
+  tenantId: string,
+) {
   const { data: documents, error: documentsError } = await supabase
     .from("legal_documents")
-    .select("id")
+    .select("id, tenant_id, type")
     .eq("active", true)
-    .eq("required_for_patient", true);
+    .eq("required_for_patient", true)
+    .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`);
   if (documentsError) throw new Error(documentsError.message);
   if (!documents || documents.length === 0) return null;
 
@@ -146,8 +152,28 @@ async function getLegalDenialReason(supabase: SupabaseClient, patientId: string,
   if (acceptancesError) throw new Error(acceptancesError.message);
 
   const accepted = new Set((acceptances ?? []).map((item) => item.document_id));
-  const hasPending = documents.some((document) => !accepted.has(document.id));
+  const requiredDocuments = selectRequiredDocuments(
+    documents as Array<{ id: string; tenant_id: string | null; type: string }>,
+    tenantId,
+  );
+  const hasPending = requiredDocuments.some((document) => !accepted.has(document.id));
   return hasPending ? "Paciente ainda não assinou o termo de uso do cartão" : null;
+}
+
+function selectRequiredDocuments<T extends { tenant_id: string | null; type: string }>(
+  documents: T[],
+  tenantId: string,
+) {
+  const byType = new Map<string, T>();
+  for (const document of documents) {
+    const existing = byType.get(document.type);
+    const documentIsTenant = document.tenant_id === tenantId;
+    const existingIsTenant = existing?.tenant_id === tenantId;
+    if (!existing || (documentIsTenant && !existingIsTenant)) {
+      byType.set(document.type, document);
+    }
+  }
+  return Array.from(byType.values());
 }
 
 function deniedResult(reason: string) {
