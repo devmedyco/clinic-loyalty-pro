@@ -15,11 +15,18 @@ import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PatientIndexRouteImport } from './routes/patient.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as PatientSubscriptionRouteImport } from './routes/patient.subscription'
+import { Route as PatientProfileRouteImport } from './routes/patient.profile'
+import { Route as PatientNetworkRouteImport } from './routes/patient.network'
 import { Route as PatientHistoryRouteImport } from './routes/patient.history'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AppTenantRouteImport } from './routes/app.$tenant'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as AdminMetricsRouteImport } from './routes/admin.metrics'
+import { Route as AdminBillingRouteImport } from './routes/admin.billing'
+import { Route as AdminAuditRouteImport } from './routes/admin.audit'
 import { Route as AuthSignupRouteImport } from './routes/_auth.signup'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth.reset-password'
 import { Route as AuthLoginRouteImport } from './routes/_auth.login'
@@ -61,6 +68,21 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const PatientSubscriptionRoute = PatientSubscriptionRouteImport.update({
+  id: '/subscription',
+  path: '/subscription',
+  getParentRoute: () => PatientRoute,
+} as any)
+const PatientProfileRoute = PatientProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => PatientRoute,
+} as any)
+const PatientNetworkRoute = PatientNetworkRouteImport.update({
+  id: '/network',
+  path: '/network',
+  getParentRoute: () => PatientRoute,
+} as any)
 const PatientHistoryRoute = PatientHistoryRouteImport.update({
   id: '/history',
   path: '/history',
@@ -84,6 +106,26 @@ const AppTenantRoute = AppTenantRouteImport.update({
 const AdminTenantsRoute = AdminTenantsRouteImport.update({
   id: '/tenants',
   path: '/tenants',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminMetricsRoute = AdminMetricsRouteImport.update({
+  id: '/metrics',
+  path: '/metrics',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminBillingRoute = AdminBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
   getParentRoute: () => AdminRoute,
 } as any)
 const AuthSignupRoute = AuthSignupRouteImport.update({
@@ -149,11 +191,18 @@ export interface FileRoutesByFullPath {
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/billing': typeof AdminBillingRoute
+  '/admin/metrics': typeof AdminMetricsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/app/$tenant': typeof AppTenantRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/invite/$token': typeof InviteTokenRoute
   '/patient/history': typeof PatientHistoryRoute
+  '/patient/network': typeof PatientNetworkRoute
+  '/patient/profile': typeof PatientProfileRoute
+  '/patient/subscription': typeof PatientSubscriptionRoute
   '/admin/': typeof AdminIndexRoute
   '/patient/': typeof PatientIndexRoute
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
@@ -170,10 +219,17 @@ export interface FileRoutesByTo {
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/billing': typeof AdminBillingRoute
+  '/admin/metrics': typeof AdminMetricsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/invite/$token': typeof InviteTokenRoute
   '/patient/history': typeof PatientHistoryRoute
+  '/patient/network': typeof PatientNetworkRoute
+  '/patient/profile': typeof PatientProfileRoute
+  '/patient/subscription': typeof PatientSubscriptionRoute
   '/admin': typeof AdminIndexRoute
   '/patient': typeof PatientIndexRoute
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
@@ -194,11 +250,18 @@ export interface FileRoutesById {
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/signup': typeof AuthSignupRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/billing': typeof AdminBillingRoute
+  '/admin/metrics': typeof AdminMetricsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/app/$tenant': typeof AppTenantRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/invite/$token': typeof InviteTokenRoute
   '/patient/history': typeof PatientHistoryRoute
+  '/patient/network': typeof PatientNetworkRoute
+  '/patient/profile': typeof PatientProfileRoute
+  '/patient/subscription': typeof PatientSubscriptionRoute
   '/admin/': typeof AdminIndexRoute
   '/patient/': typeof PatientIndexRoute
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
@@ -219,11 +282,18 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/signup'
+    | '/admin/audit'
+    | '/admin/billing'
+    | '/admin/metrics'
+    | '/admin/settings'
     | '/admin/tenants'
     | '/app/$tenant'
     | '/auth/callback'
     | '/invite/$token'
     | '/patient/history'
+    | '/patient/network'
+    | '/patient/profile'
+    | '/patient/subscription'
     | '/admin/'
     | '/patient/'
     | '/app/$tenant/executions'
@@ -240,10 +310,17 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/signup'
+    | '/admin/audit'
+    | '/admin/billing'
+    | '/admin/metrics'
+    | '/admin/settings'
     | '/admin/tenants'
     | '/auth/callback'
     | '/invite/$token'
     | '/patient/history'
+    | '/patient/network'
+    | '/patient/profile'
+    | '/patient/subscription'
     | '/admin'
     | '/patient'
     | '/app/$tenant/executions'
@@ -263,11 +340,18 @@ export interface FileRouteTypes {
     | '/_auth/login'
     | '/_auth/reset-password'
     | '/_auth/signup'
+    | '/admin/audit'
+    | '/admin/billing'
+    | '/admin/metrics'
+    | '/admin/settings'
     | '/admin/tenants'
     | '/app/$tenant'
     | '/auth/callback'
     | '/invite/$token'
     | '/patient/history'
+    | '/patient/network'
+    | '/patient/profile'
+    | '/patient/subscription'
     | '/admin/'
     | '/patient/'
     | '/app/$tenant/executions'
@@ -334,6 +418,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/patient/subscription': {
+      id: '/patient/subscription'
+      path: '/subscription'
+      fullPath: '/patient/subscription'
+      preLoaderRoute: typeof PatientSubscriptionRouteImport
+      parentRoute: typeof PatientRoute
+    }
+    '/patient/profile': {
+      id: '/patient/profile'
+      path: '/profile'
+      fullPath: '/patient/profile'
+      preLoaderRoute: typeof PatientProfileRouteImport
+      parentRoute: typeof PatientRoute
+    }
+    '/patient/network': {
+      id: '/patient/network'
+      path: '/network'
+      fullPath: '/patient/network'
+      preLoaderRoute: typeof PatientNetworkRouteImport
+      parentRoute: typeof PatientRoute
+    }
     '/patient/history': {
       id: '/patient/history'
       path: '/history'
@@ -367,6 +472,34 @@ declare module '@tanstack/react-router' {
       path: '/tenants'
       fullPath: '/admin/tenants'
       preLoaderRoute: typeof AdminTenantsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/metrics': {
+      id: '/admin/metrics'
+      path: '/metrics'
+      fullPath: '/admin/metrics'
+      preLoaderRoute: typeof AdminMetricsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/billing': {
+      id: '/admin/billing'
+      path: '/billing'
+      fullPath: '/admin/billing'
+      preLoaderRoute: typeof AdminBillingRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/audit': {
+      id: '/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_auth/signup': {
@@ -464,11 +597,19 @@ const AuthRouteChildren: AuthRouteChildren = {
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface AdminRouteChildren {
+  AdminAuditRoute: typeof AdminAuditRoute
+  AdminBillingRoute: typeof AdminBillingRoute
+  AdminMetricsRoute: typeof AdminMetricsRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   AdminTenantsRoute: typeof AdminTenantsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAuditRoute: AdminAuditRoute,
+  AdminBillingRoute: AdminBillingRoute,
+  AdminMetricsRoute: AdminMetricsRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   AdminTenantsRoute: AdminTenantsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
@@ -477,11 +618,17 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface PatientRouteChildren {
   PatientHistoryRoute: typeof PatientHistoryRoute
+  PatientNetworkRoute: typeof PatientNetworkRoute
+  PatientProfileRoute: typeof PatientProfileRoute
+  PatientSubscriptionRoute: typeof PatientSubscriptionRoute
   PatientIndexRoute: typeof PatientIndexRoute
 }
 
 const PatientRouteChildren: PatientRouteChildren = {
   PatientHistoryRoute: PatientHistoryRoute,
+  PatientNetworkRoute: PatientNetworkRoute,
+  PatientProfileRoute: PatientProfileRoute,
+  PatientSubscriptionRoute: PatientSubscriptionRoute,
   PatientIndexRoute: PatientIndexRoute,
 }
 
