@@ -23,6 +23,7 @@ import { Route as AuthResetPasswordRouteImport } from './routes/_auth.reset-pass
 import { Route as AuthLoginRouteImport } from './routes/_auth.login'
 import { Route as AppTenantIndexRouteImport } from './routes/app.$tenant.index'
 import { Route as AppTenantValidateRouteImport } from './routes/app.$tenant.validate'
+import { Route as AppTenantSettingsRouteImport } from './routes/app.$tenant.settings'
 import { Route as AppTenantServicesRouteImport } from './routes/app.$tenant.services'
 import { Route as AppTenantPatientsRouteImport } from './routes/app.$tenant.patients'
 import { Route as AppTenantExecutionsRouteImport } from './routes/app.$tenant.executions'
@@ -96,6 +97,11 @@ const AppTenantValidateRoute = AppTenantValidateRouteImport.update({
   path: '/validate',
   getParentRoute: () => AppTenantRoute,
 } as any)
+const AppTenantSettingsRoute = AppTenantSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppTenantRoute,
+} as any)
 const AppTenantServicesRoute = AppTenantServicesRouteImport.update({
   id: '/services',
   path: '/services',
@@ -127,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
   '/app/$tenant/patients': typeof AppTenantPatientsRoute
   '/app/$tenant/services': typeof AppTenantServicesRoute
+  '/app/$tenant/settings': typeof AppTenantSettingsRoute
   '/app/$tenant/validate': typeof AppTenantValidateRoute
   '/app/$tenant/': typeof AppTenantIndexRoute
 }
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
   '/app/$tenant/patients': typeof AppTenantPatientsRoute
   '/app/$tenant/services': typeof AppTenantServicesRoute
+  '/app/$tenant/settings': typeof AppTenantSettingsRoute
   '/app/$tenant/validate': typeof AppTenantValidateRoute
   '/app/$tenant': typeof AppTenantIndexRoute
 }
@@ -162,6 +170,7 @@ export interface FileRoutesById {
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
   '/app/$tenant/patients': typeof AppTenantPatientsRoute
   '/app/$tenant/services': typeof AppTenantServicesRoute
+  '/app/$tenant/settings': typeof AppTenantSettingsRoute
   '/app/$tenant/validate': typeof AppTenantValidateRoute
   '/app/$tenant/': typeof AppTenantIndexRoute
 }
@@ -182,6 +191,7 @@ export interface FileRouteTypes {
     | '/app/$tenant/executions'
     | '/app/$tenant/patients'
     | '/app/$tenant/services'
+    | '/app/$tenant/settings'
     | '/app/$tenant/validate'
     | '/app/$tenant/'
   fileRoutesByTo: FileRoutesByTo
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/app/$tenant/executions'
     | '/app/$tenant/patients'
     | '/app/$tenant/services'
+    | '/app/$tenant/settings'
     | '/app/$tenant/validate'
     | '/app/$tenant'
   id:
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/app/$tenant/executions'
     | '/app/$tenant/patients'
     | '/app/$tenant/services'
+    | '/app/$tenant/settings'
     | '/app/$tenant/validate'
     | '/app/$tenant/'
   fileRoutesById: FileRoutesById
@@ -328,6 +340,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTenantValidateRouteImport
       parentRoute: typeof AppTenantRoute
     }
+    '/app/$tenant/settings': {
+      id: '/app/$tenant/settings'
+      path: '/settings'
+      fullPath: '/app/$tenant/settings'
+      preLoaderRoute: typeof AppTenantSettingsRouteImport
+      parentRoute: typeof AppTenantRoute
+    }
     '/app/$tenant/services': {
       id: '/app/$tenant/services'
       path: '/services'
@@ -395,6 +414,7 @@ interface AppTenantRouteChildren {
   AppTenantExecutionsRoute: typeof AppTenantExecutionsRoute
   AppTenantPatientsRoute: typeof AppTenantPatientsRoute
   AppTenantServicesRoute: typeof AppTenantServicesRoute
+  AppTenantSettingsRoute: typeof AppTenantSettingsRoute
   AppTenantValidateRoute: typeof AppTenantValidateRoute
   AppTenantIndexRoute: typeof AppTenantIndexRoute
 }
@@ -403,6 +423,7 @@ const AppTenantRouteChildren: AppTenantRouteChildren = {
   AppTenantExecutionsRoute: AppTenantExecutionsRoute,
   AppTenantPatientsRoute: AppTenantPatientsRoute,
   AppTenantServicesRoute: AppTenantServicesRoute,
+  AppTenantSettingsRoute: AppTenantSettingsRoute,
   AppTenantValidateRoute: AppTenantValidateRoute,
   AppTenantIndexRoute: AppTenantIndexRoute,
 }
