@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as PatientIndexRouteImport } from './routes/patient.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as PatientHistoryRouteImport } from './routes/patient.history'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AppTenantRouteImport } from './routes/app.$tenant'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 import { Route as AuthSignupRouteImport } from './routes/_auth.signup'
@@ -23,6 +24,7 @@ import { Route as AuthResetPasswordRouteImport } from './routes/_auth.reset-pass
 import { Route as AuthLoginRouteImport } from './routes/_auth.login'
 import { Route as AppTenantIndexRouteImport } from './routes/app.$tenant.index'
 import { Route as AppTenantValidateRouteImport } from './routes/app.$tenant.validate'
+import { Route as AppTenantStaffRouteImport } from './routes/app.$tenant.staff'
 import { Route as AppTenantSettingsRouteImport } from './routes/app.$tenant.settings'
 import { Route as AppTenantServicesRouteImport } from './routes/app.$tenant.services'
 import { Route as AppTenantPatientsRouteImport } from './routes/app.$tenant.patients'
@@ -63,6 +65,11 @@ const PatientHistoryRoute = PatientHistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => PatientRoute,
 } as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppTenantRoute = AppTenantRouteImport.update({
   id: '/app/$tenant',
   path: '/app/$tenant',
@@ -96,6 +103,11 @@ const AppTenantIndexRoute = AppTenantIndexRouteImport.update({
 const AppTenantValidateRoute = AppTenantValidateRouteImport.update({
   id: '/validate',
   path: '/validate',
+  getParentRoute: () => AppTenantRoute,
+} as any)
+const AppTenantStaffRoute = AppTenantStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
   getParentRoute: () => AppTenantRoute,
 } as any)
 const AppTenantSettingsRoute = AppTenantSettingsRouteImport.update({
@@ -133,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof AuthSignupRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/app/$tenant': typeof AppTenantRouteWithChildren
+  '/invite/$token': typeof InviteTokenRoute
   '/patient/history': typeof PatientHistoryRoute
   '/admin/': typeof AdminIndexRoute
   '/patient/': typeof PatientIndexRoute
@@ -141,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/app/$tenant/patients': typeof AppTenantPatientsRoute
   '/app/$tenant/services': typeof AppTenantServicesRoute
   '/app/$tenant/settings': typeof AppTenantSettingsRoute
+  '/app/$tenant/staff': typeof AppTenantStaffRoute
   '/app/$tenant/validate': typeof AppTenantValidateRoute
   '/app/$tenant/': typeof AppTenantIndexRoute
 }
@@ -150,6 +164,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
   '/admin/tenants': typeof AdminTenantsRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/patient/history': typeof PatientHistoryRoute
   '/admin': typeof AdminIndexRoute
   '/patient': typeof PatientIndexRoute
@@ -158,6 +173,7 @@ export interface FileRoutesByTo {
   '/app/$tenant/patients': typeof AppTenantPatientsRoute
   '/app/$tenant/services': typeof AppTenantServicesRoute
   '/app/$tenant/settings': typeof AppTenantSettingsRoute
+  '/app/$tenant/staff': typeof AppTenantStaffRoute
   '/app/$tenant/validate': typeof AppTenantValidateRoute
   '/app/$tenant': typeof AppTenantIndexRoute
 }
@@ -172,6 +188,7 @@ export interface FileRoutesById {
   '/_auth/signup': typeof AuthSignupRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/app/$tenant': typeof AppTenantRouteWithChildren
+  '/invite/$token': typeof InviteTokenRoute
   '/patient/history': typeof PatientHistoryRoute
   '/admin/': typeof AdminIndexRoute
   '/patient/': typeof PatientIndexRoute
@@ -180,6 +197,7 @@ export interface FileRoutesById {
   '/app/$tenant/patients': typeof AppTenantPatientsRoute
   '/app/$tenant/services': typeof AppTenantServicesRoute
   '/app/$tenant/settings': typeof AppTenantSettingsRoute
+  '/app/$tenant/staff': typeof AppTenantStaffRoute
   '/app/$tenant/validate': typeof AppTenantValidateRoute
   '/app/$tenant/': typeof AppTenantIndexRoute
 }
@@ -194,6 +212,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin/tenants'
     | '/app/$tenant'
+    | '/invite/$token'
     | '/patient/history'
     | '/admin/'
     | '/patient/'
@@ -202,6 +221,7 @@ export interface FileRouteTypes {
     | '/app/$tenant/patients'
     | '/app/$tenant/services'
     | '/app/$tenant/settings'
+    | '/app/$tenant/staff'
     | '/app/$tenant/validate'
     | '/app/$tenant/'
   fileRoutesByTo: FileRoutesByTo
@@ -211,6 +231,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin/tenants'
+    | '/invite/$token'
     | '/patient/history'
     | '/admin'
     | '/patient'
@@ -219,6 +240,7 @@ export interface FileRouteTypes {
     | '/app/$tenant/patients'
     | '/app/$tenant/services'
     | '/app/$tenant/settings'
+    | '/app/$tenant/staff'
     | '/app/$tenant/validate'
     | '/app/$tenant'
   id:
@@ -232,6 +254,7 @@ export interface FileRouteTypes {
     | '/_auth/signup'
     | '/admin/tenants'
     | '/app/$tenant'
+    | '/invite/$token'
     | '/patient/history'
     | '/admin/'
     | '/patient/'
@@ -240,6 +263,7 @@ export interface FileRouteTypes {
     | '/app/$tenant/patients'
     | '/app/$tenant/services'
     | '/app/$tenant/settings'
+    | '/app/$tenant/staff'
     | '/app/$tenant/validate'
     | '/app/$tenant/'
   fileRoutesById: FileRoutesById
@@ -250,6 +274,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   PatientRoute: typeof PatientRouteWithChildren
   AppTenantRoute: typeof AppTenantRouteWithChildren
+  InviteTokenRoute: typeof InviteTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -303,6 +328,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PatientHistoryRouteImport
       parentRoute: typeof PatientRoute
     }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/$tenant': {
       id: '/app/$tenant'
       path: '/app/$tenant'
@@ -350,6 +382,13 @@ declare module '@tanstack/react-router' {
       path: '/validate'
       fullPath: '/app/$tenant/validate'
       preLoaderRoute: typeof AppTenantValidateRouteImport
+      parentRoute: typeof AppTenantRoute
+    }
+    '/app/$tenant/staff': {
+      id: '/app/$tenant/staff'
+      path: '/staff'
+      fullPath: '/app/$tenant/staff'
+      preLoaderRoute: typeof AppTenantStaffRouteImport
       parentRoute: typeof AppTenantRoute
     }
     '/app/$tenant/settings': {
@@ -435,6 +474,7 @@ interface AppTenantRouteChildren {
   AppTenantPatientsRoute: typeof AppTenantPatientsRoute
   AppTenantServicesRoute: typeof AppTenantServicesRoute
   AppTenantSettingsRoute: typeof AppTenantSettingsRoute
+  AppTenantStaffRoute: typeof AppTenantStaffRoute
   AppTenantValidateRoute: typeof AppTenantValidateRoute
   AppTenantIndexRoute: typeof AppTenantIndexRoute
 }
@@ -445,6 +485,7 @@ const AppTenantRouteChildren: AppTenantRouteChildren = {
   AppTenantPatientsRoute: AppTenantPatientsRoute,
   AppTenantServicesRoute: AppTenantServicesRoute,
   AppTenantSettingsRoute: AppTenantSettingsRoute,
+  AppTenantStaffRoute: AppTenantStaffRoute,
   AppTenantValidateRoute: AppTenantValidateRoute,
   AppTenantIndexRoute: AppTenantIndexRoute,
 }
@@ -459,6 +500,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   PatientRoute: PatientRouteWithChildren,
   AppTenantRoute: AppTenantRouteWithChildren,
+  InviteTokenRoute: InviteTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
