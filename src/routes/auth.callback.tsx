@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase-ext/client";
+import { getMyAccess } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/auth/callback")({
   component: AuthCallbackPage,
@@ -8,6 +10,7 @@ export const Route = createFileRoute("/auth/callback")({
 
 function AuthCallbackPage() {
   const [message, setMessage] = useState("Finalizando autenticação...");
+  const fetchAccess = useServerFn(getMyAccess);
 
   useEffect(() => {
     async function finishAuth() {
@@ -15,7 +18,7 @@ function AuthCallbackPage() {
       const code = url.searchParams.get("code");
       const errorDescription =
         url.searchParams.get("error_description") || url.searchParams.get("error");
-      const next = getSafeNext(url.searchParams.get("next")) ?? "/admin/tenants";
+      const rawNext = url.searchParams.get("next");
 
       if (errorDescription) {
         setMessage(errorDescription);
@@ -32,13 +35,19 @@ function AuthCallbackPage() {
         await supabase.auth.getSession();
       }
 
-      window.location.replace(next);
+      if (rawNext === "auto") {
+        const access = await fetchAccess();
+        window.location.replace(getPostLoginRoute(access));
+        return;
+      }
+
+      window.location.replace(getSafeNext(rawNext) ?? "/admin/tenants");
     }
 
     finishAuth().catch((error) => {
       setMessage(error instanceof Error ? error.message : "Não foi possível finalizar o acesso.");
     });
-  }, []);
+  }, [fetchAccess]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-surface p-6">
@@ -49,6 +58,13 @@ function AuthCallbackPage() {
       </section>
     </main>
   );
+}
+
+function getPostLoginRoute(access: { isSuperAdmin?: boolean; tenants?: Array<{ slug: string }> }) {
+  if (access.isSuperAdmin) return "/admin";
+  const tenant = access.tenants?.[0];
+  if (tenant) return `/app/${tenant.slug}`;
+  return "/admin/tenants";
 }
 
 function getSafeNext(value: string | null) {

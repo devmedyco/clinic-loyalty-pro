@@ -1,5 +1,6 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { Chrome } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase-ext/client";
 import { getMyAccess } from "@/lib/auth.functions";
@@ -35,11 +36,38 @@ function LoginPage() {
     navigate({ to: getPostLoginRoute(access) as never });
   }
 
+  async function onGoogleLogin() {
+    setError(null);
+    const redirect = getSafeRedirect();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+          redirect ?? "auto",
+        )}`,
+      },
+    });
+    if (error) setError(error.message);
+  }
+
   return (
     <div>
       <h1 className="font-display text-3xl tracking-tight text-foreground">Entrar</h1>
       <p className="mt-1 text-sm text-muted-foreground">Acesse sua plataforma Medyco.</p>
-      <form className="mt-8 space-y-4" onSubmit={onSubmit}>
+      <button
+        type="button"
+        onClick={onGoogleLogin}
+        className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface-elevated px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-accent"
+      >
+        <Chrome className="h-4 w-4" />
+        Entrar com Google
+      </button>
+      <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+        <span className="h-px flex-1 bg-border" />
+        ou
+        <span className="h-px flex-1 bg-border" />
+      </div>
+      <form className="space-y-4" onSubmit={onSubmit}>
         <Field
           label="E-mail"
           type="email"
