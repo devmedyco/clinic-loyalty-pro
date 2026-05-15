@@ -82,7 +82,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Crie seu próprio cartão de benefícios em saúde. Assinatura recorrente, cartão digital e validação por QR para sua clínica.",
       },
       { name: "author", content: "Medyco" },
-      { property: "og:title", content: "Medyco — Benefícios em saúde white-label" },
+      { property: "og:title", content: "Medyco — Infraestrutura de benefícios em saúde para clínicas" },
       {
         property: "og:description",
         content:
@@ -90,6 +90,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Medyco — Infraestrutura de benefícios em saúde para clínicas" },
+      { name: "description", content: "Crie seu próprio cartão de benefícios em saúde com assinatura recorrente, QR Code, portal do paciente e gestão completa para clínicas." },
+      { property: "og:description", content: "Crie seu próprio cartão de benefícios em saúde com assinatura recorrente, QR Code, portal do paciente e gestão completa para clínicas." },
+      { name: "twitter:description", content: "Crie seu próprio cartão de benefícios em saúde com assinatura recorrente, QR Code, portal do paciente e gestão completa para clínicas." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/1794a497-7ca4-4194-a92b-8941311a0e0c/id-preview-93ff27db--31741fd0-8a9d-4d91-8bbb-48d015e17fd5.lovable.app-1778804429135.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/1794a497-7ca4-4194-a92b-8941311a0e0c/id-preview-93ff27db--31741fd0-8a9d-4d91-8bbb-48d015e17fd5.lovable.app-1778804429135.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
