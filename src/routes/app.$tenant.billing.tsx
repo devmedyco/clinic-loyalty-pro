@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CreditCard, Plus } from "lucide-react";
+import { CreditCard, ExternalLink, Plus, Send } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
 import {
+  createAsaasCharge,
   createManualPayment,
   getTenantBilling,
   updateSubscriptionStatus,
@@ -37,6 +38,8 @@ type Payment = {
   payment_method: string;
   status: string;
   paid_at: string | null;
+  due_date?: string | null;
+  asaas_invoice_url?: string | null;
   created_at: string;
   patients?: { full_name: string } | null;
 };
@@ -46,6 +49,7 @@ function BillingPage() {
   const queryClient = useQueryClient();
   const fetchBilling = useServerFn(getTenantBilling);
   const createPayment = useServerFn(createManualPayment);
+  const createCharge = useServerFn(createAsaasCharge);
   const updateSubscription = useServerFn(updateSubscriptionStatus);
   const [paymentFor, setPaymentFor] = useState<Subscription | null>(null);
 
@@ -85,6 +89,26 @@ function BillingPage() {
     onError: (err) => toast.error((err as Error).message),
   });
 
+  const asaasMutation = useMutation({
+    mutationFn: (input: {
+      subscription_id: string;
+      amount: number;
+      billing_type: "PIX" | "BOLETO" | "CREDIT_CARD";
+      due_date: string;
+    }) => createCharge({ data: { tenant, ...input } }),
+    onSuccess: async (result) => {
+      toast.success(
+        result.invoiceUrl
+          ? "Cobrança Asaas criada. O link já aparece nos pagamentos recentes."
+          : "Cobrança Asaas criada.",
+      );
+      setPaymentFor(null);
+      await queryClient.invalidateQueries({ queryKey: ["tenant-billing", tenant] });
+      await queryClient.invalidateQueries({ queryKey: ["patients", tenant] });
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+
   const subscriptions = (data?.subscriptions ?? []) as Subscription[];
   const payments = (data?.payments ?? []) as Payment[];
 
@@ -109,8 +133,11 @@ function BillingPage() {
         <PaymentModal
           subscription={paymentFor}
           loading={paymentMutation.isPending}
+          asaasConfigured={Boolean(data?.asaasConfigured)}
+          asaasLoading={asaasMutation.isPending}
           onClose={() => setPaymentFor(null)}
           onSubmit={(input) => paymentMutation.mutate(input)}
+          onSubmitAsaas={(input) => asaasMutation.mutate(input)}
         />
       )}
 
@@ -244,8 +271,19 @@ function BillingPage() {
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {payment.payment_method} •{" "}
-                        {formatDate(payment.paid_at ?? payment.created_at)}
+                        {formatDate(payment.paid_at ?? payment.due_date ?? payment.created_at)}
                       </div>
+                      {payment.asaas_invoice_url && (
+                        <a
+                          href={payment.asaas_invoice_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
+                        >
+                          Abrir cobrança
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
                     </div>
                     <div className="text-right">
                       <div className="font-medium text-foreground">
@@ -267,11 +305,16 @@ function BillingPage() {
 function PaymentModal({
   subscription,
   loading,
+  asaasConfigured,
+  asaasLoading,
   onClose,
   onSubmit,
+  onSubmitAsaas,
 }: {
   subscription: Subscription;
   loading: boolean;
+  asaasConfigured: boolean;
+  asaasLoading: boolean;
   onClose: () => void;
   onSubmit: (input: {
     patient_id: string;
@@ -280,11 +323,19 @@ function PaymentModal({
     status: string;
     notes?: string;
   }) => void;
+  onSubmitAsaas: (input: {
+    subscription_id: string;
+    amount: number;
+    billing_type: "PIX" | "BOLETO" | "CREDIT_CARD";
+    due_date: string;
+  }) => void;
 }) {
+  const [mode, setMode] = useState<"asaas" | "manual">("asaas");
   const [amount, setAmount] = useState("99");
-  const [paymentMethod, setPaymentMethod] = useState("pix");
+  const [paymentMethod, setPaymentMethod] = useState("PIX");
   const [status, setStatus] = useState("paid");
   const [notes, setNotes] = useState("");
+  const [dueDate, setDueDate] = useState(defaultDueDate(subscription.next_due_date));
 
   return (
     <div
@@ -299,10 +350,49 @@ function PaymentModal({
         <p className="mt-1 text-sm text-muted-foreground">
           {subscription.patients?.full_name ?? "Paciente"}
         </p>
+        <div className="mt-5 grid grid-cols-2 rounded-lg border border-border bg-surface p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setMode("asaas");
+              setPaymentMethod("PIX");
+            }}
+            className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+              mode === "asaas"
+                ? "bg-background text-foreground shadow-soft"
+                : "text-muted-foreground"
+            }`}
+          >
+            Cobrança Asaas
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode("manual");
+              setPaymentMethod("pix");
+            }}
+            className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+              mode === "manual"
+                ? "bg-background text-foreground shadow-soft"
+                : "text-muted-foreground"
+            }`}
+          >
+            Registro manual
+          </button>
+        </div>
         <form
           className="mt-5 grid gap-4 sm:grid-cols-2"
           onSubmit={(event) => {
             event.preventDefault();
+            if (mode === "asaas") {
+              onSubmitAsaas({
+                subscription_id: subscription.id,
+                amount: Number(amount),
+                billing_type: paymentMethod as "PIX" | "BOLETO" | "CREDIT_CARD",
+                due_date: dueDate,
+              });
+              return;
+            }
             onSubmit({
               patient_id: subscription.patient_id,
               amount: Number(amount),
@@ -328,35 +418,64 @@ function PaymentModal({
               onChange={(event) => setPaymentMethod(event.target.value)}
               className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
             >
-              <option value="pix">PIX</option>
-              <option value="credit_card">Cartão</option>
-              <option value="boleto">Boleto</option>
-              <option value="cash">Dinheiro</option>
-              <option value="manual">Manual</option>
+              {mode === "asaas" ? (
+                <>
+                  <option value="PIX">PIX</option>
+                  <option value="BOLETO">Boleto</option>
+                  <option value="CREDIT_CARD">Cartão de crédito</option>
+                </>
+              ) : (
+                <>
+                  <option value="pix">PIX</option>
+                  <option value="credit_card">Cartão</option>
+                  <option value="boleto">Boleto</option>
+                  <option value="cash">Dinheiro</option>
+                  <option value="manual">Manual</option>
+                </>
+              )}
             </select>
           </label>
-          <label className="block sm:col-span-2">
-            <span className="text-xs font-medium text-foreground">Status</span>
-            <select
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
-              className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
-            >
-              <option value="paid">Pago</option>
-              <option value="pending">Pendente</option>
-              <option value="failed">Falhou</option>
-              <option value="canceled">Cancelado</option>
-            </select>
-          </label>
-          <label className="block sm:col-span-2">
-            <span className="text-xs font-medium text-foreground">Observações</span>
-            <textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              rows={3}
-              className="mt-1.5 block w-full resize-none rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
-            />
-          </label>
+          {mode === "asaas" ? (
+            <>
+              <Field
+                label="Vencimento"
+                type="date"
+                value={dueDate}
+                onChange={(event) => setDueDate(event.target.value)}
+                required
+              />
+              {!asaasConfigured && (
+                <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning sm:col-span-2">
+                  Configure ASAAS_API_KEY nos secrets antes de gerar cobranças reais.
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-medium text-foreground">Status</span>
+                <select
+                  value={status}
+                  onChange={(event) => setStatus(event.target.value)}
+                  className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
+                >
+                  <option value="paid">Pago</option>
+                  <option value="pending">Pendente</option>
+                  <option value="failed">Falhou</option>
+                  <option value="canceled">Cancelado</option>
+                </select>
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-medium text-foreground">Observações</span>
+                <textarea
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  rows={3}
+                  className="mt-1.5 block w-full resize-none rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
+                />
+              </label>
+            </>
+          )}
           <div className="flex gap-2 pt-2 sm:col-span-2">
             <button
               type="button"
@@ -366,10 +485,19 @@ function PaymentModal({
               Cancelar
             </button>
             <button
-              disabled={loading}
+              disabled={mode === "asaas" ? asaasLoading || !asaasConfigured : loading}
               className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
             >
-              {loading ? "Registrando..." : "Registrar"}
+              {mode === "asaas" ? (
+                <span className="inline-flex items-center justify-center gap-2">
+                  <Send className="h-4 w-4" />
+                  {asaasLoading ? "Gerando..." : "Gerar cobrança"}
+                </span>
+              ) : loading ? (
+                "Registrando..."
+              ) : (
+                "Registrar"
+              )}
             </button>
           </div>
         </form>
@@ -440,4 +568,11 @@ function formatDate(value: string) {
     month: "2-digit",
     year: "2-digit",
   }).format(new Date(value));
+}
+
+function defaultDueDate(value?: string | null) {
+  if (value) return value;
+  const date = new Date();
+  date.setDate(date.getDate() + 3);
+  return date.toISOString().slice(0, 10);
 }

@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import { createAsaasCustomer, createAsaasPayment, isAsaasConfigured } from "@/lib/asaas.server";
 
 const tenantSlugSchema = z.object({
   tenant: z.string().min(1).max(60),
@@ -19,6 +20,13 @@ const updateSubscriptionSchema = tenantSlugSchema.extend({
   subscription_id: z.string().uuid(),
   status: z.enum(["trial", "active", "past_due", "canceled", "paused"]),
   next_due_date: z.string().optional(),
+});
+
+const createAsaasPaymentSchema = tenantSlugSchema.extend({
+  subscription_id: z.string().uuid(),
+  amount: z.coerce.number().min(1).max(999999),
+  billing_type: z.enum(["PIX", "BOLETO", "CREDIT_CARD"]).default("PIX"),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
 export const getTenantBilling = createServerFn({ method: "GET" })
@@ -40,7 +48,7 @@ export const getTenantBilling = createServerFn({ method: "GET" })
       supabase
         .from("payments")
         .select(
-          "id, tenant_id, patient_id, subscription_id, amount, payment_method, status, paid_at, notes, created_at, patients(full_name)",
+          "id, tenant_id, patient_id, subscription_id, amount, payment_method, status, paid_at, due_date, confirmed_at, asaas_payment_id, asaas_invoice_url, asaas_bank_slip_url, notes, created_at, patients(full_name)",
         )
         .eq("tenant_id", tenant.id)
         .order("created_at", { ascending: false })
@@ -55,6 +63,7 @@ export const getTenantBilling = createServerFn({ method: "GET" })
 
     return {
       tenant,
+      asaasConfigured: isAsaasConfigured(),
       totals: {
         subscriptions: subscriptionRows.length,
         active: subscriptionRows.filter((item) => ["trial", "active"].includes(item.status)).length,
@@ -131,6 +140,78 @@ export const updateSubscriptionStatus = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     await syncPatientStatus(supabase, tenant.id, subscription.patient_id, data.status);
     return { tenant, subscription };
+  });
+
+export const createAsaasCharge = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => createAsaasPaymentSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const tenant = await resolveTenant(supabase, data.tenant);
+
+    const { data: subscription, error: subscriptionError } = await supabase
+      .from("subscriptions")
+      .select(
+        "id, tenant_id, patient_id, plan, status, next_due_date, patients(id, full_name, email, phone, cpf, asaas_customer_id)",
+      )
+      .eq("tenant_id", tenant.id)
+      .eq("id", data.subscription_id)
+      .maybeSingle();
+
+    if (subscriptionError) throw new Error(subscriptionError.message);
+    if (!subscription) throw new Error("Assinatura não encontrada.");
+
+    const patient = Array.isArray(subscription.patients)
+      ? subscription.patients[0]
+      : subscription.patients;
+    if (!patient) throw new Error("Paciente não encontrado.");
+    if (!patient.email && !patient.phone) {
+      throw new Error("Informe e-mail ou telefone no cadastro do paciente antes de cobrar.");
+    }
+
+    const customerId =
+      patient.asaas_customer_id ||
+      (await createAndStoreAsaasCustomer(supabase, tenant.id, {
+        id: patient.id,
+        full_name: patient.full_name,
+        email: patient.email,
+        phone: patient.phone,
+        cpf: patient.cpf,
+      }));
+
+    const charge = await createAsaasPayment({
+      customer: customerId,
+      billingType: data.billing_type,
+      value: data.amount,
+      dueDate: data.due_date,
+      description: `Assinatura de benefícios - ${tenant.name}`,
+      externalReference: subscription.id,
+    });
+
+    const { data: payment, error } = await supabase
+      .from("payments")
+      .insert({
+        tenant_id: tenant.id,
+        patient_id: subscription.patient_id,
+        subscription_id: subscription.id,
+        amount: data.amount,
+        payment_method: data.billing_type.toLowerCase(),
+        status: "pending",
+        due_date: data.due_date,
+        asaas_payment_id: charge.id,
+        asaas_invoice_url: charge.invoiceUrl,
+        asaas_bank_slip_url: charge.bankSlipUrl,
+        asaas_pix_payload: charge.pixQrCode ?? charge.payload,
+        notes: "Cobrança criada via Asaas.",
+      })
+      .select(
+        "id, amount, payment_method, status, due_date, asaas_payment_id, asaas_invoice_url, created_at",
+      )
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    return { tenant, payment, invoiceUrl: charge.invoiceUrl };
   });
 
 async function ensurePatientSubscriptions(supabase: SupabaseClient, tenantId: string) {
@@ -246,10 +327,43 @@ async function resolveTenant(supabase: SupabaseClient, slug: string) {
   return data;
 }
 
+async function createAndStoreAsaasCustomer(
+  supabase: SupabaseClient,
+  tenantId: string,
+  patient: {
+    id: string;
+    full_name: string;
+    email?: string | null;
+    phone?: string | null;
+    cpf?: string | null;
+  },
+) {
+  const customer = await createAsaasCustomer({
+    name: patient.full_name,
+    email: patient.email,
+    phone: onlyDigits(patient.phone),
+    cpfCnpj: onlyDigits(patient.cpf),
+  });
+
+  const { error } = await supabase
+    .from("patients")
+    .update({ asaas_customer_id: customer.id })
+    .eq("tenant_id", tenantId)
+    .eq("id", patient.id);
+  if (error) throw new Error(error.message);
+
+  return customer.id;
+}
+
 function nextDueDate() {
   const date = new Date();
   date.setDate(date.getDate() + 30);
   return date.toISOString().slice(0, 10);
+}
+
+function onlyDigits(value?: string | null) {
+  const cleaned = value?.replace(/\D/g, "");
+  return cleaned || undefined;
 }
 
 function sumPaid(rows: Array<{ amount: number | string; status: string }>) {
