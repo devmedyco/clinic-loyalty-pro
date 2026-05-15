@@ -15,7 +15,11 @@ function ResetPasswordPage() {
   const [info, setInfo] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && window.location.hash.includes("type=recovery")) {
+    if (
+      typeof window !== "undefined" &&
+      (window.location.hash.includes("type=recovery") ||
+        new URLSearchParams(window.location.search).get("mode") === "update")
+    ) {
       setMode("update");
     }
   }, []);
@@ -26,7 +30,9 @@ function ResetPasswordPage() {
     setInfo(null);
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+        "/reset-password?mode=update",
+      )}`,
     });
     setLoading(false);
     if (error) return setError(error.message);
@@ -56,24 +62,47 @@ function ResetPasswordPage() {
       </p>
       <form className="mt-8 space-y-4" onSubmit={mode === "request" ? onRequest : onUpdate}>
         {mode === "request" ? (
-          <Field label="E-mail" type="email" placeholder="voce@clinica.com.br" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <Field
+            label="E-mail"
+            type="email"
+            placeholder="voce@clinica.com.br"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
         ) : (
-          <Field label="Nova senha" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+          <Field
+            label="Nova senha"
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+          />
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
         {info && <p className="text-sm text-foreground">{info}</p>}
-        <button disabled={loading} className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60">
+        <button
+          disabled={loading}
+          className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+        >
           {loading ? "Enviando..." : mode === "request" ? "Enviar link" : "Atualizar senha"}
         </button>
       </form>
       <div className="mt-6 text-center text-sm text-muted-foreground">
-        <Link to="/login" className="text-foreground hover:text-brand transition">← Voltar para login</Link>
+        <Link to="/login" className="text-foreground hover:text-brand transition">
+          ← Voltar para login
+        </Link>
       </div>
     </div>
   );
 }
 
-function Field({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+function Field({
+  label,
+  ...props
+}: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className="block">
       <span className="text-xs font-medium text-foreground">{label}</span>

@@ -17,6 +17,7 @@ import { Route as PatientIndexRouteImport } from './routes/patient.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as PatientHistoryRouteImport } from './routes/patient.history'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AppTenantRouteImport } from './routes/app.$tenant'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 import { Route as AuthSignupRouteImport } from './routes/_auth.signup'
@@ -68,6 +69,11 @@ const PatientHistoryRoute = PatientHistoryRouteImport.update({
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppTenantRoute = AppTenantRouteImport.update({
@@ -145,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof AuthSignupRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/app/$tenant': typeof AppTenantRouteWithChildren
+  '/auth/callback': typeof AuthCallbackRoute
   '/invite/$token': typeof InviteTokenRoute
   '/patient/history': typeof PatientHistoryRoute
   '/admin/': typeof AdminIndexRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
   '/admin/tenants': typeof AdminTenantsRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/invite/$token': typeof InviteTokenRoute
   '/patient/history': typeof PatientHistoryRoute
   '/admin': typeof AdminIndexRoute
@@ -188,6 +196,7 @@ export interface FileRoutesById {
   '/_auth/signup': typeof AuthSignupRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/app/$tenant': typeof AppTenantRouteWithChildren
+  '/auth/callback': typeof AuthCallbackRoute
   '/invite/$token': typeof InviteTokenRoute
   '/patient/history': typeof PatientHistoryRoute
   '/admin/': typeof AdminIndexRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin/tenants'
     | '/app/$tenant'
+    | '/auth/callback'
     | '/invite/$token'
     | '/patient/history'
     | '/admin/'
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin/tenants'
+    | '/auth/callback'
     | '/invite/$token'
     | '/patient/history'
     | '/admin'
@@ -254,6 +265,7 @@ export interface FileRouteTypes {
     | '/_auth/signup'
     | '/admin/tenants'
     | '/app/$tenant'
+    | '/auth/callback'
     | '/invite/$token'
     | '/patient/history'
     | '/admin/'
@@ -274,6 +286,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   PatientRoute: typeof PatientRouteWithChildren
   AppTenantRoute: typeof AppTenantRouteWithChildren
+  AuthCallbackRoute: typeof AuthCallbackRoute
   InviteTokenRoute: typeof InviteTokenRoute
 }
 
@@ -333,6 +346,13 @@ declare module '@tanstack/react-router' {
       path: '/invite/$token'
       fullPath: '/invite/$token'
       preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/$tenant': {
@@ -500,6 +520,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   PatientRoute: PatientRouteWithChildren,
   AppTenantRoute: AppTenantRouteWithChildren,
+  AuthCallbackRoute: AuthCallbackRoute,
   InviteTokenRoute: InviteTokenRoute,
 }
 export const routeTree = rootRouteImport

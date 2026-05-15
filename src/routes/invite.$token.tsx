@@ -2,7 +2,8 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { CheckCircle2, KeyRound } from "lucide-react";
-import { useRequireSession } from "@/hooks/use-auth-session";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase-ext/client";
 import { acceptStaffInvitation } from "@/lib/staff.functions";
 
 export const Route = createFileRoute("/invite/$token")({
@@ -12,8 +13,28 @@ export const Route = createFileRoute("/invite/$token")({
 function InvitePage() {
   const { token } = Route.useParams();
   const navigate = useNavigate();
-  const session = useRequireSession();
   const acceptInvite = useServerFn(acceptStaffInvitation);
+  const [sessionState, setSessionState] = useState<"loading" | "authenticated" | "anonymous">(
+    "loading",
+  );
+
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      setSessionState(data.session ? "authenticated" : "anonymous");
+    });
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      setSessionState(session ? "authenticated" : "anonymous");
+    });
+
+    return () => {
+      active = false;
+      subscription.subscription.unsubscribe();
+    };
+  }, []);
 
   const mutation = useMutation({
     mutationFn: () => acceptInvite({ data: { token } }),
@@ -41,18 +62,20 @@ function InvitePage() {
           clínica será liberado automaticamente.
         </p>
 
-        {session.isLoading ? (
+        {sessionState === "loading" ? (
           <div className="mt-6 text-sm text-muted-foreground">Verificando sessão...</div>
-        ) : !session.isAuthenticated ? (
+        ) : sessionState !== "authenticated" ? (
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <Link
               to="/login"
+              search={{ redirect: `/invite/${token}` } as never}
               className="rounded-lg bg-primary px-4 py-2.5 text-center text-sm font-medium text-primary-foreground transition hover:opacity-90"
             >
               Entrar
             </Link>
             <Link
               to="/signup"
+              search={{ redirect: `/invite/${token}` } as never}
               className="rounded-lg border border-border px-4 py-2.5 text-center text-sm font-medium text-foreground transition hover:bg-accent"
             >
               Criar conta

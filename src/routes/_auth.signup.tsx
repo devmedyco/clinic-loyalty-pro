@@ -28,7 +28,7 @@ function SignupPage() {
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/admin/tenants`,
       },
     });
     setLoading(false);
@@ -38,6 +38,11 @@ function SignupPage() {
     }
     if (!data.session) {
       setInfo("Verifique seu e-mail para confirmar a conta antes de entrar.");
+      return;
+    }
+    const redirect = getSafeRedirect();
+    if (redirect) {
+      navigate({ to: redirect as never });
       return;
     }
     const access = await fetchAccess();
@@ -91,6 +96,13 @@ function SignupPage() {
       </div>
     </div>
   );
+}
+
+function getSafeRedirect() {
+  if (typeof window === "undefined") return null;
+  const redirect = new URLSearchParams(window.location.search).get("redirect");
+  if (!redirect || !redirect.startsWith("/") || redirect.startsWith("//")) return null;
+  return redirect;
 }
 
 function Field({

@@ -26,6 +26,11 @@ function LoginPage() {
       setError(error.message);
       return;
     }
+    const redirect = getSafeRedirect();
+    if (redirect) {
+      navigate({ to: redirect as never });
+      return;
+    }
     const access = await fetchAccess();
     navigate({ to: getPostLoginRoute(access) as never });
   }
@@ -72,6 +77,13 @@ function LoginPage() {
       </div>
     </div>
   );
+}
+
+function getSafeRedirect() {
+  if (typeof window === "undefined") return null;
+  const redirect = new URLSearchParams(window.location.search).get("redirect");
+  if (!redirect || !redirect.startsWith("/") || redirect.startsWith("//")) return null;
+  return redirect;
 }
 
 function getPostLoginRoute(access: { isSuperAdmin?: boolean; tenants?: Array<{ slug: string }> }) {
