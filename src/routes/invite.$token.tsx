@@ -68,14 +68,14 @@ function InvitePage() {
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <Link
               to="/login"
-              search={{ redirect: `/invite/${token}` } as never}
+              search={{ redirect: `/invite/${token}`, portal: "clinic" } as never}
               className="rounded-lg bg-primary px-4 py-2.5 text-center text-sm font-medium text-primary-foreground transition hover:opacity-90"
             >
               Entrar
             </Link>
             <Link
               to="/signup"
-              search={{ redirect: `/invite/${token}` } as never}
+              search={{ redirect: `/invite/${token}`, portal: "clinic" } as never}
               className="rounded-lg border border-border px-4 py-2.5 text-center text-sm font-medium text-foreground transition hover:bg-accent"
             >
               Criar conta

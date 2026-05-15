@@ -17,7 +17,13 @@ export function useRequireSession() {
       }
 
       setState("anonymous");
-      navigate({ to: "/login", search: { redirect: window.location.pathname } as never });
+      navigate({
+        to: "/login",
+        search: {
+          redirect: window.location.pathname,
+          portal: getPortalFromPath(window.location.pathname),
+        } as never,
+      });
     });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -28,7 +34,10 @@ export function useRequireSession() {
       }
 
       setState("anonymous");
-      navigate({ to: "/login" });
+      navigate({
+        to: "/login",
+        search: { portal: getPortalFromPath(window.location.pathname) } as never,
+      });
     });
 
     return () => {
@@ -41,4 +50,10 @@ export function useRequireSession() {
     isLoading: state === "loading",
     isAuthenticated: state === "authenticated",
   };
+}
+
+function getPortalFromPath(pathname: string) {
+  if (pathname.startsWith("/patient")) return "patient";
+  if (pathname.startsWith("/admin")) return "admin";
+  return "clinic";
 }

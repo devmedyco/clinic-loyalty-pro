@@ -12,6 +12,7 @@ export const Route = createFileRoute("/_auth/signup")({
 function SignupPage() {
   const navigate = useNavigate();
   const fetchAccess = useServerFn(getMyAccess);
+  const copy = getSignupCopy();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -67,8 +68,8 @@ function SignupPage() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl tracking-tight text-foreground">Criar conta</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Configure sua plataforma em minutos.</p>
+      <h1 className="font-display text-3xl tracking-tight text-foreground">{copy.title}</h1>
+      <p className="mt-1 text-sm text-muted-foreground">{copy.subtitle}</p>
       <button
         type="button"
         onClick={onGoogleSignup}
@@ -85,7 +86,7 @@ function SignupPage() {
       <form className="space-y-4" onSubmit={onSubmit}>
         <Field
           label="Nome completo"
-          placeholder="Dra. Camila Andrade"
+          placeholder={copy.namePlaceholder}
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           required
@@ -93,7 +94,7 @@ function SignupPage() {
         <Field
           label="E-mail"
           type="email"
-          placeholder="voce@clinica.com.br"
+          placeholder={copy.emailPlaceholder}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -126,11 +127,46 @@ function SignupPage() {
   );
 }
 
+function getSignupCopy() {
+  const portal = getPortalContext();
+  const copies = {
+    clinic: {
+      title: "Criar conta",
+      subtitle: "Configure sua plataforma em minutos.",
+      namePlaceholder: "Dra. Camila Andrade",
+      emailPlaceholder: "voce@clinica.com.br",
+    },
+    patient: {
+      title: "Criar acesso ao cartão",
+      subtitle: "Use o mesmo e-mail informado pela clínica.",
+      namePlaceholder: "Seu nome completo",
+      emailPlaceholder: "voce@email.com",
+    },
+    admin: {
+      title: "Criar operador",
+      subtitle: "Cadastro interno para equipe Medyco.",
+      namePlaceholder: "Nome do operador",
+      emailPlaceholder: "admin@medyco.com.br",
+    },
+  };
+  return copies[portal];
+}
+
 function getSafeRedirect() {
   if (typeof window === "undefined") return null;
   const redirect = new URLSearchParams(window.location.search).get("redirect");
   if (!redirect || !redirect.startsWith("/") || redirect.startsWith("//")) return null;
   return redirect;
+}
+
+function getPortalContext(): "clinic" | "patient" | "admin" {
+  if (typeof window === "undefined") return "clinic";
+  const params = new URLSearchParams(window.location.search);
+  const portal = params.get("portal");
+  const redirect = params.get("redirect") ?? "";
+  if (portal === "patient" || redirect.startsWith("/patient")) return "patient";
+  if (portal === "admin" || redirect.startsWith("/admin")) return "admin";
+  return "clinic";
 }
 
 function Field({

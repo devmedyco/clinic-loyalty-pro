@@ -12,6 +12,7 @@ export const Route = createFileRoute("/_auth/login")({
 function LoginPage() {
   const navigate = useNavigate();
   const fetchAccess = useServerFn(getMyAccess);
+  const copy = getLoginCopy();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -52,8 +53,8 @@ function LoginPage() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl tracking-tight text-foreground">Entrar</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Acesse sua plataforma Medyco.</p>
+      <h1 className="font-display text-3xl tracking-tight text-foreground">{copy.title}</h1>
+      <p className="mt-1 text-sm text-muted-foreground">{copy.subtitle}</p>
       <button
         type="button"
         onClick={onGoogleLogin}
@@ -71,7 +72,7 @@ function LoginPage() {
         <Field
           label="E-mail"
           type="email"
-          placeholder="voce@clinica.com.br"
+          placeholder={copy.emailPlaceholder}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -100,11 +101,36 @@ function LoginPage() {
           Esqueci a senha
         </Link>
         <Link to="/signup" className="text-foreground hover:text-brand transition">
-          Criar conta
+          {copy.signupLabel}
         </Link>
       </div>
     </div>
   );
+}
+
+function getLoginCopy() {
+  const portal = getPortalContext();
+  const copies = {
+    clinic: {
+      title: "Entrar na clínica",
+      subtitle: "Acesse o painel operacional da sua clínica.",
+      emailPlaceholder: "voce@clinica.com.br",
+      signupLabel: "Criar conta",
+    },
+    patient: {
+      title: "Entrar no seu cartão",
+      subtitle: "Consulte seu benefício, pagamentos e histórico.",
+      emailPlaceholder: "voce@email.com",
+      signupLabel: "Criar acesso",
+    },
+    admin: {
+      title: "Entrar no Admin",
+      subtitle: "Área interna da plataforma Medyco.",
+      emailPlaceholder: "admin@medyco.com.br",
+      signupLabel: "Criar operador",
+    },
+  };
+  return copies[portal];
 }
 
 function getSafeRedirect() {
@@ -112,6 +138,16 @@ function getSafeRedirect() {
   const redirect = new URLSearchParams(window.location.search).get("redirect");
   if (!redirect || !redirect.startsWith("/") || redirect.startsWith("//")) return null;
   return redirect;
+}
+
+function getPortalContext(): "clinic" | "patient" | "admin" {
+  if (typeof window === "undefined") return "clinic";
+  const params = new URLSearchParams(window.location.search);
+  const portal = params.get("portal");
+  const redirect = params.get("redirect") ?? "";
+  if (portal === "patient" || redirect.startsWith("/patient")) return "patient";
+  if (portal === "admin" || redirect.startsWith("/admin")) return "admin";
+  return "clinic";
 }
 
 function getPostLoginRoute(access: { isSuperAdmin?: boolean; tenants?: Array<{ slug: string }> }) {
