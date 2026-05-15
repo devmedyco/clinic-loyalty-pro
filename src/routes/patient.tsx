@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Icons, PortalShell } from "@/components/portal/Shell";
 import { useRequireSession } from "@/hooks/use-auth-session";
 import { getMyAccess } from "@/lib/auth.functions";
+import { getPatientPortal } from "@/lib/patient-portal.functions";
 
 export const Route = createFileRoute("/patient")({
   component: PatientLayout,
@@ -12,9 +13,15 @@ export const Route = createFileRoute("/patient")({
 function PatientLayout() {
   const session = useRequireSession();
   const fetchAccess = useServerFn(getMyAccess);
+  const fetchPortal = useServerFn(getPatientPortal);
   const { data } = useQuery({
     queryKey: ["my-access"],
     queryFn: () => fetchAccess(),
+    enabled: session.isAuthenticated,
+  });
+  const { data: portal } = useQuery({
+    queryKey: ["patient-portal-shell"],
+    queryFn: () => fetchPortal(),
     enabled: session.isAuthenticated,
   });
 
@@ -24,8 +31,8 @@ function PatientLayout() {
 
   return (
     <PortalShell
-      brand={{ name: "Clínica Santa Vida", subtitle: "Seu programa" }}
-      user={{ name: data?.user.name ?? "Paciente", role: "Titular" }}
+      brand={{ name: portal?.tenant?.name ?? "Medyco", subtitle: "Seu programa" }}
+      user={{ name: portal?.patient?.full_name ?? data?.user.name ?? "Paciente", role: "Titular" }}
       items={[
         { to: "/patient", label: "Meu cartão", icon: Icons.card },
         { to: "/patient/subscription", label: "Assinatura", icon: Icons.cash },
