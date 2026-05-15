@@ -114,6 +114,110 @@ export const getPatient = createServerFn({ method: "GET" })
     return { tenant, patient };
   });
 
+export const getPatientDetail = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => getPatientSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const tenant = await resolveTenant(supabase, data.tenant);
+
+    const { data: patient, error } = await supabase
+      .from("patients")
+      .select(
+        "id, tenant_id, user_id, full_name, email, phone, cpf, status, created_at, updated_at, asaas_customer_id, benefit_cards(id, card_number, qr_token, active, expires_at, created_at)",
+      )
+      .eq("tenant_id", tenant.id)
+      .eq("id", data.id)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    if (!patient) throw new Error("Paciente não encontrado");
+
+    const cardIds = (patient.benefit_cards ?? []).map((card) => card.id);
+    const [
+      subscriptionsResult,
+      paymentsResult,
+      executionsResult,
+      acceptancesResult,
+      invitationsResult,
+      validationsResult,
+    ] = await Promise.all([
+      supabase
+        .from("subscriptions")
+        .select("id, plan, status, next_due_date, asaas_subscription_id, created_at, updated_at")
+        .eq("tenant_id", tenant.id)
+        .eq("patient_id", patient.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("payments")
+        .select(
+          "id, subscription_id, amount, payment_method, status, paid_at, due_date, confirmed_at, asaas_invoice_url, notes, created_at",
+        )
+        .eq("tenant_id", tenant.id)
+        .eq("patient_id", patient.id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      supabase
+        .from("service_executions")
+        .select(
+          "id, service_id, original_amount, discount_amount, final_amount, notes, created_at, services(name)",
+        )
+        .eq("tenant_id", tenant.id)
+        .eq("patient_id", patient.id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      supabase
+        .from("legal_acceptances")
+        .select("id, accepted_at, ip_address, user_agent, legal_documents(title, version, type)")
+        .eq("tenant_id", tenant.id)
+        .eq("patient_id", patient.id)
+        .order("accepted_at", { ascending: false }),
+      supabase
+        .from("patient_invitations")
+        .select("id, email, status, expires_at, accepted_at, created_at")
+        .eq("tenant_id", tenant.id)
+        .eq("patient_id", patient.id)
+        .order("created_at", { ascending: false }),
+      cardIds.length
+        ? supabase
+            .from("card_validations")
+            .select(
+              "id, card_id, validated_at, outcome, reason, qr_token_snapshot, notes, benefit_cards(card_number)",
+            )
+            .eq("tenant_id", tenant.id)
+            .in("card_id", cardIds)
+            .order("validated_at", { ascending: false })
+            .limit(20)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (subscriptionsResult.error) throw new Error(subscriptionsResult.error.message);
+    if (paymentsResult.error) throw new Error(paymentsResult.error.message);
+    if (executionsResult.error) throw new Error(executionsResult.error.message);
+    if (acceptancesResult.error) throw new Error(acceptancesResult.error.message);
+    if (invitationsResult.error) throw new Error(invitationsResult.error.message);
+    if (validationsResult.error) throw new Error(validationsResult.error.message);
+
+    return {
+      tenant,
+      patient,
+      subscriptions: subscriptionsResult.data ?? [],
+      payments: paymentsResult.data ?? [],
+      executions: executionsResult.data ?? [],
+      acceptances: acceptancesResult.data ?? [],
+      invitations: invitationsResult.data ?? [],
+      validations: validationsResult.data ?? [],
+      totals: {
+        paid: sumPaid(paymentsResult.data ?? []),
+        pending: (paymentsResult.data ?? []).filter((payment) => payment.status === "pending")
+          .length,
+        savings: sumNumeric(executionsResult.data ?? [], "discount_amount"),
+        executions: executionsResult.data?.length ?? 0,
+        validations: validationsResult.data?.length ?? 0,
+      },
+    };
+  });
+
 export const createPatient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => createPatientSchema.parse(input))
@@ -457,6 +561,16 @@ function randomHex(bytes: number) {
   return Array.from(values)
     .map((value) => value.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function sumPaid(rows: Array<{ amount: number | string; status: string }>) {
+  return rows
+    .filter((row) => row.status === "paid")
+    .reduce((total, row) => total + Number(row.amount ?? 0), 0);
+}
+
+function sumNumeric<T extends Record<string, unknown>>(rows: T[], key: keyof T) {
+  return rows.reduce((total, row) => total + Number(row[key] ?? 0), 0);
 }
 
 function nextDueDate() {

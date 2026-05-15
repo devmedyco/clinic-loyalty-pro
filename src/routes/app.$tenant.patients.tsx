@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Send, Upload } from "lucide-react";
+import { Download, Eye, Send, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
@@ -205,78 +205,170 @@ function PatientsPage() {
             Nenhum paciente encontrado. Cadastre o primeiro titular para gerar um cartão digital.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-surface text-left text-xs uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="px-5 py-3">Nome</th>
-                  <th className="px-5 py-3">CPF</th>
-                  <th className="px-5 py-3">Contato</th>
-                  <th className="px-5 py-3">Cartão</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {patients.map((patient) => {
-                  const card = patient.benefit_cards?.[0];
-                  return (
-                    <tr key={patient.id} className="border-t border-border">
-                      <td className="px-5 py-4 font-medium text-foreground">{patient.full_name}</td>
-                      <td className="px-5 py-4 text-muted-foreground">{formatCpf(patient.cpf)}</td>
-                      <td className="px-5 py-4 text-muted-foreground">
-                        <div>{patient.email || "Sem e-mail"}</div>
-                        <div className="text-xs">{patient.phone || "Sem telefone"}</div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="font-medium text-foreground">
+          <>
+            <div className="divide-y divide-border md:hidden">
+              {patients.map((patient) => {
+                const card = patient.benefit_cards?.[0];
+                return (
+                  <div key={patient.id} className="space-y-4 p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <Link
+                          to="/app/$tenant/patients/$patientId"
+                          params={{ tenant, patientId: patient.id }}
+                          className="font-medium text-foreground hover:text-primary"
+                        >
+                          {patient.full_name}
+                        </Link>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {formatCpf(patient.cpf)}
+                        </div>
+                      </div>
+                      <StatusBadge status={patient.status} />
+                    </div>
+                    <div className="grid gap-3 rounded-xl border border-border bg-surface p-3 text-sm">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Contato</div>
+                        <div className="mt-0.5 break-words text-foreground">
+                          {patient.email || "Sem e-mail"}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {patient.phone || "Sem telefone"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Cartão</div>
+                        <div className="mt-0.5 font-medium text-foreground">
                           {card?.card_number ?? "Sem cartão"}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {card?.active ? "Ativo" : "Inativo"}
                         </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <StatusBadge status={patient.status} />
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => setForm(toFormState(patient))}
-                            className="rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent"
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Link
+                        to="/app/$tenant/patients/$patientId"
+                        params={{ tenant, patientId: patient.id }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        Detalhes
+                      </Link>
+                      <button
+                        onClick={() => setForm(toFormState(patient))}
+                        className="rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        disabled={inviteMutation.isPending || Boolean(patient.user_id)}
+                        onClick={() => inviteMutation.mutate(patient.id)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent disabled:opacity-60"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        {patient.user_id
+                          ? "Com acesso"
+                          : lastInvitation(patient)?.status === "pending"
+                            ? "Reenviar"
+                            : "Convidar"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead className="bg-surface text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="px-5 py-3">Nome</th>
+                    <th className="px-5 py-3">CPF</th>
+                    <th className="px-5 py-3">Contato</th>
+                    <th className="px-5 py-3">Cartão</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {patients.map((patient) => {
+                    const card = patient.benefit_cards?.[0];
+                    return (
+                      <tr key={patient.id} className="border-t border-border">
+                        <td className="px-5 py-4 font-medium text-foreground">
+                          <Link
+                            to="/app/$tenant/patients/$patientId"
+                            params={{ tenant, patientId: patient.id }}
+                            className="hover:text-primary"
                           >
-                            Editar
-                          </button>
-                          <button
-                            disabled={inviteMutation.isPending || Boolean(patient.user_id)}
-                            onClick={() => inviteMutation.mutate(patient.id)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent disabled:opacity-60"
-                          >
-                            <Send className="h-3.5 w-3.5" />
-                            {patient.user_id
-                              ? "Com acesso"
-                              : lastInvitation(patient)?.status === "pending"
-                                ? "Reenviar"
-                                : "Convidar"}
-                          </button>
-                          <button
-                            disabled={deleteMutation.isPending}
-                            onClick={() => {
-                              if (window.confirm(`Remover ${patient.full_name}?`))
-                                deleteMutation.mutate(patient.id);
-                            }}
-                            className="rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
-                          >
-                            Remover
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                            {patient.full_name}
+                          </Link>
+                        </td>
+                        <td className="px-5 py-4 text-muted-foreground">
+                          {formatCpf(patient.cpf)}
+                        </td>
+                        <td className="px-5 py-4 text-muted-foreground">
+                          <div>{patient.email || "Sem e-mail"}</div>
+                          <div className="text-xs">{patient.phone || "Sem telefone"}</div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="font-medium text-foreground">
+                            {card?.card_number ?? "Sem cartão"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {card?.active ? "Ativo" : "Inativo"}
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <StatusBadge status={patient.status} />
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex justify-end gap-2">
+                            <Link
+                              to="/app/$tenant/patients/$patientId"
+                              params={{ tenant, patientId: patient.id }}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Detalhes
+                            </Link>
+                            <button
+                              onClick={() => setForm(toFormState(patient))}
+                              className="rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              disabled={inviteMutation.isPending || Boolean(patient.user_id)}
+                              onClick={() => inviteMutation.mutate(patient.id)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent disabled:opacity-60"
+                            >
+                              <Send className="h-3.5 w-3.5" />
+                              {patient.user_id
+                                ? "Com acesso"
+                                : lastInvitation(patient)?.status === "pending"
+                                  ? "Reenviar"
+                                  : "Convidar"}
+                            </button>
+                            <button
+                              disabled={deleteMutation.isPending}
+                              onClick={() => {
+                                if (window.confirm(`Remover ${patient.full_name}?`))
+                                  deleteMutation.mutate(patient.id);
+                              }}
+                              className="rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Card>
     </>

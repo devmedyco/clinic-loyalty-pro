@@ -25,17 +25,19 @@ function AdminBillingPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
           label="Clínicas"
-          value={formatNumber(data?.totals.tenants)}
-          delta={`${formatNumber(data?.totals.activeTenants)} operacionais`}
+          value={isLoading ? "..." : formatNumber(data?.totals.tenants)}
+          delta={
+            isLoading ? "carregando" : `${formatNumber(data?.totals.activeTenants)} operacionais`
+          }
         />
         <StatCard
           label="MRR previsto"
-          value={formatCurrency(data?.totals.expectedMrr)}
+          value={isLoading ? "..." : formatCurrency(data?.totals.expectedMrr)}
           delta="baseado no plano atual"
         />
         <StatCard
           label="Gateway"
-          value={data?.totals.billingConnected ? "Conectado" : "Pendente"}
+          value={isLoading ? "..." : data?.totals.billingConnected ? "Conectado" : "Pendente"}
           delta="Asaas/Stripe próximo bloco"
         />
       </div>
@@ -47,33 +49,35 @@ function AdminBillingPage() {
             Nenhuma clínica cadastrada.
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-surface text-left text-xs uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="px-5 py-3">Clínica</th>
-                <th className="px-5 py-3">Plano</th>
-                <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3">Valor previsto</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.tenants.map((tenant) => (
-                <tr key={tenant.id} className="border-t border-border">
-                  <td className="px-5 py-4">
-                    <div className="font-medium text-foreground">{tenant.name}</div>
-                    <div className="text-xs text-muted-foreground">/{tenant.slug}</div>
-                  </td>
-                  <td className="px-5 py-4 capitalize text-foreground">{tenant.plan}</td>
-                  <td className="px-5 py-4 text-muted-foreground">{tenant.billing_status}</td>
-                  <td className="px-5 py-4 font-medium text-foreground">
-                    {tenant.expected_amount > 0
-                      ? formatCurrency(tenant.expected_amount)
-                      : "Sob consulta"}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-surface text-left text-xs uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="px-5 py-3">Clínica</th>
+                  <th className="px-5 py-3">Plano</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Valor previsto</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data?.tenants.map((tenant) => (
+                  <tr key={tenant.id} className="border-t border-border">
+                    <td className="px-5 py-4">
+                      <div className="font-medium text-foreground">{tenant.name}</div>
+                      <div className="text-xs text-muted-foreground">/{tenant.slug}</div>
+                    </td>
+                    <td className="px-5 py-4 capitalize text-foreground">{tenant.plan}</td>
+                    <td className="px-5 py-4 text-muted-foreground">{tenant.billing_status}</td>
+                    <td className="px-5 py-4 font-medium text-foreground">
+                      {tenant.expected_amount > 0
+                        ? formatCurrency(tenant.expected_amount)
+                        : "Sob consulta"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </>

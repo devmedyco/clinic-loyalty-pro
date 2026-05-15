@@ -23,22 +23,22 @@ function AdminMetricsPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard
           label="Clínicas"
-          value={formatNumber(totals?.tenants)}
-          delta={`${formatNumber(totals?.activeTenants)} ativas/trial`}
+          value={isLoading ? "..." : formatNumber(totals?.tenants)}
+          delta={isLoading ? "carregando" : `${formatNumber(totals?.activeTenants)} ativas/trial`}
         />
         <StatCard
           label="Pacientes"
-          value={formatNumber(totals?.patients)}
-          delta={`${formatNumber(totals?.activePatients)} ativos`}
+          value={isLoading ? "..." : formatNumber(totals?.patients)}
+          delta={isLoading ? "carregando" : `${formatNumber(totals?.activePatients)} ativos`}
         />
         <StatCard
           label="Validações 30d"
-          value={formatNumber(totals?.validations30d)}
-          delta={`${formatNumber(totals?.deniedValidations30d)} negadas`}
+          value={isLoading ? "..." : formatNumber(totals?.validations30d)}
+          delta={isLoading ? "carregando" : `${formatNumber(totals?.deniedValidations30d)} negadas`}
         />
         <StatCard
           label="Receita executada"
-          value={formatCurrency(totals?.revenue)}
+          value={isLoading ? "..." : formatCurrency(totals?.revenue)}
           delta="atendimentos registrados"
         />
       </div>
