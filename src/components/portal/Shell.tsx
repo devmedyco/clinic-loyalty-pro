@@ -31,6 +31,13 @@ export function PortalShell({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(false);
+  const resolvedItems = items.map((item) => ({
+    ...item,
+    href: resolve(item.to, item.params),
+  }));
+  const currentHref =
+    resolvedItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+      ?.href ?? resolvedItems[0]?.href;
 
   useEffect(() => {
     const saved = window.localStorage.getItem("medyco-theme");
@@ -119,8 +126,19 @@ export function PortalShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur">
-          <div className="lg:hidden">
+          <div className="flex min-w-0 items-center gap-3 lg:hidden">
             <Logo />
+            <select
+              value={currentHref}
+              onChange={(event) => navigate({ to: event.target.value as never })}
+              className="max-w-[44vw] rounded-lg border border-input bg-surface-elevated px-2 py-2 text-xs text-foreground outline-none"
+            >
+              {resolvedItems.map((item) => (
+                <option key={item.href} value={item.href}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="hidden flex-1 lg:block">
             <input
@@ -150,8 +168,8 @@ export function PortalShell({
         </header>
         <main className="flex-1 overflow-auto p-4 pb-24 sm:p-6 lg:p-8 lg:pb-8">{children}</main>
         <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-border bg-background/95 px-2 py-2 backdrop-blur lg:hidden">
-          {items.slice(0, 5).map((it) => {
-            const href = resolve(it.to, it.params);
+          {resolvedItems.slice(0, 5).map((it) => {
+            const href = it.href;
             const active = pathname === href || (href !== "/" && pathname.startsWith(href));
             return (
               <Link
