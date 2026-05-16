@@ -1,11 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Building2, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Building2, CheckCircle2, LogOut, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Logo } from "@/components/brand/Logo";
 import { useRequireSession } from "@/hooks/use-auth-session";
+import { supabase } from "@/integrations/supabase-ext/client";
 import { getPostLoginRoute } from "@/lib/access-routing";
 import { getMyAccess } from "@/lib/auth.functions";
 import { createTenant } from "@/lib/tenants.functions";
@@ -62,6 +63,7 @@ function OnboardingPage() {
   }
 
   const busy = session.isLoading || isLoading;
+  const loggedEmail = access?.user.email;
 
   return (
     <main className="min-h-screen bg-surface">
@@ -69,6 +71,38 @@ function OnboardingPage() {
         <Logo />
         <section className="grid flex-1 items-center gap-10 py-12 lg:grid-cols-[0.9fr_1.1fr]">
           <div>
+            {loggedEmail && (
+              <div className="mb-5 rounded-xl border border-border bg-card p-4 text-sm shadow-soft">
+                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Conta atual
+                </div>
+                <div className="mt-1 font-medium text-foreground">{loggedEmail}</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await supabase.auth.signOut();
+                      navigate({
+                        to: "/login",
+                        search: { portal: "admin", redirect: "/admin" } as never,
+                      });
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-input px-3 py-2 text-xs font-medium text-foreground transition hover:bg-accent"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    Sair e entrar como admin
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate({ to: "/admin" })}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition hover:opacity-90"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Tentar abrir Admin
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
               <Building2 className="h-3.5 w-3.5 text-brand" />
               Primeiro acesso
