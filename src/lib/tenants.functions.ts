@@ -9,7 +9,7 @@ export const listMyTenants = createServerFn({ method: "GET" })
     const { data, error } = await supabase
       .from("tenants")
       .select(
-        "id, slug, name, brand_color, plan, status, monthly_fee, split_percentage, commercial_model, created_at",
+        "id, slug, name, brand_color, plan, status, monthly_fee, split_percentage, commercial_model, asaas_onboarding_status, asaas_wallet_id, asaas_api_key_ref, created_at",
       )
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);

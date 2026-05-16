@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -58,44 +58,80 @@ function TenantsPage() {
             Nenhuma clínica ainda. Crie a primeira para começar.
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-surface text-left text-xs uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="px-5 py-3">Nome</th>
-                <th className="px-5 py-3">Slug</th>
-                <th className="px-5 py-3">Mensalidade</th>
-                <th className="px-5 py-3">Split</th>
-                <th className="px-5 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tenants.map((t) => (
-                <tr key={t.id} className="border-t border-border">
-                  <td className="px-5 py-4 font-medium text-foreground">{t.name}</td>
-                  <td className="px-5 py-4 text-muted-foreground">/{t.slug}</td>
-                  <td className="px-5 py-4 text-muted-foreground">
-                    {formatCurrency(t.monthly_fee)}
-                  </td>
-                  <td className="px-5 py-4 text-muted-foreground">
-                    {formatPercent(t.split_percentage)}%
-                  </td>
-                  <td className="px-5 py-4">
-                    <span
-                      className={`rounded-md px-2 py-0.5 text-xs ${
-                        t.status === "active"
-                          ? "bg-success/15 text-success"
-                          : t.status === "trial"
-                            ? "bg-brand-soft text-brand"
-                            : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {t.status}
-                    </span>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[920px] text-sm">
+              <thead className="bg-surface text-left text-xs uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="px-5 py-3">Nome</th>
+                  <th className="px-5 py-3">Slug</th>
+                  <th className="px-5 py-3">Mensalidade</th>
+                  <th className="px-5 py-3">Split</th>
+                  <th className="px-5 py-3">Asaas</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3 text-right">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {tenants.map((t) => (
+                  <tr key={t.id} className="border-t border-border">
+                    <td className="px-5 py-4 font-medium text-foreground">{t.name}</td>
+                    <td className="px-5 py-4 text-muted-foreground">/{t.slug}</td>
+                    <td className="px-5 py-4 text-muted-foreground">
+                      {formatCurrency(t.monthly_fee)}
+                    </td>
+                    <td className="px-5 py-4 text-muted-foreground">
+                      {formatPercent(t.split_percentage)}%
+                    </td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-xs ${
+                          t.asaas_onboarding_status === "active" && t.asaas_api_key_ref
+                            ? "bg-success/15 text-success"
+                            : t.asaas_onboarding_status === "under_review" ||
+                                t.asaas_onboarding_status === "pending_documents"
+                              ? "bg-warning/15 text-warning"
+                              : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {asaasStatusLabel(t.asaas_onboarding_status)}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-xs ${
+                          t.status === "active"
+                            ? "bg-success/15 text-success"
+                            : t.status === "trial"
+                              ? "bg-brand-soft text-brand"
+                              : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {t.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          to="/app/$tenant"
+                          params={{ tenant: t.slug }}
+                          className="rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent"
+                        >
+                          Abrir
+                        </Link>
+                        <Link
+                          to="/app/$tenant/settings"
+                          params={{ tenant: t.slug }}
+                          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition hover:opacity-90"
+                        >
+                          Configurar
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </>
@@ -345,4 +381,16 @@ function formatCurrency(value?: number | string | null) {
 
 function formatPercent(value?: number | string | null) {
   return Number(value ?? 10).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+}
+
+function asaasStatusLabel(status?: string | null) {
+  const labels: Record<string, string> = {
+    not_started: "não iniciado",
+    pending_documents: "documentos",
+    under_review: "em análise",
+    active: "ativo",
+    rejected: "rejeitado",
+    disabled: "desativado",
+  };
+  return labels[status ?? "not_started"] ?? "não iniciado";
 }
