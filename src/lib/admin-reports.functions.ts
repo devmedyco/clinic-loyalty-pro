@@ -201,6 +201,7 @@ export const getAdminSettingsStatus = createServerFn({ method: "GET" })
     asaasConfigured: Boolean(process.env.ASAAS_API_KEY),
     asaasEnvironment: process.env.ASAAS_ENVIRONMENT || "sandbox",
     asaasMedycoWalletConfigured: Boolean(process.env.ASAAS_MEDYCO_WALLET_ID),
+    asaasWebhookConfigured: Boolean(process.env.ASAAS_WEBHOOK_TOKEN),
     asaasMarketplaceReady: Boolean(process.env.ASAAS_API_KEY && process.env.ASAAS_MEDYCO_WALLET_ID),
   }));
 
