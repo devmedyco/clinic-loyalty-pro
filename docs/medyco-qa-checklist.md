@@ -32,6 +32,7 @@ Use este roteiro depois de cada publish no Lovable para conferir se os três per
 - Conferir cartão digital, assinatura, histórico, rede e perfil.
 - Aceitar termos obrigatórios em `/patient/terms`.
 - Validar que o cartão só é autorizado se o paciente estiver ativo e com termos aceitos.
+- Se aparecer a tela de criar clínica, sair da conta atual e repetir o teste em janela anônima ou outro navegador. Isso indica sessão misturada, não fluxo de paciente.
 
 ## 4. Fluxo financeiro
 
@@ -53,3 +54,12 @@ Use este roteiro depois de cada publish no Lovable para conferir se os três per
 - Os três perfis precisam estar separados: admin global, clínica e paciente.
 - Convite, termo, cartão, cobrança e validação precisam funcionar ponta a ponta.
 - Os textos legais devem passar por revisão jurídica antes de vender para clientes reais.
+
+## 6. Roteiro recomendado para teste limpo
+
+- Usar três navegadores ou perfis diferentes: um para super admin, um para clínica e um para paciente.
+- Criar uma clínica com CNPJ, e-mail, telefone e CEP reais de teste.
+- Confirmar se a clínica recebeu convite da Medyco e boas-vindas do Asaas quando a subconta for criada.
+- Criar um paciente com outro e-mail, enviar convite e aceitar pelo navegador reservado ao paciente.
+- Testar login direto depois do aceite: `/admin` para dono da plataforma, `/app/slug-da-clinica` para clínica e `/patient` para paciente.
+- Ao apagar uma clínica de teste, conferir no Asaas sandbox se a subconta/carteira antiga não será reutilizada em novo teste com dados iguais.
