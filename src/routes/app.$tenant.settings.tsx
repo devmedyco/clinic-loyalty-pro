@@ -29,6 +29,7 @@ type TenantFormState = {
   city: string;
   state: string;
   monthly_fee: number;
+  split_fixed_fee: number;
   split_percentage: number;
   patient_subscription_suggestion: number;
   asaas_account_id: string;
@@ -80,7 +81,8 @@ function TenantSettingsPage() {
       city: data.tenant.city ?? "",
       state: data.tenant.state ?? "",
       monthly_fee: Number(data.tenant.monthly_fee ?? 197),
-      split_percentage: Number(data.tenant.split_percentage ?? 10),
+      split_fixed_fee: Number(data.tenant.split_fixed_fee ?? 2.9),
+      split_percentage: Number(data.tenant.split_percentage ?? 7.9),
       patient_subscription_suggestion: Number(data.tenant.patient_subscription_suggestion ?? 39.9),
       asaas_account_id: data.tenant.asaas_account_id ?? "",
       asaas_wallet_id: data.tenant.asaas_wallet_id ?? "",
@@ -307,8 +309,8 @@ function TenantSettingsPage() {
               <div className="border-t border-border pt-4 sm:col-span-2">
                 <h3 className="text-sm font-medium text-foreground">Modelo comercial</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  A Medyco cobra uma mensalidade fixa da clínica e recebe split sobre cada paciente
-                  pagante.
+                  A Medyco cobra uma mensalidade fixa da clínica, uma taxa operacional por paciente
+                  pago e uma participação percentual.
                 </p>
               </div>
               <Field
@@ -320,7 +322,17 @@ function TenantSettingsPage() {
                 onChange={(event) => setForm({ ...form, monthly_fee: Number(event.target.value) })}
               />
               <Field
-                label="Split Medyco (%)"
+                label="Taxa operacional por paciente"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.split_fixed_fee}
+                onChange={(event) =>
+                  setForm({ ...form, split_fixed_fee: Number(event.target.value) })
+                }
+              />
+              <Field
+                label="Participação Medyco (%)"
                 type="number"
                 min="0"
                 max="100"
@@ -402,7 +414,7 @@ function TenantSettingsPage() {
                 <span>
                   <span className="block text-sm font-medium text-foreground">Split ativo</span>
                   <span className="block text-xs text-muted-foreground">
-                    Solicitar 10% para a Medyco nas cobranças do paciente.
+                    Solicitar R$ 2,90 + 7,9% para a Medyco nas cobranças do paciente.
                   </span>
                 </span>
               </label>

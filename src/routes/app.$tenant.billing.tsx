@@ -42,6 +42,7 @@ type Payment = {
   due_date?: string | null;
   asaas_invoice_url?: string | null;
   asaas_split_status?: string | null;
+  asaas_split_fixed_fee?: number | string | null;
   asaas_split_percentage?: number | string | null;
   created_at: string;
   patients?: { full_name: string } | null;
@@ -160,7 +161,8 @@ function BillingPage() {
           loading={paymentMutation.isPending}
           asaasConfigured={Boolean(data?.asaasConfigured)}
           asaasMode={data?.asaasMode ?? "not_configured"}
-          splitPercentage={Number(data?.tenant?.split_percentage ?? 10)}
+          splitFixedFee={Number(data?.tenant?.split_fixed_fee ?? 2.9)}
+          splitPercentage={Number(data?.tenant?.split_percentage ?? 7.9)}
           suggestedAmount={Number(data?.tenant?.patient_subscription_suggestion ?? 39.9)}
           asaasLoading={asaasMutation.isPending}
           onClose={() => setPaymentFor(null)}
@@ -315,6 +317,9 @@ function BillingPage() {
                       {payment.asaas_split_status && (
                         <div className="mt-1 text-xs text-muted-foreground">
                           Split: {splitStatusLabel(payment.asaas_split_status)}
+                          {payment.asaas_split_fixed_fee
+                            ? ` · ${formatCurrency(payment.asaas_split_fixed_fee)}`
+                            : ""}
                           {payment.asaas_split_percentage
                             ? ` · ${formatPercent(payment.asaas_split_percentage)}%`
                             : ""}
@@ -353,6 +358,7 @@ function PaymentModal({
   loading,
   asaasConfigured,
   asaasMode,
+  splitFixedFee,
   splitPercentage,
   suggestedAmount,
   asaasLoading,
@@ -364,6 +370,7 @@ function PaymentModal({
   loading: boolean;
   asaasConfigured: boolean;
   asaasMode: string;
+  splitFixedFee: number;
   splitPercentage: number;
   suggestedAmount: number;
   asaasLoading: boolean;
@@ -505,7 +512,8 @@ function PaymentModal({
                 <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning sm:col-span-2">
                   Asaas está configurado, mas o split automático ainda não está pronto para esta
                   clínica. Configure subconta, secret da clínica e wallet Medyco para separar{" "}
-                  {formatPercent(splitPercentage)}% automaticamente.
+                  {formatCurrency(splitFixedFee)} + {formatPercent(splitPercentage)}%
+                  automaticamente.
                 </div>
               )}
             </>

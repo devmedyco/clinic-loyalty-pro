@@ -9,6 +9,11 @@ import {
   isAsaasMarketplaceConfigured,
   type AsaasSplitInput,
 } from "@/lib/asaas.server";
+import {
+  DEFAULT_SPLIT_FIXED_FEE,
+  DEFAULT_SPLIT_PERCENTAGE,
+  roundMoney,
+} from "@/lib/commercial-model";
 import { paymentReminderEmail } from "@/lib/email-templates";
 import { sendEmail } from "@/lib/email.server";
 
@@ -60,7 +65,7 @@ export const getTenantBilling = createServerFn({ method: "GET" })
       supabase
         .from("payments")
         .select(
-          "id, tenant_id, patient_id, subscription_id, amount, payment_method, status, paid_at, due_date, confirmed_at, asaas_payment_id, asaas_invoice_url, asaas_bank_slip_url, asaas_split_status, asaas_split_percentage, notes, created_at, patients(full_name)",
+          "id, tenant_id, patient_id, subscription_id, amount, payment_method, status, paid_at, due_date, confirmed_at, asaas_payment_id, asaas_invoice_url, asaas_bank_slip_url, asaas_split_status, asaas_split_fixed_fee, asaas_split_percentage, notes, created_at, patients(full_name)",
         )
         .eq("tenant_id", tenant.id)
         .order("created_at", { ascending: false })
@@ -223,12 +228,13 @@ export const createAsaasCharge = createServerFn({ method: "POST" })
         asaas_bank_slip_url: charge.bankSlipUrl,
         asaas_pix_payload: charge.pixQrCode ?? charge.payload,
         asaas_split_wallet_id: firstSplit?.walletId ?? split?.[0]?.walletId,
+        asaas_split_fixed_fee: firstSplit?.fixedValue ?? split?.[0]?.fixedValue,
         asaas_split_percentage: firstSplit?.percentualValue ?? split?.[0]?.percentualValue,
         asaas_split_status: firstSplit?.status ?? (split?.length ? "requested" : "not_applied"),
         asaas_net_value: charge.netValue,
         asaas_split_value: firstSplit?.totalValue,
         notes: split?.length
-          ? "Cobrança criada via Asaas com split Medyco solicitado."
+          ? "Cobrança criada via Asaas com taxa fixa e percentual Medyco solicitados."
           : "Cobrança criada via Asaas sem split automático. Configure subconta da clínica e wallet Medyco.",
       })
       .select(
@@ -379,7 +385,7 @@ async function resolveTenant(supabase: SupabaseClient, slug: string) {
   const { data, error } = await supabase
     .from("tenants")
     .select(
-      "id, slug, name, brand_color, plan, status, monthly_fee, split_percentage, patient_subscription_suggestion, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled",
+      "id, slug, name, brand_color, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -427,6 +433,7 @@ type TenantBillingConfig = {
   plan?: string | null;
   status: string;
   monthly_fee?: number | string | null;
+  split_fixed_fee?: number | string | null;
   split_percentage?: number | string | null;
   patient_subscription_suggestion?: number | string | null;
   asaas_account_id?: string | null;
@@ -448,15 +455,18 @@ function getTenantAsaasCredential(tenant: TenantBillingConfig) {
 
 function buildMedycoSplit(tenant: TenantBillingConfig, usesTenantCredential: boolean) {
   const walletId = process.env.ASAAS_MEDYCO_WALLET_ID?.trim();
-  const splitPercentage = Number(tenant.split_percentage ?? 10);
-  if (!walletId || !tenant.asaas_split_enabled || splitPercentage <= 0 || !usesTenantCredential) {
+  const fixedValue = roundMoney(Number(tenant.split_fixed_fee ?? DEFAULT_SPLIT_FIXED_FEE));
+  const splitPercentage = Number(tenant.split_percentage ?? DEFAULT_SPLIT_PERCENTAGE);
+  const hasSplitValue = fixedValue > 0 || splitPercentage > 0;
+  if (!walletId || !tenant.asaas_split_enabled || !hasSplitValue || !usesTenantCredential) {
     return undefined;
   }
 
   return [
     {
       walletId,
-      percentualValue: splitPercentage,
+      fixedValue: fixedValue > 0 ? fixedValue : undefined,
+      percentualValue: splitPercentage > 0 ? splitPercentage : undefined,
     },
   ] satisfies AsaasSplitInput[];
 }

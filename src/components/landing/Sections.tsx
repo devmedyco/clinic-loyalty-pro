@@ -32,7 +32,7 @@ const modules = [
   { t: "Validação por QR", d: "Recepção autoriza atendimentos em tempo real." },
   {
     t: "Assinaturas + split",
-    d: "Recorrência via Asaas com participação automática por paciente pago.",
+    d: "Recorrência via Asaas com taxa fixa e participação automática por paciente pago.",
   },
   { t: "Multi-tenant", d: "White-label nativo, com slug, domínio e branding próprios." },
   { t: "Admin global", d: "Tenants, billing, métricas, auditoria, notificações e operação SaaS." },
@@ -48,7 +48,7 @@ const platformMetrics = [
   { k: "Pacientes ativos", v: "100" },
   { k: "Assinatura sugerida", v: "R$ 39,90" },
   { k: "Receita recorrente", v: "R$ 3.990" },
-  { k: "Saldo estimado", v: "R$ 3.394" },
+  { k: "Saldo estimado", v: "R$ 3.188" },
 ];
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
@@ -152,7 +152,7 @@ export function Solution() {
               <div className="mt-3 flex items-end justify-between">
                 <div>
                   <div className="text-[10px] uppercase tracking-widest opacity-80">Modelo</div>
-                  <div className="font-medium">Base + split · mensal</div>
+                  <div className="font-medium">Base + taxa · mensal</div>
                 </div>
                 <div className="grid h-16 w-16 grid-cols-5 grid-rows-5 gap-px rounded bg-white p-1">
                   {Array.from({ length: 25 }).map((_, i) => (
@@ -285,7 +285,7 @@ export function ProductShowcase() {
                 <div className="text-xs text-muted-foreground">Relatórios · últimos 30 dias</div>
               </div>
               <div className="rounded-lg bg-brand-soft px-3 py-1 text-xs text-brand">
-                Base + split
+                Base + taxa + split
               </div>
             </div>
             <div className="grid gap-4 p-5 md:grid-cols-3">
@@ -352,11 +352,11 @@ export function Plans() {
         <div className="mx-auto max-w-2xl text-center">
           <Eyebrow>Modelo comercial</Eyebrow>
           <h2 className="mt-4 font-display text-4xl tracking-tight text-foreground md:text-5xl">
-            Mensalidade baixa. Crescimento compartilhado.
+            Mensalidade baixa. Receita recorrente para a clínica.
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            A clínica paga uma mensalidade única para usar a plataforma e a Medyco participa de cada
-            paciente pagante via split.
+            A clínica paga uma mensalidade única para usar a plataforma e uma taxa por paciente
+            pagante, mantendo a maior parte da recorrência dentro da própria operação.
           </p>
         </div>
         <div className="mt-12 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
@@ -367,9 +367,11 @@ export function Plans() {
             <div className="mt-6 font-display text-5xl text-foreground">R$ 197</div>
             <p className="mt-1 text-sm text-muted-foreground">por mês por clínica</p>
             <div className="mt-6 rounded-xl border border-border bg-surface p-4">
-              <div className="text-sm font-medium text-foreground">+ 10% via split</div>
+              <div className="text-sm font-medium text-foreground">
+                + R$ 2,90 por paciente pago + 7,9%
+              </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                aplicado somente quando o paciente paga a assinatura do cartão.
+                aplicado somente quando o paciente paga a assinatura do cartão de benefícios.
               </p>
             </div>
             <ul className="mt-6 space-y-2.5 border-t border-border pt-6">
@@ -418,11 +420,10 @@ export function Plans() {
             </div>
             <div className="mt-6 rounded-xl border border-border bg-surface p-5">
               <div className="text-sm text-muted-foreground">Resultado para a clínica</div>
-              <div className="mt-1 font-display text-4xl text-foreground">R$ 3.394/mês</div>
+              <div className="mt-1 font-display text-4xl text-foreground">R$ 3.188/mês</div>
               <p className="mt-2 text-sm text-muted-foreground">
-                Depois da mensalidade de R$ 197 e da participação de 10% sobre pacientes pagos, a
-                clínica mantém a maior parte da recorrência e ainda movimenta consultas, exames e
-                procedimentos.
+                Depois da mensalidade de R$ 197 e da taxa operacional por paciente, a clínica mantém
+                a maior parte da recorrência e ainda movimenta consultas, exames e procedimentos.
               </p>
             </div>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">

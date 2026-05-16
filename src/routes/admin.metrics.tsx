@@ -81,7 +81,9 @@ function AdminMetricsPage() {
 }
 
 function commercialModelLabel(value?: string) {
-  return value === "custom" ? "Contrato customizado" : "Base + split";
+  if (value === "custom") return "Contrato customizado";
+  if (value === "base_fixed_plus_split") return "Base + taxa + split";
+  return "Base + split";
 }
 
 function BreakdownCard({

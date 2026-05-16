@@ -19,7 +19,7 @@ function AdminBillingPage() {
     <>
       <PageHeader
         title="Billing SaaS"
-        subtitle="Mensalidade fixa das clínicas e participação Medyco por paciente pagante."
+        subtitle="Mensalidade fixa das clínicas, taxa operacional e participação por paciente pagante."
       />
       {error && <Card className="p-6 text-sm text-destructive">{(error as Error).message}</Card>}
       <div className="grid gap-4 md:grid-cols-3">
@@ -36,8 +36,12 @@ function AdminBillingPage() {
           delta="mensalidades das clínicas"
         />
         <StatCard
-          label="Split médio"
-          value={isLoading ? "..." : `${formatPercent(data?.totals.averageSplit)}%`}
+          label="Taxa média"
+          value={
+            isLoading
+              ? "..."
+              : `${formatCurrency(data?.totals.averageFixedFee)} + ${formatPercent(data?.totals.averageSplit)}%`
+          }
           delta="sobre pacientes pagos"
         />
       </div>
@@ -55,7 +59,7 @@ function AdminBillingPage() {
                 <tr>
                   <th className="px-5 py-3">Clínica</th>
                   <th className="px-5 py-3">Mensalidade</th>
-                  <th className="px-5 py-3">Split</th>
+                  <th className="px-5 py-3">Taxa por paciente</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Modelo</th>
                 </tr>
@@ -71,10 +75,11 @@ function AdminBillingPage() {
                       {formatCurrency(tenant.expected_amount)}
                     </td>
                     <td className="px-5 py-4 text-muted-foreground">
+                      {formatCurrency(tenant.split_fixed_fee)} +{" "}
                       {formatPercent(tenant.split_percentage)}%
                     </td>
                     <td className="px-5 py-4 text-muted-foreground">{tenant.billing_status}</td>
-                    <td className="px-5 py-4 text-muted-foreground">Base + split</td>
+                    <td className="px-5 py-4 text-muted-foreground">Base + taxa + split</td>
                   </tr>
                 ))}
               </tbody>

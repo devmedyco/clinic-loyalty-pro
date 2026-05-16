@@ -47,7 +47,7 @@ export function Hero() {
           </div>
 
           <p className="mt-4 text-xs text-muted-foreground">
-            R$ 197/mês + split por paciente pago · Implementação em dias · Multi-tenant white-label
+            R$ 197/mês + taxa por paciente pago · Implementação em dias · Multi-tenant white-label
           </p>
         </div>
 
@@ -91,7 +91,7 @@ export function Hero() {
                 <div className="grid grid-cols-3 gap-3">
                   {[
                     { k: "Mensalidade", v: "R$ 197", d: "clínica" },
-                    { k: "Split", v: "10%", d: "paciente pago" },
+                    { k: "Taxa paciente", v: "R$ 2,90", d: "+ 7,9%" },
                     { k: "Pacientes ativos", v: "1.847", d: "+86" },
                   ].map((c) => (
                     <div key={c.k} className="rounded-xl border border-border bg-card p-4">

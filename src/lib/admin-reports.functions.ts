@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import { DEFAULT_SPLIT_FIXED_FEE, DEFAULT_SPLIT_PERCENTAGE } from "@/lib/commercial-model";
 
 export const getAdminMetrics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -21,7 +22,7 @@ export const getAdminMetrics = createServerFn({ method: "GET" })
         supabase
           .from("tenants")
           .select(
-            "id, name, slug, status, monthly_fee, split_percentage, commercial_model, created_at",
+            "id, name, slug, status, monthly_fee, split_fixed_fee, split_percentage, commercial_model, created_at",
           )
           .order("created_at", { ascending: false })
           .limit(8),
@@ -76,7 +77,9 @@ export const getAdminBilling = createServerFn({ method: "GET" })
 
     const { data: tenants, error } = await supabase
       .from("tenants")
-      .select("id, name, slug, status, monthly_fee, split_percentage, commercial_model, created_at")
+      .select(
+        "id, name, slug, status, monthly_fee, split_fixed_fee, split_percentage, commercial_model, created_at",
+      )
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(error.message);
@@ -99,8 +102,19 @@ export const getAdminBilling = createServerFn({ method: "GET" })
         expectedMrr: rows.reduce((total, tenant) => total + tenant.expected_amount, 0),
         averageSplit:
           rows.length > 0
-            ? rows.reduce((total, tenant) => total + Number(tenant.split_percentage ?? 10), 0) /
-              rows.length
+            ? rows.reduce(
+                (total, tenant) =>
+                  total + Number(tenant.split_percentage ?? DEFAULT_SPLIT_PERCENTAGE),
+                0,
+              ) / rows.length
+            : 0,
+        averageFixedFee:
+          rows.length > 0
+            ? rows.reduce(
+                (total, tenant) =>
+                  total + Number(tenant.split_fixed_fee ?? DEFAULT_SPLIT_FIXED_FEE),
+                0,
+              ) / rows.length
             : 0,
         billingConnected: false,
       },
@@ -199,7 +213,7 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
       supabase
         .from("tenants")
         .select(
-          "id, name, slug, cnpj, email, status, monthly_fee, split_percentage, asaas_onboarding_status, asaas_api_key_ref, asaas_wallet_id",
+          "id, name, slug, cnpj, email, status, monthly_fee, split_fixed_fee, split_percentage, asaas_onboarding_status, asaas_api_key_ref, asaas_wallet_id",
         ),
       supabase.from("patients").select("id, tenant_id, status, user_id, email, cpf"),
       supabase.from("payments").select("id, tenant_id, status, asaas_payment_id"),

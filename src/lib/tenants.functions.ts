@@ -1,6 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import {
+  DEFAULT_MONTHLY_FEE,
+  DEFAULT_PATIENT_SUBSCRIPTION,
+  DEFAULT_SPLIT_FIXED_FEE,
+  DEFAULT_SPLIT_PERCENTAGE,
+} from "@/lib/commercial-model";
 
 export const listMyTenants = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -9,7 +15,7 @@ export const listMyTenants = createServerFn({ method: "GET" })
     const { data, error } = await supabase
       .from("tenants")
       .select(
-        "id, slug, name, brand_color, plan, status, monthly_fee, split_percentage, commercial_model, asaas_onboarding_status, asaas_wallet_id, asaas_api_key_ref, created_at",
+        "id, slug, name, brand_color, plan, status, monthly_fee, split_fixed_fee, split_percentage, commercial_model, asaas_onboarding_status, asaas_wallet_id, asaas_api_key_ref, created_at",
       )
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
@@ -35,6 +41,7 @@ const createTenantSchema = z.object({
     .optional(),
   plan: z.enum(["starter", "professional", "enterprise"]).optional(),
   monthly_fee: z.coerce.number().min(0).optional(),
+  split_fixed_fee: z.coerce.number().min(0).optional(),
   split_percentage: z.coerce.number().min(0).max(100).optional(),
   patient_subscription_suggestion: z.coerce.number().min(0).optional(),
   legal_name: optionalText(180),
@@ -81,6 +88,7 @@ const updateTenantSchema = z.object({
     .optional(),
   status: z.enum(["trial", "active", "paused", "canceled"]),
   monthly_fee: z.coerce.number().min(0).optional(),
+  split_fixed_fee: z.coerce.number().min(0).optional(),
   split_percentage: z.coerce.number().min(0).max(100).optional(),
   patient_subscription_suggestion: z.coerce.number().min(0).optional(),
   asaas_account_id: optionalText(120),
@@ -122,14 +130,16 @@ export const createTenant = createServerFn({ method: "POST" })
         state: data.state?.toUpperCase(),
         brand_color: data.brand_color ?? "#0ea5e9",
         plan: data.plan ?? "starter",
-        monthly_fee: data.monthly_fee ?? 197,
-        split_percentage: data.split_percentage ?? 10,
-        patient_subscription_suggestion: data.patient_subscription_suggestion ?? 39.9,
-        commercial_model: "base_plus_split",
+        monthly_fee: data.monthly_fee ?? DEFAULT_MONTHLY_FEE,
+        split_fixed_fee: data.split_fixed_fee ?? DEFAULT_SPLIT_FIXED_FEE,
+        split_percentage: data.split_percentage ?? DEFAULT_SPLIT_PERCENTAGE,
+        patient_subscription_suggestion:
+          data.patient_subscription_suggestion ?? DEFAULT_PATIENT_SUBSCRIPTION,
+        commercial_model: "base_fixed_plus_split",
         owner_id: userId,
       })
       .select(
-        "id, slug, name, brand_color, plan, status, monthly_fee, split_percentage, commercial_model",
+        "id, slug, name, brand_color, plan, status, monthly_fee, split_fixed_fee, split_percentage, commercial_model",
       )
       .single();
     if (error) throw new Error(error.message);
@@ -144,7 +154,7 @@ export const getTenantBySlug = createServerFn({ method: "GET" })
     const { data: tenant, error } = await supabase
       .from("tenants")
       .select(
-        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
+        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
       )
       .eq("slug", data.slug)
       .maybeSingle();
@@ -176,10 +186,12 @@ export const updateTenantSettings = createServerFn({ method: "POST" })
         city: data.city,
         state: data.state?.toUpperCase(),
         status: data.status,
-        monthly_fee: data.monthly_fee ?? 197,
-        split_percentage: data.split_percentage ?? 10,
-        patient_subscription_suggestion: data.patient_subscription_suggestion ?? 39.9,
-        commercial_model: "base_plus_split",
+        monthly_fee: data.monthly_fee ?? DEFAULT_MONTHLY_FEE,
+        split_fixed_fee: data.split_fixed_fee ?? DEFAULT_SPLIT_FIXED_FEE,
+        split_percentage: data.split_percentage ?? DEFAULT_SPLIT_PERCENTAGE,
+        patient_subscription_suggestion:
+          data.patient_subscription_suggestion ?? DEFAULT_PATIENT_SUBSCRIPTION,
+        commercial_model: "base_fixed_plus_split",
         asaas_account_id: data.asaas_account_id,
         asaas_wallet_id: data.asaas_wallet_id,
         asaas_api_key_ref: data.asaas_api_key_ref,
@@ -188,7 +200,7 @@ export const updateTenantSettings = createServerFn({ method: "POST" })
       })
       .eq("id", data.id)
       .select(
-        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
+        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
       )
       .single();
 

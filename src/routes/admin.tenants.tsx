@@ -65,7 +65,7 @@ function TenantsPage() {
                   <th className="px-5 py-3">Nome</th>
                   <th className="px-5 py-3">Slug</th>
                   <th className="px-5 py-3">Mensalidade</th>
-                  <th className="px-5 py-3">Split</th>
+                  <th className="px-5 py-3">Taxa paciente</th>
                   <th className="px-5 py-3">Asaas</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3 text-right">Ações</th>
@@ -80,7 +80,7 @@ function TenantsPage() {
                       {formatCurrency(t.monthly_fee)}
                     </td>
                     <td className="px-5 py-4 text-muted-foreground">
-                      {formatPercent(t.split_percentage)}%
+                      {formatCurrency(t.split_fixed_fee)} + {formatPercent(t.split_percentage)}%
                     </td>
                     <td className="px-5 py-4">
                       <span
@@ -154,7 +154,8 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
   const [state, setState] = useState("");
   const [slug, setSlug] = useState("");
   const [monthlyFee, setMonthlyFee] = useState("197");
-  const [splitPercentage, setSplitPercentage] = useState("10");
+  const [splitFixedFee, setSplitFixedFee] = useState("2.90");
+  const [splitPercentage, setSplitPercentage] = useState("7.90");
   const [patientSubscriptionSuggestion, setPatientSubscriptionSuggestion] = useState("39.90");
   const [loading, setLoading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -182,7 +183,8 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
           slug,
           plan: "starter",
           monthly_fee: Number(monthlyFee || 197),
-          split_percentage: Number(splitPercentage || 10),
+          split_fixed_fee: Number(splitFixedFee || 2.9),
+          split_percentage: Number(splitPercentage || 7.9),
           patient_subscription_suggestion: Number(patientSubscriptionSuggestion || 39.9),
         },
       });
@@ -306,7 +308,7 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
           <div className="border-t border-border pt-4 sm:col-span-2">
             <h3 className="text-sm font-medium text-foreground">Modelo comercial</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Mensalidade única + split sobre cada assinatura de paciente paga.
+              Mensalidade única + taxa operacional fixa + participação percentual por paciente pago.
             </p>
           </div>
           <Field
@@ -318,7 +320,15 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
             onChange={(e) => setMonthlyFee(e.target.value)}
           />
           <Field
-            label="Split Medyco (%)"
+            label="Taxa operacional por paciente"
+            type="number"
+            min="0"
+            step="0.01"
+            value={splitFixedFee}
+            onChange={(e) => setSplitFixedFee(e.target.value)}
+          />
+          <Field
+            label="Participação Medyco (%)"
             type="number"
             min="0"
             max="100"
@@ -380,7 +390,7 @@ function formatCurrency(value?: number | string | null) {
 }
 
 function formatPercent(value?: number | string | null) {
-  return Number(value ?? 10).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+  return Number(value ?? 7.9).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 }
 
 function asaasStatusLabel(status?: string | null) {

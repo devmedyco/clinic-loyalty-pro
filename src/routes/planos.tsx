@@ -20,8 +20,8 @@ function PlansPage() {
   return (
     <PublicPage
       eyebrow="Modelo comercial"
-      title="Uma mensalidade simples e crescimento compartilhado"
-      subtitle="A Medyco cobra uma mensalidade fixa da clínica e participa somente quando o paciente paga a assinatura do cartão de benefícios."
+      title="Uma mensalidade simples e uma taxa por paciente ativo"
+      subtitle="A clínica paga R$ 197/mês para usar a plataforma e a Medyco participa apenas quando o paciente paga a assinatura do cartão de benefícios."
     >
       <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
         <section className="rounded-2xl border border-brand bg-card p-6 shadow-elevated">
@@ -34,7 +34,7 @@ function PlansPage() {
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <Metric icon={CircleDollarSign} label="Mensalidade" value="R$ 197" />
-            <Metric icon={Percent} label="Split sugerido" value="10%" />
+            <Metric icon={Percent} label="Paciente pago" value="R$ 2,90 + 7,9%" />
           </div>
           <div className="mt-5 rounded-xl border border-border bg-surface p-4">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -42,8 +42,8 @@ function PlansPage() {
               Paciente sugerido a R$ 39,90/mês
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Esse valor pode variar conforme a estratégia comercial da clínica. A Medyco participa
-              por split somente sobre pagamentos recebidos.
+              Esse valor pode variar conforme a estratégia comercial da clínica. A taxa da Medyco só
+              entra sobre pacientes com pagamento recebido.
             </p>
           </div>
           <Link
@@ -71,13 +71,13 @@ function PlansPage() {
         <h2 className="font-display text-2xl text-foreground">Exemplo rápido</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Com 100 pacientes pagando R$ 39,90/mês, a clínica cria R$ 3.990/mês de recorrência bruta.
-          Depois da mensalidade e da participação por sucesso, mantém cerca de R$ 3.394/mês antes
-          dos próprios custos e impostos.
+          Depois da mensalidade, da taxa fixa por paciente e da participação percentual, mantém
+          cerca de R$ 3.188/mês antes dos próprios custos e impostos.
         </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           <Example label="Receita recorrente" value="R$ 3.990" />
-          <Example label="Custo plataforma" value="R$ 596" />
-          <Example label="Saldo clínica" value="R$ 3.394/mês" />
+          <Example label="Custo plataforma" value="R$ 802" />
+          <Example label="Saldo clínica" value="R$ 3.188/mês" />
         </div>
       </section>
 

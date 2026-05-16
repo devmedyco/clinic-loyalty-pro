@@ -4,7 +4,7 @@
 
 Use a Medyco como plataforma marketplace e cada clínica como subconta/carteira Asaas própria.
 
-Nesse modelo, a cobrança do paciente deve ser emitida pela conta da clínica. A Medyco entra como recebedora do split de comissão, hoje configurado como 10% por padrão.
+Nesse modelo, a cobrança do paciente deve ser emitida pela conta da clínica. A Medyco entra como recebedora do split de comissão, hoje configurado como R$ 2,90 por paciente pago + 7,9% por padrão.
 
 ## Por que esse modelo é melhor
 
@@ -41,8 +41,15 @@ Exemplo de secret por clínica:
 1. Criar ou vincular subconta Asaas da clínica.
 2. Salvar `account_id`, `wallet_id` e o nome do secret da API key no cadastro da clínica.
 3. Configurar a wallet da Medyco em `ASAAS_MEDYCO_WALLET_ID`.
-4. Ao gerar cobrança do paciente, a plataforma usa a API key da clínica e envia split de 10% para a Medyco.
+4. Ao gerar cobrança do paciente, a plataforma usa a API key da clínica e envia split de R$ 2,90 + 7,9% para a Medyco.
 5. Webhook do Asaas atualiza pagamento, assinatura e status do paciente.
+
+No modelo comercial padrão, a cobrança do paciente envia para a Medyco:
+
+- `fixedValue`: R$ 2,90 por pagamento recebido.
+- `percentualValue`: 7,9% do pagamento, conforme regra de split do Asaas.
+
+A mensalidade fixa da clínica, hoje R$ 197/mês, deve ser cobrada separadamente da clínica para a Medyco.
 
 ## Observação fiscal
 
