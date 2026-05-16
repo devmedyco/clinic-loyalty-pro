@@ -289,10 +289,10 @@ function TenantSettingsPage() {
                     </div>
                     <label
                       aria-disabled={uploading}
-                      className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground shadow-soft transition hover:bg-accent aria-disabled:pointer-events-none aria-disabled:opacity-60"
+                      className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-soft transition hover:opacity-90 aria-disabled:pointer-events-none aria-disabled:opacity-60"
                     >
                       <UploadCloud className="h-4 w-4" />
-                      {uploading ? "Enviando..." : "Escolher logo"}
+                      {uploading ? "Enviando..." : "Enviar logo"}
                       <input
                         type="file"
                         accept="image/png,image/jpeg,image/webp,image/svg+xml"
