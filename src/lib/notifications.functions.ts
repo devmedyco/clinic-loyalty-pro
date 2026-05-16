@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import { assertSuperAdminAccess } from "@/lib/admin-auth.server";
 
 const queueSchema = z.object({
   daysAhead: z.coerce.number().min(1).max(30).default(5),
@@ -10,7 +11,8 @@ const queueSchema = z.object({
 export const listAdminNotifications = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    await assertSuperAdminAccess(supabase, userId);
     const { data, error } = await supabase
       .from("notifications")
       .select(
@@ -26,7 +28,8 @@ export const queuePaymentReminderNotifications = createServerFn({ method: "POST"
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => queueSchema.parse(input ?? {}))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    await assertSuperAdminAccess(supabase, userId);
     const until = new Date();
     until.setDate(until.getDate() + data.daysAhead);
 

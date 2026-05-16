@@ -1,11 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import { assertSuperAdminAccess } from "@/lib/admin-auth.server";
 import { DEFAULT_SPLIT_FIXED_FEE, DEFAULT_SPLIT_PERCENTAGE } from "@/lib/commercial-model";
 
 export const getAdminMetrics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    await assertSuperAdminAccess(supabase, userId);
     const since30 = daysAgo(30);
 
     const [tenants, patients, validations, executions, services, invitations, recentTenants] =
@@ -73,7 +75,8 @@ export const getAdminMetrics = createServerFn({ method: "GET" })
 export const getAdminBilling = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    await assertSuperAdminAccess(supabase, userId);
 
     const { data: tenants, error } = await supabase
       .from("tenants")
@@ -125,7 +128,8 @@ export const getAdminBilling = createServerFn({ method: "GET" })
 export const getAdminAudit = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    await assertSuperAdminAccess(supabase, userId);
 
     const [validations, executions, invitations, tenants] = await Promise.all([
       supabase
@@ -194,21 +198,29 @@ export const getAdminAudit = createServerFn({ method: "GET" })
 
 export const getAdminSettingsStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => ({
-    resendConfigured: Boolean(process.env.RESEND_API_KEY),
-    emailFrom: process.env.EMAIL_FROM || "Medyco <no-reply@medyco.com.br>",
-    appBaseUrl: process.env.APP_BASE_URL || "https://medyco.com.br",
-    asaasConfigured: Boolean(process.env.ASAAS_API_KEY),
-    asaasEnvironment: process.env.ASAAS_ENVIRONMENT || "sandbox",
-    asaasMedycoWalletConfigured: Boolean(process.env.ASAAS_MEDYCO_WALLET_ID),
-    asaasWebhookConfigured: Boolean(process.env.ASAAS_WEBHOOK_TOKEN),
-    asaasMarketplaceReady: Boolean(process.env.ASAAS_API_KEY && process.env.ASAAS_MEDYCO_WALLET_ID),
-  }));
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertSuperAdminAccess(supabase, userId);
+
+    return {
+      resendConfigured: Boolean(process.env.RESEND_API_KEY),
+      emailFrom: process.env.EMAIL_FROM || "Medyco <no-reply@medyco.com.br>",
+      appBaseUrl: process.env.APP_BASE_URL || "https://medyco.com.br",
+      asaasConfigured: Boolean(process.env.ASAAS_API_KEY),
+      asaasEnvironment: process.env.ASAAS_ENVIRONMENT || "sandbox",
+      asaasMedycoWalletConfigured: Boolean(process.env.ASAAS_MEDYCO_WALLET_ID),
+      asaasWebhookConfigured: Boolean(process.env.ASAAS_WEBHOOK_TOKEN),
+      asaasMarketplaceReady: Boolean(
+        process.env.ASAAS_API_KEY && process.env.ASAAS_MEDYCO_WALLET_ID,
+      ),
+    };
+  });
 
 export const getAdminReadiness = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    await assertSuperAdminAccess(supabase, userId);
 
     const [tenants, patients, payments, legalDocuments, invitations] = await Promise.all([
       supabase

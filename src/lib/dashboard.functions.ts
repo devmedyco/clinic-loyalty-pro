@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import { assertSuperAdminAccess } from "@/lib/admin-auth.server";
 
 type CountQuery = ReturnType<ReturnType<SupabaseClient["from"]>["select"]>;
 
@@ -12,7 +13,8 @@ const tenantSlugSchema = z.object({
 export const getAdminDashboard = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    await assertSuperAdminAccess(supabase, userId);
     const since30 = daysAgo(30);
 
     const [tenants, activeTenants, patients, validations, executions, recentTenants] =
