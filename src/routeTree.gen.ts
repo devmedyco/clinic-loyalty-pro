@@ -31,6 +31,7 @@ import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AppTenantRouteImport } from './routes/app.$tenant'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
 import { Route as AdminMetricsRouteImport } from './routes/admin.metrics'
 import { Route as AdminBillingRouteImport } from './routes/admin.billing'
 import { Route as AdminAuditRouteImport } from './routes/admin.audit'
@@ -42,6 +43,8 @@ import { Route as AppTenantValidateRouteImport } from './routes/app.$tenant.vali
 import { Route as AppTenantStaffRouteImport } from './routes/app.$tenant.staff'
 import { Route as AppTenantSettingsRouteImport } from './routes/app.$tenant.settings'
 import { Route as AppTenantServicesRouteImport } from './routes/app.$tenant.services'
+import { Route as AppTenantReportsRouteImport } from './routes/app.$tenant.reports'
+import { Route as AppTenantProvidersRouteImport } from './routes/app.$tenant.providers'
 import { Route as AppTenantPatientsRouteImport } from './routes/app.$tenant.patients'
 import { Route as AppTenantFinanceRouteImport } from './routes/app.$tenant.finance'
 import { Route as AppTenantExecutionsRouteImport } from './routes/app.$tenant.executions'
@@ -158,6 +161,11 @@ const AdminSettingsRoute = AdminSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminMetricsRoute = AdminMetricsRouteImport.update({
   id: '/metrics',
   path: '/metrics',
@@ -213,6 +221,16 @@ const AppTenantServicesRoute = AppTenantServicesRouteImport.update({
   path: '/services',
   getParentRoute: () => AppTenantRoute,
 } as any)
+const AppTenantReportsRoute = AppTenantReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppTenantRoute,
+} as any)
+const AppTenantProvidersRoute = AppTenantProvidersRouteImport.update({
+  id: '/providers',
+  path: '/providers',
+  getParentRoute: () => AppTenantRoute,
+} as any)
 const AppTenantPatientsRoute = AppTenantPatientsRouteImport.update({
   id: '/patients',
   path: '/patients',
@@ -260,6 +278,7 @@ export interface FileRoutesByFullPath {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/billing': typeof AdminBillingRoute
   '/admin/metrics': typeof AdminMetricsRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/app/$tenant': typeof AppTenantRouteWithChildren
@@ -278,6 +297,8 @@ export interface FileRoutesByFullPath {
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
   '/app/$tenant/finance': typeof AppTenantFinanceRoute
   '/app/$tenant/patients': typeof AppTenantPatientsRouteWithChildren
+  '/app/$tenant/providers': typeof AppTenantProvidersRoute
+  '/app/$tenant/reports': typeof AppTenantReportsRoute
   '/app/$tenant/services': typeof AppTenantServicesRoute
   '/app/$tenant/settings': typeof AppTenantSettingsRoute
   '/app/$tenant/staff': typeof AppTenantStaffRoute
@@ -298,6 +319,7 @@ export interface FileRoutesByTo {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/billing': typeof AdminBillingRoute
   '/admin/metrics': typeof AdminMetricsRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -315,6 +337,8 @@ export interface FileRoutesByTo {
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
   '/app/$tenant/finance': typeof AppTenantFinanceRoute
   '/app/$tenant/patients': typeof AppTenantPatientsRouteWithChildren
+  '/app/$tenant/providers': typeof AppTenantProvidersRoute
+  '/app/$tenant/reports': typeof AppTenantReportsRoute
   '/app/$tenant/services': typeof AppTenantServicesRoute
   '/app/$tenant/settings': typeof AppTenantSettingsRoute
   '/app/$tenant/staff': typeof AppTenantStaffRoute
@@ -339,6 +363,7 @@ export interface FileRoutesById {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/billing': typeof AdminBillingRoute
   '/admin/metrics': typeof AdminMetricsRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/app/$tenant': typeof AppTenantRouteWithChildren
@@ -357,6 +382,8 @@ export interface FileRoutesById {
   '/app/$tenant/executions': typeof AppTenantExecutionsRoute
   '/app/$tenant/finance': typeof AppTenantFinanceRoute
   '/app/$tenant/patients': typeof AppTenantPatientsRouteWithChildren
+  '/app/$tenant/providers': typeof AppTenantProvidersRoute
+  '/app/$tenant/reports': typeof AppTenantReportsRoute
   '/app/$tenant/services': typeof AppTenantServicesRoute
   '/app/$tenant/settings': typeof AppTenantSettingsRoute
   '/app/$tenant/staff': typeof AppTenantStaffRoute
@@ -381,6 +408,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/billing'
     | '/admin/metrics'
+    | '/admin/notifications'
     | '/admin/settings'
     | '/admin/tenants'
     | '/app/$tenant'
@@ -399,6 +427,8 @@ export interface FileRouteTypes {
     | '/app/$tenant/executions'
     | '/app/$tenant/finance'
     | '/app/$tenant/patients'
+    | '/app/$tenant/providers'
+    | '/app/$tenant/reports'
     | '/app/$tenant/services'
     | '/app/$tenant/settings'
     | '/app/$tenant/staff'
@@ -419,6 +449,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/billing'
     | '/admin/metrics'
+    | '/admin/notifications'
     | '/admin/settings'
     | '/admin/tenants'
     | '/auth/callback'
@@ -436,6 +467,8 @@ export interface FileRouteTypes {
     | '/app/$tenant/executions'
     | '/app/$tenant/finance'
     | '/app/$tenant/patients'
+    | '/app/$tenant/providers'
+    | '/app/$tenant/reports'
     | '/app/$tenant/services'
     | '/app/$tenant/settings'
     | '/app/$tenant/staff'
@@ -459,6 +492,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/billing'
     | '/admin/metrics'
+    | '/admin/notifications'
     | '/admin/settings'
     | '/admin/tenants'
     | '/app/$tenant'
@@ -477,6 +511,8 @@ export interface FileRouteTypes {
     | '/app/$tenant/executions'
     | '/app/$tenant/finance'
     | '/app/$tenant/patients'
+    | '/app/$tenant/providers'
+    | '/app/$tenant/reports'
     | '/app/$tenant/services'
     | '/app/$tenant/settings'
     | '/app/$tenant/staff'
@@ -657,6 +693,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/notifications': {
+      id: '/admin/notifications'
+      path: '/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AdminNotificationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/metrics': {
       id: '/admin/metrics'
       path: '/metrics'
@@ -734,6 +777,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTenantServicesRouteImport
       parentRoute: typeof AppTenantRoute
     }
+    '/app/$tenant/reports': {
+      id: '/app/$tenant/reports'
+      path: '/reports'
+      fullPath: '/app/$tenant/reports'
+      preLoaderRoute: typeof AppTenantReportsRouteImport
+      parentRoute: typeof AppTenantRoute
+    }
+    '/app/$tenant/providers': {
+      id: '/app/$tenant/providers'
+      path: '/providers'
+      fullPath: '/app/$tenant/providers'
+      preLoaderRoute: typeof AppTenantProvidersRouteImport
+      parentRoute: typeof AppTenantRoute
+    }
     '/app/$tenant/patients': {
       id: '/app/$tenant/patients'
       path: '/patients'
@@ -797,6 +854,7 @@ interface AdminRouteChildren {
   AdminAuditRoute: typeof AdminAuditRoute
   AdminBillingRoute: typeof AdminBillingRoute
   AdminMetricsRoute: typeof AdminMetricsRoute
+  AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminTenantsRoute: typeof AdminTenantsRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -806,6 +864,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAuditRoute: AdminAuditRoute,
   AdminBillingRoute: AdminBillingRoute,
   AdminMetricsRoute: AdminMetricsRoute,
+  AdminNotificationsRoute: AdminNotificationsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminTenantsRoute: AdminTenantsRoute,
   AdminIndexRoute: AdminIndexRoute,
@@ -851,6 +910,8 @@ interface AppTenantRouteChildren {
   AppTenantExecutionsRoute: typeof AppTenantExecutionsRoute
   AppTenantFinanceRoute: typeof AppTenantFinanceRoute
   AppTenantPatientsRoute: typeof AppTenantPatientsRouteWithChildren
+  AppTenantProvidersRoute: typeof AppTenantProvidersRoute
+  AppTenantReportsRoute: typeof AppTenantReportsRoute
   AppTenantServicesRoute: typeof AppTenantServicesRoute
   AppTenantSettingsRoute: typeof AppTenantSettingsRoute
   AppTenantStaffRoute: typeof AppTenantStaffRoute
@@ -864,6 +925,8 @@ const AppTenantRouteChildren: AppTenantRouteChildren = {
   AppTenantExecutionsRoute: AppTenantExecutionsRoute,
   AppTenantFinanceRoute: AppTenantFinanceRoute,
   AppTenantPatientsRoute: AppTenantPatientsRouteWithChildren,
+  AppTenantProvidersRoute: AppTenantProvidersRoute,
+  AppTenantReportsRoute: AppTenantReportsRoute,
   AppTenantServicesRoute: AppTenantServicesRoute,
   AppTenantSettingsRoute: AppTenantSettingsRoute,
   AppTenantStaffRoute: AppTenantStaffRoute,

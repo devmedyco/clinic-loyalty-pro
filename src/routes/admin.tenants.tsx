@@ -2,7 +2,9 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
+import { lookupCnpj, normalizeSlug } from "@/lib/brasil-data";
 import { listMyTenants, createTenant } from "@/lib/tenants.functions";
 
 export const Route = createFileRoute("/admin/tenants")({
@@ -77,8 +79,8 @@ function TenantsPage() {
                         t.status === "active"
                           ? "bg-success/15 text-success"
                           : t.status === "trial"
-                          ? "bg-brand-soft text-brand"
-                          : "bg-muted text-muted-foreground"
+                            ? "bg-brand-soft text-brand"
+                            : "bg-muted text-muted-foreground"
                       }`}
                     >
                       {t.status}
@@ -97,9 +99,21 @@ function TenantsPage() {
 function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const create = useServerFn(createTenant);
   const [name, setName] = useState("");
+  const [legalName, setLegalName] = useState("");
+  const [cnpj, setCnpj] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [zipCode, setZipCode] = useState("");
+  const [street, setStreet] = useState("");
+  const [number, setNumber] = useState("");
+  const [complement, setComplement] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
   const [slug, setSlug] = useState("");
   const [plan, setPlan] = useState<"starter" | "professional" | "enterprise">("starter");
   const [loading, setLoading] = useState(false);
+  const [lookupLoading, setLookupLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
@@ -107,38 +121,146 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
     setErr(null);
     setLoading(true);
     try {
-      await create({ data: { name, slug, plan } });
+      await create({
+        data: {
+          name,
+          legal_name: legalName,
+          cnpj,
+          email,
+          phone,
+          zip_code: zipCode,
+          street,
+          number,
+          complement,
+          neighborhood,
+          city,
+          state,
+          slug,
+          plan,
+        },
+      });
       onCreated();
-    } catch (e: any) {
-      setErr(e?.message ?? "Erro ao criar clínica");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Erro ao criar clínica");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-md rounded-xl border border-border bg-surface-elevated p-6 shadow-elegant"
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border bg-surface-elevated p-6 shadow-elegant"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-display text-xl text-foreground">Nova clínica</h2>
         <p className="mt-1 text-sm text-muted-foreground">Você será o admin desta clínica.</p>
-        <form className="mt-5 space-y-4" onSubmit={onSubmit}>
-          <Field label="Nome" value={name} onChange={(e) => setName(e.target.value)} required />
+        <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={onSubmit}>
+          <Field
+            label="CNPJ"
+            value={cnpj}
+            onChange={(e) => setCnpj(e.target.value)}
+            placeholder="00.000.000/0001-00"
+          />
+          <div className="flex items-end">
+            <button
+              type="button"
+              disabled={lookupLoading || cnpj.replace(/\D/g, "").length !== 14}
+              onClick={async () => {
+                setLookupLoading(true);
+                try {
+                  const result = await lookupCnpj(cnpj);
+                  setCnpj(result.cnpj);
+                  setName(result.name || result.legal_name || name);
+                  setLegalName(result.legal_name || legalName);
+                  setEmail(result.email || email);
+                  setPhone(result.phone || phone);
+                  setZipCode(result.zip_code || zipCode);
+                  setStreet(result.street || street);
+                  setNumber(result.number || number);
+                  setComplement(result.complement || complement);
+                  setNeighborhood(result.neighborhood || neighborhood);
+                  setCity(result.city || city);
+                  setState(result.state || state);
+                  if (!slug) setSlug(normalizeSlug(result.name || result.legal_name));
+                  toast.success("Dados do CNPJ preenchidos");
+                } catch (error) {
+                  toast.error((error as Error).message);
+                } finally {
+                  setLookupLoading(false);
+                }
+              }}
+              className="w-full rounded-lg border border-input px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-accent disabled:opacity-60"
+            >
+              {lookupLoading ? "Buscando..." : "Buscar CNPJ"}
+            </button>
+          </div>
+          <Field
+            className="sm:col-span-2"
+            label="Nome fantasia"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (!slug) setSlug(normalizeSlug(e.target.value));
+            }}
+            required
+          />
+          <Field
+            className="sm:col-span-2"
+            label="Razão social"
+            value={legalName}
+            onChange={(e) => setLegalName(e.target.value)}
+          />
           <Field
             label="Slug (URL)"
             value={slug}
-            onChange={(e) => setSlug(e.target.value.toLowerCase())}
+            onChange={(e) => setSlug(normalizeSlug(e.target.value))}
             placeholder="minha-clinica"
             pattern="[a-z0-9\-]+"
             required
           />
+          <Field
+            label="E-mail"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Field label="Telefone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <Field label="CEP" value={zipCode} onChange={(e) => setZipCode(e.target.value)} />
+          <Field
+            className="sm:col-span-2"
+            label="Logradouro"
+            value={street}
+            onChange={(e) => setStreet(e.target.value)}
+          />
+          <Field label="Número" value={number} onChange={(e) => setNumber(e.target.value)} />
+          <Field
+            label="Complemento"
+            value={complement}
+            onChange={(e) => setComplement(e.target.value)}
+          />
+          <Field
+            label="Bairro"
+            value={neighborhood}
+            onChange={(e) => setNeighborhood(e.target.value)}
+          />
+          <div className="grid gap-3 sm:grid-cols-[1fr_80px]">
+            <Field label="Cidade" value={city} onChange={(e) => setCity(e.target.value)} />
+            <Field
+              label="UF"
+              maxLength={2}
+              value={state}
+              onChange={(e) => setState(e.target.value)}
+            />
+          </div>
           <label className="block">
             <span className="text-xs font-medium text-foreground">Plano</span>
             <select
               value={plan}
-              onChange={(e) => setPlan(e.target.value as any)}
+              onChange={(e) => setPlan(e.target.value as "starter" | "professional" | "enterprise")}
               className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
             >
               <option value="starter">Starter</option>
@@ -147,7 +269,7 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
             </select>
           </label>
           {err && <p className="text-sm text-destructive">{err}</p>}
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-2 sm:col-span-2">
             <button
               type="button"
               onClick={onClose}
@@ -168,9 +290,13 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
   );
 }
 
-function Field({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+function Field({
+  label,
+  className = "",
+  ...props
+}: { label: string; className?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <label className="block">
+    <label className={`block ${className}`}>
       <span className="text-xs font-medium text-foreground">{label}</span>
       <input
         {...props}

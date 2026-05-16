@@ -1,7 +1,8 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LogOut } from "lucide-react";
+import { LogOut, Moon, Sun } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { supabase } from "@/integrations/supabase-ext/client";
+import { useEffect, useState } from "react";
 import type { ComponentType, SVGProps } from "react";
 
 export type NavItem = {
@@ -29,10 +30,26 @@ export function PortalShell({
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
+  const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("medyco-theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const enabled = saved ? saved === "dark" : prefersDark;
+    setDarkMode(enabled);
+    document.documentElement.classList.toggle("dark", enabled);
+  }, []);
 
   async function onLogout() {
     await supabase.auth.signOut();
     navigate({ to: "/login" });
+  }
+
+  function toggleTheme() {
+    const next = !darkMode;
+    setDarkMode(next);
+    document.documentElement.classList.toggle("dark", next);
+    window.localStorage.setItem("medyco-theme", next ? "dark" : "light");
   }
 
   return (
@@ -112,6 +129,13 @@ export function PortalShell({
             />
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-surface-elevated px-3 py-2 text-xs text-muted-foreground transition hover:bg-accent"
+            >
+              {darkMode ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              {darkMode ? "Claro" : "Escuro"}
+            </button>
             <button className="rounded-lg border border-input bg-surface-elevated px-3 py-2 text-xs text-muted-foreground transition hover:bg-accent">
               Suporte
             </button>

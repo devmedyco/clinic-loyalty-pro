@@ -33,8 +33,16 @@ const listPatientsSchema = tenantSlugSchema.extend({
 const createPatientSchema = tenantSlugSchema.extend({
   full_name: z.string().trim().min(2).max(160),
   cpf: cpfSchema,
+  birth_date: optionalText(10),
   email: optionalText(160).pipe(z.string().email("E-mail inválido").optional()),
   phone: optionalText(40),
+  zip_code: optionalText(12),
+  street: optionalText(180),
+  number: optionalText(40),
+  complement: optionalText(120),
+  neighborhood: optionalText(120),
+  city: optionalText(120),
+  state: optionalText(2),
   status: patientStatusSchema.default("active"),
 });
 
@@ -58,8 +66,16 @@ const importPatientsSchema = tenantSlugSchema.extend({
       z.object({
         full_name: z.string().trim().min(2).max(160),
         cpf: cpfSchema,
+        birth_date: optionalText(10),
         email: optionalText(160).pipe(z.string().email("E-mail inválido").optional()),
         phone: optionalText(40),
+        zip_code: optionalText(12),
+        street: optionalText(180),
+        number: optionalText(40),
+        complement: optionalText(120),
+        neighborhood: optionalText(120),
+        city: optionalText(120),
+        state: optionalText(2),
         status: patientStatusSchema.default("active"),
       }),
     )
@@ -77,7 +93,7 @@ export const listPatients = createServerFn({ method: "GET" })
     let query = supabase
       .from("patients")
       .select(
-        "id, tenant_id, user_id, full_name, email, phone, cpf, status, created_at, updated_at, benefit_cards(id, card_number, qr_token, active, expires_at, created_at), patient_invitations(id, email, status, expires_at, created_at)",
+        "id, tenant_id, user_id, full_name, email, phone, cpf, birth_date, zip_code, street, number, complement, neighborhood, city, state, status, created_at, updated_at, benefit_cards(id, card_number, qr_token, active, expires_at, created_at), patient_invitations(id, email, status, expires_at, created_at)",
       )
       .eq("tenant_id", tenant.id)
       .order("created_at", { ascending: false });
@@ -102,7 +118,7 @@ export const getPatient = createServerFn({ method: "GET" })
     const { data: patient, error } = await supabase
       .from("patients")
       .select(
-        "id, tenant_id, user_id, full_name, email, phone, cpf, status, created_at, updated_at, benefit_cards(id, card_number, qr_token, active, expires_at, created_at)",
+        "id, tenant_id, user_id, full_name, email, phone, cpf, birth_date, zip_code, street, number, complement, neighborhood, city, state, status, created_at, updated_at, benefit_cards(id, card_number, qr_token, active, expires_at, created_at)",
       )
       .eq("tenant_id", tenant.id)
       .eq("id", data.id)
@@ -124,7 +140,7 @@ export const getPatientDetail = createServerFn({ method: "GET" })
     const { data: patient, error } = await supabase
       .from("patients")
       .select(
-        "id, tenant_id, user_id, full_name, email, phone, cpf, status, created_at, updated_at, asaas_customer_id, benefit_cards(id, card_number, qr_token, active, expires_at, created_at)",
+        "id, tenant_id, user_id, full_name, email, phone, cpf, birth_date, zip_code, street, number, complement, neighborhood, city, state, status, created_at, updated_at, asaas_customer_id, benefit_cards(id, card_number, qr_token, active, expires_at, created_at)",
       )
       .eq("tenant_id", tenant.id)
       .eq("id", data.id)
@@ -231,12 +247,20 @@ export const createPatient = createServerFn({ method: "POST" })
         tenant_id: tenant.id,
         full_name: data.full_name,
         cpf: data.cpf,
+        birth_date: data.birth_date,
         email: data.email,
         phone: data.phone,
+        zip_code: data.zip_code?.replace(/\D/g, ""),
+        street: data.street,
+        number: data.number,
+        complement: data.complement,
+        neighborhood: data.neighborhood,
+        city: data.city,
+        state: data.state?.toUpperCase(),
         status: data.status,
       })
       .select(
-        "id, tenant_id, user_id, full_name, email, phone, cpf, status, created_at, updated_at",
+        "id, tenant_id, user_id, full_name, email, phone, cpf, birth_date, zip_code, street, number, complement, neighborhood, city, state, status, created_at, updated_at",
       )
       .single();
 
@@ -287,14 +311,22 @@ export const updatePatient = createServerFn({ method: "POST" })
       .update({
         full_name: data.full_name,
         cpf: data.cpf,
+        birth_date: data.birth_date,
         email: data.email,
         phone: data.phone,
+        zip_code: data.zip_code?.replace(/\D/g, ""),
+        street: data.street,
+        number: data.number,
+        complement: data.complement,
+        neighborhood: data.neighborhood,
+        city: data.city,
+        state: data.state?.toUpperCase(),
         status: data.status,
       })
       .eq("tenant_id", tenant.id)
       .eq("id", data.id)
       .select(
-        "id, tenant_id, user_id, full_name, email, phone, cpf, status, created_at, updated_at, benefit_cards(id, card_number, qr_token, active, expires_at, created_at)",
+        "id, tenant_id, user_id, full_name, email, phone, cpf, birth_date, zip_code, street, number, complement, neighborhood, city, state, status, created_at, updated_at, benefit_cards(id, card_number, qr_token, active, expires_at, created_at)",
       )
       .single();
 
@@ -451,8 +483,16 @@ export const importPatients = createServerFn({ method: "POST" })
             tenant_id: tenant.id,
             full_name: input.full_name,
             cpf: input.cpf,
+            birth_date: input.birth_date,
             email: input.email,
             phone: input.phone,
+            zip_code: input.zip_code?.replace(/\D/g, ""),
+            street: input.street,
+            number: input.number,
+            complement: input.complement,
+            neighborhood: input.neighborhood,
+            city: input.city,
+            state: input.state?.toUpperCase(),
             status: input.status,
           })
           .select("id, full_name, email")

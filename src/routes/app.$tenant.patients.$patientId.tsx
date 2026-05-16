@@ -15,8 +15,16 @@ type PatientDetail = {
   user_id: string | null;
   full_name: string;
   cpf: string | null;
+  birth_date: string | null;
   email: string | null;
   phone: string | null;
+  zip_code: string | null;
+  street: string | null;
+  number: string | null;
+  complement: string | null;
+  neighborhood: string | null;
+  city: string | null;
+  state: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -195,8 +203,13 @@ function PatientDetailPage() {
                   items={[
                     ["Nome", patient.full_name],
                     ["CPF", formatCpf(patient.cpf)],
+                    [
+                      "Nascimento",
+                      patient.birth_date ? formatDate(patient.birth_date) : "Não informado",
+                    ],
                     ["E-mail", patient.email ?? "Sem e-mail"],
                     ["Telefone", patient.phone ?? "Sem telefone"],
+                    ["Endereço", formatAddress(patient)],
                     ["Acesso ao portal", patient.user_id ? "Criado" : "Pendente"],
                     ["Cliente Asaas", patient.asaas_customer_id ? "Vinculado" : "Não vinculado"],
                     ["Cadastro", formatDateTime(patient.created_at)],
@@ -502,6 +515,13 @@ function formatCpf(cpf?: string | null) {
   const digits = cpf.replace(/\D/g, "");
   if (digits.length !== 11) return cpf;
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+function formatAddress(patient: PatientDetail) {
+  const line = [patient.street, patient.number, patient.complement].filter(Boolean).join(", ");
+  const city = [patient.neighborhood, patient.city, patient.state].filter(Boolean).join(" · ");
+  const zip = patient.zip_code ? `CEP ${patient.zip_code}` : "";
+  return [line, city, zip].filter(Boolean).join(" - ") || "Não informado";
 }
 
 function formatDate(value: string) {

@@ -14,6 +14,12 @@ export const listMyTenants = createServerFn({ method: "GET" })
     return { tenants: data ?? [] };
   });
 
+const optionalText = (max = 180) =>
+  z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().trim().max(max).optional(),
+  );
+
 const createTenantSchema = z.object({
   name: z.string().min(2).max(120),
   slug: z
@@ -26,11 +32,23 @@ const createTenantSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/)
     .optional(),
   plan: z.enum(["starter", "professional", "enterprise"]).optional(),
+  legal_name: optionalText(180),
+  cnpj: optionalText(20),
+  email: optionalText(160).pipe(z.string().email("E-mail inválido").optional()),
+  phone: optionalText(40),
+  zip_code: optionalText(12),
+  street: optionalText(180),
+  number: optionalText(40),
+  complement: optionalText(120),
+  neighborhood: optionalText(120),
+  city: optionalText(120),
+  state: optionalText(2),
 });
 
 const updateTenantSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(2).max(120),
+  legal_name: optionalText(180),
   logo_url: z
     .preprocess(
       (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
@@ -57,6 +75,13 @@ const updateTenantSchema = z.object({
     )
     .optional(),
   status: z.enum(["trial", "active", "paused", "canceled"]),
+  zip_code: optionalText(12),
+  street: optionalText(180),
+  number: optionalText(40),
+  complement: optionalText(120),
+  neighborhood: optionalText(120),
+  city: optionalText(120),
+  state: optionalText(2),
 });
 
 export const createTenant = createServerFn({ method: "POST" })
@@ -69,6 +94,17 @@ export const createTenant = createServerFn({ method: "POST" })
       .insert({
         name: data.name,
         slug: data.slug,
+        legal_name: data.legal_name,
+        cnpj: data.cnpj?.replace(/\D/g, ""),
+        email: data.email,
+        phone: data.phone,
+        zip_code: data.zip_code?.replace(/\D/g, ""),
+        street: data.street,
+        number: data.number,
+        complement: data.complement,
+        neighborhood: data.neighborhood,
+        city: data.city,
+        state: data.state?.toUpperCase(),
         brand_color: data.brand_color ?? "#0ea5e9",
         plan: data.plan ?? "starter",
         owner_id: userId,
@@ -87,7 +123,7 @@ export const getTenantBySlug = createServerFn({ method: "GET" })
     const { data: tenant, error } = await supabase
       .from("tenants")
       .select(
-        "id, slug, name, logo_url, brand_color, email, phone, cnpj, settings, plan, status, owner_id",
+        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, owner_id",
       )
       .eq("slug", data.slug)
       .maybeSingle();
@@ -105,16 +141,24 @@ export const updateTenantSettings = createServerFn({ method: "POST" })
       .from("tenants")
       .update({
         name: data.name,
+        legal_name: data.legal_name,
         logo_url: data.logo_url,
         brand_color: data.brand_color,
         email: data.email,
         phone: data.phone,
         cnpj: data.cnpj,
+        zip_code: data.zip_code,
+        street: data.street,
+        number: data.number,
+        complement: data.complement,
+        neighborhood: data.neighborhood,
+        city: data.city,
+        state: data.state?.toUpperCase(),
         status: data.status,
       })
       .eq("id", data.id)
       .select(
-        "id, slug, name, logo_url, brand_color, email, phone, cnpj, settings, plan, status, owner_id",
+        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, owner_id",
       )
       .single();
 

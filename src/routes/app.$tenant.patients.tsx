@@ -5,6 +5,7 @@ import { Download, Eye, Send, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
+import { lookupCep } from "@/lib/brasil-data";
 import {
   createPatient,
   deletePatient,
@@ -23,8 +24,16 @@ type Patient = {
   user_id: string | null;
   full_name: string;
   cpf: string | null;
+  birth_date?: string | null;
   email: string | null;
   phone: string | null;
+  zip_code?: string | null;
+  street?: string | null;
+  number?: string | null;
+  complement?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
   status: "active" | "inactive" | "delinquent" | string;
   benefit_cards?: Array<{
     id: string;
@@ -45,16 +54,32 @@ type PatientFormState = {
   id?: string;
   full_name: string;
   cpf: string;
+  birth_date: string;
   email: string;
   phone: string;
+  zip_code: string;
+  street: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
   status: "active" | "inactive" | "delinquent";
 };
 
 const emptyPatient: PatientFormState = {
   full_name: "",
   cpf: "",
+  birth_date: "",
   email: "",
   phone: "",
+  zip_code: "",
+  street: "",
+  number: "",
+  complement: "",
+  neighborhood: "",
+  city: "",
+  state: "",
   status: "active",
 };
 
@@ -122,8 +147,16 @@ function PatientsPage() {
           patients: rows.map((row) => ({
             full_name: row.full_name,
             cpf: row.cpf,
+            birth_date: row.birth_date,
             email: row.email,
             phone: row.phone,
+            zip_code: row.zip_code,
+            street: row.street,
+            number: row.number,
+            complement: row.complement,
+            neighborhood: row.neighborhood,
+            city: row.city,
+            state: row.state,
             status: row.status,
           })),
         },
@@ -460,6 +493,7 @@ function PatientModal({
   onSubmit: (value: PatientFormState) => void;
 }) {
   const [value, setValue] = useState(initialValue);
+  const [cepLoading, setCepLoading] = useState(false);
 
   function setField<K extends keyof PatientFormState>(key: K, fieldValue: PatientFormState[K]) {
     setValue((current) => ({ ...current, [key]: fieldValue }));
@@ -471,7 +505,7 @@ function PatientModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl rounded-xl border border-border bg-surface-elevated p-6 shadow-elegant"
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border bg-surface-elevated p-6 shadow-elegant"
         onClick={(event) => event.stopPropagation()}
       >
         <h2 className="font-display text-xl text-foreground">
@@ -500,6 +534,12 @@ function PatientModal({
             onChange={(event) => setField("cpf", event.target.value)}
             placeholder="000.000.000-00"
           />
+          <Field
+            label="Nascimento"
+            type="date"
+            value={value.birth_date}
+            onChange={(event) => setField("birth_date", event.target.value)}
+          />
           <label className="block">
             <span className="text-xs font-medium text-foreground">Status</span>
             <select
@@ -527,6 +567,70 @@ function PatientModal({
             onChange={(event) => setField("phone", event.target.value)}
             placeholder="(11) 99999-0000"
           />
+          <div className="border-t border-border pt-4 sm:col-span-2">
+            <h3 className="text-sm font-medium text-foreground">Endereço</h3>
+          </div>
+          <Field
+            label="CEP"
+            value={value.zip_code}
+            onChange={(event) => setField("zip_code", event.target.value)}
+            placeholder="00000-000"
+          />
+          <div className="flex items-end">
+            <button
+              type="button"
+              disabled={cepLoading || value.zip_code.replace(/\D/g, "").length !== 8}
+              onClick={async () => {
+                setCepLoading(true);
+                try {
+                  const address = await lookupCep(value.zip_code);
+                  setValue((current) => ({ ...current, ...address }));
+                  toast.success("Endereço preenchido pelo CEP");
+                } catch (err) {
+                  toast.error((err as Error).message);
+                } finally {
+                  setCepLoading(false);
+                }
+              }}
+              className="w-full rounded-lg border border-input px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-accent disabled:opacity-60"
+            >
+              {cepLoading ? "Buscando..." : "Buscar CEP"}
+            </button>
+          </div>
+          <Field
+            className="sm:col-span-2"
+            label="Logradouro"
+            value={value.street}
+            onChange={(event) => setField("street", event.target.value)}
+          />
+          <Field
+            label="Número"
+            value={value.number}
+            onChange={(event) => setField("number", event.target.value)}
+          />
+          <Field
+            label="Complemento"
+            value={value.complement}
+            onChange={(event) => setField("complement", event.target.value)}
+          />
+          <Field
+            label="Bairro"
+            value={value.neighborhood}
+            onChange={(event) => setField("neighborhood", event.target.value)}
+          />
+          <div className="grid gap-3 sm:grid-cols-[1fr_80px]">
+            <Field
+              label="Cidade"
+              value={value.city}
+              onChange={(event) => setField("city", event.target.value)}
+            />
+            <Field
+              label="UF"
+              maxLength={2}
+              value={value.state}
+              onChange={(event) => setField("state", event.target.value)}
+            />
+          </div>
           <div className="flex gap-2 pt-2 sm:col-span-2">
             <button
               type="button"
@@ -582,8 +686,16 @@ function parsePatientsCsv(value: string): PatientFormState[] {
     return {
       full_name: row.nome || row.full_name || row.name,
       cpf: row.cpf ?? "",
+      birth_date: row.nascimento || row.birth_date || "",
       email: row.email ?? "",
       phone: row.telefone || row.phone || "",
+      zip_code: row.cep || row.zip_code || "",
+      street: row.logradouro || row.rua || row.street || "",
+      number: row.numero || row.number || "",
+      complement: row.complemento || row.complement || "",
+      neighborhood: row.bairro || row.neighborhood || "",
+      city: row.cidade || row.city || "",
+      state: row.uf || row.state || "",
       status: normalizeStatus(row.status),
     };
   });
@@ -676,8 +788,16 @@ function toFormState(patient: Patient): PatientFormState {
     id: patient.id,
     full_name: patient.full_name,
     cpf: patient.cpf ?? "",
+    birth_date: patient.birth_date ?? "",
     email: patient.email ?? "",
     phone: patient.phone ?? "",
+    zip_code: patient.zip_code ?? "",
+    street: patient.street ?? "",
+    number: patient.number ?? "",
+    complement: patient.complement ?? "",
+    neighborhood: patient.neighborhood ?? "",
+    city: patient.city ?? "",
+    state: patient.state ?? "",
     status:
       patient.status === "inactive" || patient.status === "delinquent" ? patient.status : "active",
   };

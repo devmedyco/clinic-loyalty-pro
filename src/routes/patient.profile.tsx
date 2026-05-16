@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
+import { supabase } from "@/integrations/supabase-ext/client";
 import { getPatientPortal, updatePatientPortalProfile } from "@/lib/patient-portal.functions";
 
 export const Route = createFileRoute("/patient/profile")({
@@ -21,16 +22,22 @@ function PatientProfilePage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (!data?.patient) return;
     setFullName(data.patient.full_name ?? "");
     setEmail(data.patient.email ?? "");
     setPhone(data.patient.phone ?? "");
-  }, [data?.patient]);
+    setAvatarUrl(data.profile?.avatar_url ?? "");
+  }, [data?.patient, data?.profile?.avatar_url]);
 
   const mutation = useMutation({
-    mutationFn: () => updateProfile({ data: { full_name: fullName, email, phone } }),
+    mutationFn: () =>
+      updateProfile({
+        data: { full_name: fullName, email, phone, avatar_url: avatarUrl || undefined },
+      }),
     onSuccess: async () => {
       toast.success("Perfil atualizado");
       await queryClient.invalidateQueries({ queryKey: ["patient-profile"] });
@@ -59,6 +66,38 @@ function PatientProfilePage() {
               mutation.mutate();
             }}
           >
+            <div className="flex items-center gap-4">
+              <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-brand-soft text-sm font-semibold text-brand">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  initials(fullName)
+                )}
+              </div>
+              <label className="block flex-1">
+                <span className="text-xs font-medium text-foreground">Foto do perfil</span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  disabled={uploading}
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    setUploading(true);
+                    try {
+                      const url = await uploadAvatar(file);
+                      setAvatarUrl(url);
+                      toast.success("Foto enviada. Clique em salvar para aplicar.");
+                    } catch (err) {
+                      toast.error((err as Error).message);
+                    } finally {
+                      setUploading(false);
+                    }
+                  }}
+                  className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
+                />
+              </label>
+            </div>
             <Field
               label="Nome completo"
               value={fullName}
@@ -88,6 +127,29 @@ function PatientProfilePage() {
       )}
     </>
   );
+}
+
+async function uploadAvatar(file: File) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) throw new Error("Sessão não encontrada.");
+  const extension = file.name.split(".").pop() || "png";
+  const path = `${userData.user.id}/avatar-${Date.now()}.${extension}`;
+  const { error } = await supabase.storage.from("profile-avatars").upload(path, file, {
+    upsert: true,
+    contentType: file.type,
+  });
+  if (error) throw new Error(error.message);
+  const { data } = supabase.storage.from("profile-avatars").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 }
 
 function Field({

@@ -7,6 +7,7 @@ const updatePatientProfileSchema = z.object({
   full_name: z.string().trim().min(2).max(160),
   phone: z.string().trim().max(40).optional(),
   email: z.string().trim().email().max(160).optional(),
+  avatar_url: z.string().url().max(500).optional(),
 });
 
 export const getPatientPortal = createServerFn({ method: "GET" })
@@ -36,6 +37,13 @@ export const getPatientPortal = createServerFn({ method: "GET" })
         totals: { savings: 0, paid: 0, executions: 0 },
       };
     }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, avatar_url")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profileError) throw new Error(profileError.message);
 
     const card = Array.isArray(patient.benefit_cards)
       ? patient.benefit_cards[0]
@@ -67,6 +75,7 @@ export const getPatientPortal = createServerFn({ method: "GET" })
 
     return {
       patient,
+      profile,
       tenant,
       card,
       subscription,
@@ -102,7 +111,7 @@ export const getPatientNetwork = createServerFn({ method: "GET" })
       .maybeSingle();
 
     if (patientError) throw new Error(patientError.message);
-    if (!patient) return { tenant: null, services: [] };
+    if (!patient) return { tenant: null, services: [], providers: [] };
 
     const tenant = Array.isArray(patient.tenants) ? patient.tenants[0] : patient.tenants;
     const { data: services, error: servicesError } = await supabase
@@ -112,8 +121,18 @@ export const getPatientNetwork = createServerFn({ method: "GET" })
       .eq("active", true)
       .order("name", { ascending: true });
 
+    const { data: providers, error: providersError } = await supabase
+      .from("providers")
+      .select(
+        "id, name, specialty, email, phone, address, city, state, notes, provider_services(service_id, services(id, name, description, original_price, discount_percentage, final_price))",
+      )
+      .eq("tenant_id", patient.tenant_id)
+      .eq("active", true)
+      .order("name", { ascending: true });
+
     if (servicesError) throw new Error(servicesError.message);
-    return { tenant, services: services ?? [] };
+    if (providersError) throw new Error(providersError.message);
+    return { tenant, services: services ?? [], providers: providers ?? [] };
   });
 
 export const updatePatientPortalProfile = createServerFn({ method: "POST" })
@@ -134,5 +153,14 @@ export const updatePatientPortalProfile = createServerFn({ method: "POST" })
       .single();
 
     if (error) throw new Error(error.message);
+
+    if (data.avatar_url) {
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: data.avatar_url, full_name: data.full_name, email: data.email })
+        .eq("id", userId);
+      if (profileError) throw new Error(profileError.message);
+    }
+
     return { patient };
   });
