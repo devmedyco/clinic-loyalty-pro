@@ -89,19 +89,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         property: "og:description",
         content:
-          "Transforme sua clínica em uma operação recorrente com assinatura, cartão digital e validação inteligente.",
+          "Crie seu próprio cartão de benefícios em saúde com assinatura recorrente, QR Code, portal do paciente e gestão completa para clínicas.",
       },
+      { property: "og:site_name", content: "Medyco" },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://medyco.com.br" },
       { name: "twitter:card", content: "summary_large_image" },
       {
         name: "twitter:title",
         content: "Medyco — Infraestrutura de benefícios em saúde para clínicas",
-      },
-      {
-        property: "og:description",
-        content:
-          "Crie seu próprio cartão de benefícios em saúde com assinatura recorrente, QR Code, portal do paciente e gestão completa para clínicas.",
       },
       {
         name: "twitter:description",

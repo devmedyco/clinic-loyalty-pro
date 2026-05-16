@@ -1,4 +1,14 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /app
+Disallow: /patient
+Disallow: /auth
+Disallow: /login
+Disallow: /signup
+Disallow: /reset-password
+Disallow: /onboarding
+Disallow: /invite
+Disallow: /patient-invite
 
 Sitemap: https://medyco.com.br/sitemap.xml
