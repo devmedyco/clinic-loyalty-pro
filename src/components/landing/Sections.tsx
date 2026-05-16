@@ -45,10 +45,10 @@ const modules = [
 ];
 
 const platformMetrics = [
-  { k: "Mensalidade clínica", v: "R$ 197" },
-  { k: "Split Medyco", v: "10%" },
-  { k: "Paciente sugerido", v: "R$ 39,90" },
-  { k: "Tempo de ativação", v: "dias" },
+  { k: "Pacientes ativos", v: "100" },
+  { k: "Assinatura sugerida", v: "R$ 39,90" },
+  { k: "Receita recorrente", v: "R$ 3.990" },
+  { k: "Saldo estimado", v: "R$ 3.394" },
 ];
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
@@ -417,10 +417,12 @@ export function Plans() {
               ))}
             </div>
             <div className="mt-6 rounded-xl border border-border bg-surface p-5">
-              <div className="text-sm text-muted-foreground">Receita estimada Medyco</div>
-              <div className="mt-1 font-display text-4xl text-foreground">R$ 596/mês</div>
+              <div className="text-sm text-muted-foreground">Resultado para a clínica</div>
+              <div className="mt-1 font-display text-4xl text-foreground">R$ 3.394/mês</div>
               <p className="mt-2 text-sm text-muted-foreground">
-                R$ 197 de mensalidade + R$ 399 de split sobre assinaturas pagas.
+                Depois da mensalidade de R$ 197 e da participação de 10% sobre pacientes pagos, a
+                clínica mantém a maior parte da recorrência e ainda movimenta consultas, exames e
+                procedimentos.
               </p>
             </div>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">

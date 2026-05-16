@@ -70,13 +70,14 @@ function PlansPage() {
       <section className="mt-6 rounded-2xl border border-border bg-surface p-6">
         <h2 className="font-display text-2xl text-foreground">Exemplo rápido</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Com 100 pacientes pagando R$ 39,90/mês, a Medyco recebe R$ 197 de mensalidade da clínica
-          mais R$ 399 de split, totalizando R$ 596/mês.
+          Com 100 pacientes pagando R$ 39,90/mês, a clínica cria R$ 3.990/mês de recorrência bruta.
+          Depois da mensalidade e da participação por sucesso, mantém cerca de R$ 3.394/mês antes
+          dos próprios custos e impostos.
         </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <Example label="Pacientes pagos" value="100" />
-          <Example label="Assinatura paciente" value="R$ 39,90" />
-          <Example label="Receita Medyco" value="R$ 596/mês" />
+          <Example label="Receita recorrente" value="R$ 3.990" />
+          <Example label="Custo plataforma" value="R$ 596" />
+          <Example label="Saldo clínica" value="R$ 3.394/mês" />
         </div>
       </section>
 
