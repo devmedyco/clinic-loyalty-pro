@@ -64,7 +64,9 @@ export const getPatientPortal = createServerFn({ method: "GET" })
           .limit(50),
         supabase
           .from("payments")
-          .select("id, amount, payment_method, status, paid_at, created_at")
+          .select(
+            "id, amount, payment_method, status, paid_at, due_date, asaas_invoice_url, asaas_bank_slip_url, created_at",
+          )
           .eq("patient_id", patient.id)
           .order("created_at", { ascending: false })
           .limit(20),

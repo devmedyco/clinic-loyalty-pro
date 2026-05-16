@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
+import { ExternalLink } from "lucide-react";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
 import { getPatientPortal } from "@/lib/patient-portal.functions";
 
@@ -72,15 +73,29 @@ function PatientSubscriptionPage() {
             ) : (
               <div className="divide-y divide-border">
                 {data.payments.map((payment) => (
-                  <div key={payment.id} className="flex items-center justify-between px-5 py-4">
+                  <div
+                    key={payment.id}
+                    className="flex items-center justify-between gap-4 px-5 py-4"
+                  >
                     <div>
                       <div className="text-sm font-medium text-foreground">
                         {formatCurrency(payment.amount)}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {payment.payment_method} •{" "}
-                        {formatDate(payment.paid_at ?? payment.created_at)}
+                        {formatDate(payment.paid_at ?? payment.due_date ?? payment.created_at)}
                       </div>
+                      {payment.status !== "paid" && payment.asaas_invoice_url && (
+                        <a
+                          href={payment.asaas_invoice_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
+                        >
+                          Abrir cobrança
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
                     </div>
                     <span className="rounded-md bg-brand-soft px-2 py-0.5 text-xs text-brand">
                       {paymentLabel(payment.status)}

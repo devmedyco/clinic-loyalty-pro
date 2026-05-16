@@ -14,6 +14,9 @@ import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as PatientRouteImport } from './routes/patient'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as EntrarPacienteRouteImport } from './routes/entrar-paciente'
+import { Route as EntrarClinicaRouteImport } from './routes/entrar-clinica'
+import { Route as EntrarAdminRouteImport } from './routes/entrar-admin'
 import { Route as ContatoRouteImport } from './routes/contato'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/_auth'
@@ -75,6 +78,21 @@ const PatientRoute = PatientRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EntrarPacienteRoute = EntrarPacienteRouteImport.update({
+  id: '/entrar-paciente',
+  path: '/entrar-paciente',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EntrarClinicaRoute = EntrarClinicaRouteImport.update({
+  id: '/entrar-clinica',
+  path: '/entrar-clinica',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EntrarAdminRoute = EntrarAdminRouteImport.update({
+  id: '/entrar-admin',
+  path: '/entrar-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContatoRoute = ContatoRouteImport.update({
@@ -267,6 +285,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/contato': typeof ContatoRoute
+  '/entrar-admin': typeof EntrarAdminRoute
+  '/entrar-clinica': typeof EntrarClinicaRoute
+  '/entrar-paciente': typeof EntrarPacienteRoute
   '/onboarding': typeof OnboardingRoute
   '/patient': typeof PatientRouteWithChildren
   '/planos': typeof PlanosRoute
@@ -309,6 +330,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/contato': typeof ContatoRoute
+  '/entrar-admin': typeof EntrarAdminRoute
+  '/entrar-clinica': typeof EntrarClinicaRoute
+  '/entrar-paciente': typeof EntrarPacienteRoute
   '/onboarding': typeof OnboardingRoute
   '/planos': typeof PlanosRoute
   '/privacidade': typeof PrivacidadeRoute
@@ -352,6 +376,9 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteWithChildren
   '/admin': typeof AdminRouteWithChildren
   '/contato': typeof ContatoRoute
+  '/entrar-admin': typeof EntrarAdminRoute
+  '/entrar-clinica': typeof EntrarClinicaRoute
+  '/entrar-paciente': typeof EntrarPacienteRoute
   '/onboarding': typeof OnboardingRoute
   '/patient': typeof PatientRouteWithChildren
   '/planos': typeof PlanosRoute
@@ -397,6 +424,9 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/contato'
+    | '/entrar-admin'
+    | '/entrar-clinica'
+    | '/entrar-paciente'
     | '/onboarding'
     | '/patient'
     | '/planos'
@@ -439,6 +469,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/contato'
+    | '/entrar-admin'
+    | '/entrar-clinica'
+    | '/entrar-paciente'
     | '/onboarding'
     | '/planos'
     | '/privacidade'
@@ -481,6 +514,9 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/admin'
     | '/contato'
+    | '/entrar-admin'
+    | '/entrar-clinica'
+    | '/entrar-paciente'
     | '/onboarding'
     | '/patient'
     | '/planos'
@@ -526,6 +562,9 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
   ContatoRoute: typeof ContatoRoute
+  EntrarAdminRoute: typeof EntrarAdminRoute
+  EntrarClinicaRoute: typeof EntrarClinicaRoute
+  EntrarPacienteRoute: typeof EntrarPacienteRoute
   OnboardingRoute: typeof OnboardingRoute
   PatientRoute: typeof PatientRouteWithChildren
   PlanosRoute: typeof PlanosRoute
@@ -572,6 +611,27 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/entrar-paciente': {
+      id: '/entrar-paciente'
+      path: '/entrar-paciente'
+      fullPath: '/entrar-paciente'
+      preLoaderRoute: typeof EntrarPacienteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/entrar-clinica': {
+      id: '/entrar-clinica'
+      path: '/entrar-clinica'
+      fullPath: '/entrar-clinica'
+      preLoaderRoute: typeof EntrarClinicaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/entrar-admin': {
+      id: '/entrar-admin'
+      path: '/entrar-admin'
+      fullPath: '/entrar-admin'
+      preLoaderRoute: typeof EntrarAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contato': {
@@ -943,6 +1003,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
   ContatoRoute: ContatoRoute,
+  EntrarAdminRoute: EntrarAdminRoute,
+  EntrarClinicaRoute: EntrarClinicaRoute,
+  EntrarPacienteRoute: EntrarPacienteRoute,
   OnboardingRoute: OnboardingRoute,
   PatientRoute: PatientRouteWithChildren,
   PlanosRoute: PlanosRoute,
