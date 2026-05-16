@@ -128,6 +128,7 @@ async function asaasRequest<T>(path: string, init: RequestInit & { apiKey?: stri
     ...requestInit,
     headers: {
       "Content-Type": "application/json",
+      "User-Agent": getUserAgent(),
       access_token: apiKey,
       ...(requestInit.headers ?? {}),
     },
@@ -143,6 +144,14 @@ async function asaasRequest<T>(path: string, init: RequestInit & { apiKey?: stri
 
 function getEnvironment(): AsaasEnvironment {
   return process.env.ASAAS_ENVIRONMENT === "production" ? "production" : "sandbox";
+}
+
+function getUserAgent() {
+  return (
+    process.env.ASAAS_USER_AGENT ||
+    process.env.APP_BASE_URL ||
+    "Medyco/1.0 (+https://medyco.com.br; contato@medyco.com.br)"
+  );
 }
 
 function removeEmptyValues<T extends Record<string, unknown>>(value: T) {
