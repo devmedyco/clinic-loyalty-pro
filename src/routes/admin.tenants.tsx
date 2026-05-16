@@ -166,7 +166,7 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
     setErr(null);
     setLoading(true);
     try {
-      await create({
+      const result = await create({
         data: {
           name,
           legal_name: legalName,
@@ -188,6 +188,13 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
           patient_subscription_suggestion: Number(patientSubscriptionSuggestion || 39.9),
         },
       });
+      if (email && result.clinicInvite?.emailResult?.sent) {
+        toast.success("Clínica criada e convite enviado para o e-mail cadastrado.");
+      } else if (email) {
+        toast.warning("Clínica criada, mas o convite por e-mail não foi confirmado.");
+      } else {
+        toast.success("Clínica criada.");
+      }
       onCreated();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Erro ao criar clínica");

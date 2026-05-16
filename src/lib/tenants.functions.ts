@@ -1,4 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
 import { createAsaasSubaccount } from "@/lib/asaas.server";
@@ -8,6 +10,8 @@ import {
   DEFAULT_SPLIT_FIXED_FEE,
   DEFAULT_SPLIT_PERCENTAGE,
 } from "@/lib/commercial-model";
+import { clinicOnboardingEmail } from "@/lib/email-templates";
+import { sendEmail } from "@/lib/email.server";
 
 export const listMyTenants = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -171,7 +175,17 @@ export const createTenant = createServerFn({ method: "POST" })
       )
       .single();
     if (error) throw new Error(error.message);
-    return { tenant };
+
+    const clinicInvite = data.email
+      ? await createClinicAdminInvite({
+          supabase,
+          tenant,
+          email: data.email,
+          invitedBy: userId,
+        })
+      : null;
+
+    return { tenant, clinicInvite };
   });
 
 export const createTenantAsaasSubaccount = createServerFn({ method: "POST" })
@@ -251,6 +265,64 @@ function toSecretSlug(value: string) {
     .replace(/[^a-zA-Z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "")
     .toUpperCase();
+}
+
+async function createClinicAdminInvite({
+  supabase,
+  tenant,
+  email,
+  invitedBy,
+}: {
+  supabase: SupabaseClient;
+  tenant: { id: string; slug: string; name: string };
+  email: string;
+  invitedBy: string;
+}) {
+  const normalizedEmail = email.toLowerCase();
+  const { data: invitation, error } = await supabase
+    .from("staff_invitations")
+    .insert({
+      tenant_id: tenant.id,
+      email: normalizedEmail,
+      role: "tenant_admin",
+      invited_by: invitedBy,
+    })
+    .select("id, token, email, status, expires_at")
+    .single();
+
+  if (error) {
+    return {
+      sent: false,
+      reason: "invite_error",
+      error: error.message,
+    };
+  }
+
+  const inviteUrl = buildStaffInviteUrl(invitation.token);
+  const template = clinicOnboardingEmail({
+    tenantName: tenant.name,
+    inviteUrl,
+    expiresAt: invitation.expires_at,
+  });
+  const emailResult = await sendEmail({ to: normalizedEmail, ...template });
+
+  return {
+    invitation: {
+      id: invitation.id,
+      email: invitation.email,
+      status: invitation.status,
+      expires_at: invitation.expires_at,
+    },
+    inviteUrl,
+    emailResult,
+  };
+}
+
+function buildStaffInviteUrl(token: string) {
+  const request = getRequest();
+  const requestOrigin = request ? new URL(request.url).origin : undefined;
+  const baseUrl = process.env.APP_BASE_URL || requestOrigin || "https://medyco.com.br";
+  return `${baseUrl.replace(/\/$/, "")}/invite/${token}`;
 }
 
 export const getTenantBySlug = createServerFn({ method: "GET" })

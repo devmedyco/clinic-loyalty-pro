@@ -37,6 +37,38 @@ export function staffInviteEmail(input: StaffInviteEmailInput) {
   return { subject, html, text };
 }
 
+export function clinicOnboardingEmail(input: {
+  tenantName: string;
+  inviteUrl: string;
+  expiresAt: string;
+}) {
+  const subject = `${input.tenantName}: seu painel Medyco foi criado`;
+  const text = [
+    `Sua clínica foi cadastrada na Medyco.`,
+    `Acesse o link abaixo para criar sua senha e entrar no painel administrativo da clínica.`,
+    `Acesse: ${input.inviteUrl}`,
+    `Este convite expira em ${formatDate(input.expiresAt)}.`,
+  ].join("\n\n");
+
+  const html = baseEmail({
+    eyebrow: "Boas-vindas",
+    title: "Seu painel Medyco foi criado",
+    body: `
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#475569">
+        A clínica <strong>${escapeHtml(input.tenantName)}</strong> já está cadastrada na Medyco.
+      </p>
+      <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#475569">
+        Use o botão abaixo para criar sua senha e acessar o painel administrativo da clínica. Por lá será possível configurar a operação, cadastrar pacientes e validar cartões.
+      </p>
+    `,
+    buttonLabel: "Acessar painel da clínica",
+    buttonUrl: input.inviteUrl,
+    footer: `Este convite expira em ${formatDate(input.expiresAt)}. Se o botão não funcionar, copie este link:`,
+  });
+
+  return { subject, html, text };
+}
+
 type PatientInviteEmailInput = {
   tenantName: string;
   patientName: string;
