@@ -45,9 +45,45 @@ function AdminSettingsPage() {
           </div>
         </Card>
         <Card className="p-6">
+          <h2 className="font-display text-xl text-foreground">Asaas marketplace</h2>
+          <div className="mt-5 space-y-3 text-sm">
+            <SettingRow
+              label="API key Asaas"
+              value={isLoading ? "verificando" : data?.asaasConfigured ? "configurada" : "pendente"}
+              active={Boolean(data?.asaasConfigured)}
+            />
+            <SettingRow
+              label="Ambiente"
+              value={data?.asaasEnvironment === "production" ? "produção" : "sandbox"}
+              active={Boolean(data?.asaasConfigured)}
+            />
+            <SettingRow
+              label="Wallet Medyco"
+              value={
+                isLoading
+                  ? "verificando"
+                  : data?.asaasMedycoWalletConfigured
+                    ? "configurada"
+                    : "pendente"
+              }
+              active={Boolean(data?.asaasMedycoWalletConfigured)}
+            />
+            <SettingRow
+              label="Split automático"
+              value={
+                isLoading
+                  ? "verificando"
+                  : data?.asaasMarketplaceReady
+                    ? "pronto para subcontas"
+                    : "aguardando configuração"
+              }
+              active={Boolean(data?.asaasMarketplaceReady)}
+            />
+          </div>
+        </Card>
+        <Card className="p-6">
           <h2 className="font-display text-xl text-foreground">Próximas conexões</h2>
           <div className="mt-5 space-y-3 text-sm">
-            <SettingRow label="Billing" value="Asaas/Stripe pendente" />
             <SettingRow label="Backup" value="configurar rotina Supabase" />
             <SettingRow label="Monitoramento" value="Sentry pendente" />
           </div>

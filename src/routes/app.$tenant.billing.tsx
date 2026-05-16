@@ -41,6 +41,8 @@ type Payment = {
   paid_at: string | null;
   due_date?: string | null;
   asaas_invoice_url?: string | null;
+  asaas_split_status?: string | null;
+  asaas_split_percentage?: number | string | null;
   created_at: string;
   patients?: { full_name: string } | null;
 };
@@ -157,6 +159,9 @@ function BillingPage() {
           subscription={paymentFor}
           loading={paymentMutation.isPending}
           asaasConfigured={Boolean(data?.asaasConfigured)}
+          asaasMode={data?.asaasMode ?? "not_configured"}
+          splitPercentage={Number(data?.tenant?.split_percentage ?? 10)}
+          suggestedAmount={Number(data?.tenant?.patient_subscription_suggestion ?? 39.9)}
           asaasLoading={asaasMutation.isPending}
           onClose={() => setPaymentFor(null)}
           onSubmit={(input) => paymentMutation.mutate(input)}
@@ -307,6 +312,14 @@ function BillingPage() {
                           <ExternalLink className="h-3 w-3" />
                         </a>
                       )}
+                      {payment.asaas_split_status && (
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Split: {splitStatusLabel(payment.asaas_split_status)}
+                          {payment.asaas_split_percentage
+                            ? ` · ${formatPercent(payment.asaas_split_percentage)}%`
+                            : ""}
+                        </div>
+                      )}
                       {payment.status !== "paid" && (
                         <button
                           disabled={reminderMutation.isPending}
@@ -339,6 +352,9 @@ function PaymentModal({
   subscription,
   loading,
   asaasConfigured,
+  asaasMode,
+  splitPercentage,
+  suggestedAmount,
   asaasLoading,
   onClose,
   onSubmit,
@@ -347,6 +363,9 @@ function PaymentModal({
   subscription: Subscription;
   loading: boolean;
   asaasConfigured: boolean;
+  asaasMode: string;
+  splitPercentage: number;
+  suggestedAmount: number;
   asaasLoading: boolean;
   onClose: () => void;
   onSubmit: (input: {
@@ -364,7 +383,7 @@ function PaymentModal({
   }) => void;
 }) {
   const [mode, setMode] = useState<"asaas" | "manual">("asaas");
-  const [amount, setAmount] = useState("99");
+  const [amount, setAmount] = useState(String(suggestedAmount || 39.9));
   const [paymentMethod, setPaymentMethod] = useState("PIX");
   const [status, setStatus] = useState("paid");
   const [notes, setNotes] = useState("");
@@ -482,6 +501,13 @@ function PaymentModal({
                   Configure ASAAS_API_KEY nos secrets antes de gerar cobranças reais.
                 </div>
               )}
+              {asaasConfigured && asaasMode !== "tenant_subaccount_split" && (
+                <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning sm:col-span-2">
+                  Asaas está configurado, mas o split automático ainda não está pronto para esta
+                  clínica. Configure subconta, secret da clínica e wallet Medyco para separar{" "}
+                  {formatPercent(splitPercentage)}% automaticamente.
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -593,6 +619,22 @@ function formatCurrency(value?: number | string) {
     style: "currency",
     currency: "BRL",
   }).format(Number(value ?? 0));
+}
+
+function formatPercent(value?: number | string) {
+  return Number(value ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+}
+
+function splitStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    requested: "solicitado",
+    not_applied: "não aplicado",
+    DONE: "concluído",
+    PENDING: "pendente",
+    CANCELLED: "cancelado",
+    REFUSED: "recusado",
+  };
+  return labels[status] ?? status;
 }
 
 function formatDate(value: string) {

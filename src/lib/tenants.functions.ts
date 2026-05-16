@@ -83,6 +83,13 @@ const updateTenantSchema = z.object({
   monthly_fee: z.coerce.number().min(0).optional(),
   split_percentage: z.coerce.number().min(0).max(100).optional(),
   patient_subscription_suggestion: z.coerce.number().min(0).optional(),
+  asaas_account_id: optionalText(120),
+  asaas_wallet_id: optionalText(120),
+  asaas_api_key_ref: optionalText(120),
+  asaas_onboarding_status: z
+    .enum(["not_started", "pending_documents", "under_review", "active", "rejected", "disabled"])
+    .default("not_started"),
+  asaas_split_enabled: z.boolean().default(true),
   zip_code: optionalText(12),
   street: optionalText(180),
   number: optionalText(40),
@@ -137,7 +144,7 @@ export const getTenantBySlug = createServerFn({ method: "GET" })
     const { data: tenant, error } = await supabase
       .from("tenants")
       .select(
-        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_percentage, patient_subscription_suggestion, commercial_model, owner_id",
+        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
       )
       .eq("slug", data.slug)
       .maybeSingle();
@@ -173,10 +180,15 @@ export const updateTenantSettings = createServerFn({ method: "POST" })
         split_percentage: data.split_percentage ?? 10,
         patient_subscription_suggestion: data.patient_subscription_suggestion ?? 39.9,
         commercial_model: "base_plus_split",
+        asaas_account_id: data.asaas_account_id,
+        asaas_wallet_id: data.asaas_wallet_id,
+        asaas_api_key_ref: data.asaas_api_key_ref,
+        asaas_onboarding_status: data.asaas_onboarding_status,
+        asaas_split_enabled: data.asaas_split_enabled,
       })
       .eq("id", data.id)
       .select(
-        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_percentage, patient_subscription_suggestion, commercial_model, owner_id",
+        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
       )
       .single();
 

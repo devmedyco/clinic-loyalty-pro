@@ -31,6 +31,17 @@ type TenantFormState = {
   monthly_fee: number;
   split_percentage: number;
   patient_subscription_suggestion: number;
+  asaas_account_id: string;
+  asaas_wallet_id: string;
+  asaas_api_key_ref: string;
+  asaas_onboarding_status:
+    | "not_started"
+    | "pending_documents"
+    | "under_review"
+    | "active"
+    | "rejected"
+    | "disabled";
+  asaas_split_enabled: boolean;
   status: "trial" | "active" | "paused" | "canceled";
 };
 
@@ -71,6 +82,11 @@ function TenantSettingsPage() {
       monthly_fee: Number(data.tenant.monthly_fee ?? 197),
       split_percentage: Number(data.tenant.split_percentage ?? 10),
       patient_subscription_suggestion: Number(data.tenant.patient_subscription_suggestion ?? 39.9),
+      asaas_account_id: data.tenant.asaas_account_id ?? "",
+      asaas_wallet_id: data.tenant.asaas_wallet_id ?? "",
+      asaas_api_key_ref: data.tenant.asaas_api_key_ref ?? "",
+      asaas_onboarding_status: data.tenant.asaas_onboarding_status ?? "not_started",
+      asaas_split_enabled: data.tenant.asaas_split_enabled ?? true,
       status: data.tenant.status,
     });
   }, [data?.tenant]);
@@ -327,6 +343,69 @@ function TenantSettingsPage() {
                   })
                 }
               />
+              <div className="border-t border-border pt-4 sm:col-span-2">
+                <h3 className="text-sm font-medium text-foreground">Asaas marketplace</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Modelo recomendado: a clínica recebe na própria subconta/carteira e a Medyco
+                  recebe o split automático.
+                </p>
+              </div>
+              <Field
+                label="ID da conta Asaas"
+                value={form.asaas_account_id}
+                onChange={(event) => setForm({ ...form, asaas_account_id: event.target.value })}
+                placeholder="Opcional"
+              />
+              <Field
+                label="Wallet ID da clínica"
+                value={form.asaas_wallet_id}
+                onChange={(event) => setForm({ ...form, asaas_wallet_id: event.target.value })}
+                placeholder="wallet da subconta"
+              />
+              <Field
+                className="sm:col-span-2"
+                label="Nome do secret da API key da clínica"
+                value={form.asaas_api_key_ref}
+                onChange={(event) => setForm({ ...form, asaas_api_key_ref: event.target.value })}
+                placeholder="Ex.: ASAAS_TENANT_SANTAVIDA_API_KEY"
+              />
+              <label className="block">
+                <span className="text-xs font-medium text-foreground">Status Asaas</span>
+                <select
+                  value={form.asaas_onboarding_status}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      asaas_onboarding_status: event.target
+                        .value as TenantFormState["asaas_onboarding_status"],
+                    })
+                  }
+                  className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
+                >
+                  <option value="not_started">Não iniciado</option>
+                  <option value="pending_documents">Documentos pendentes</option>
+                  <option value="under_review">Em análise</option>
+                  <option value="active">Ativo</option>
+                  <option value="rejected">Rejeitado</option>
+                  <option value="disabled">Desativado</option>
+                </select>
+              </label>
+              <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
+                <input
+                  type="checkbox"
+                  checked={form.asaas_split_enabled}
+                  onChange={(event) =>
+                    setForm({ ...form, asaas_split_enabled: event.target.checked })
+                  }
+                  className="h-4 w-4"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-foreground">Split ativo</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Solicitar 10% para a Medyco nas cobranças do paciente.
+                  </span>
+                </span>
+              </label>
               <label className="block">
                 <span className="text-xs font-medium text-foreground">Cor principal</span>
                 <div className="mt-1.5 flex gap-2">

@@ -184,6 +184,10 @@ export const getAdminSettingsStatus = createServerFn({ method: "GET" })
     resendConfigured: Boolean(process.env.RESEND_API_KEY),
     emailFrom: process.env.EMAIL_FROM || "Medyco <no-reply@medyco.com.br>",
     appBaseUrl: process.env.APP_BASE_URL || "https://medyco.com.br",
+    asaasConfigured: Boolean(process.env.ASAAS_API_KEY),
+    asaasEnvironment: process.env.ASAAS_ENVIRONMENT || "sandbox",
+    asaasMedycoWalletConfigured: Boolean(process.env.ASAAS_MEDYCO_WALLET_ID),
+    asaasMarketplaceReady: Boolean(process.env.ASAAS_API_KEY && process.env.ASAAS_MEDYCO_WALLET_ID),
   }));
 
 function groupCount<T extends Record<string, unknown>>(rows: T[], key: keyof T) {

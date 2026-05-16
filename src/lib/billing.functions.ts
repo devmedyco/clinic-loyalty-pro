@@ -2,7 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
-import { createAsaasCustomer, createAsaasPayment, isAsaasConfigured } from "@/lib/asaas.server";
+import {
+  createAsaasCustomer,
+  createAsaasPayment,
+  isAsaasConfigured,
+  isAsaasMarketplaceConfigured,
+  type AsaasSplitInput,
+} from "@/lib/asaas.server";
 import { paymentReminderEmail } from "@/lib/email-templates";
 import { sendEmail } from "@/lib/email.server";
 
@@ -54,7 +60,7 @@ export const getTenantBilling = createServerFn({ method: "GET" })
       supabase
         .from("payments")
         .select(
-          "id, tenant_id, patient_id, subscription_id, amount, payment_method, status, paid_at, due_date, confirmed_at, asaas_payment_id, asaas_invoice_url, asaas_bank_slip_url, notes, created_at, patients(full_name)",
+          "id, tenant_id, patient_id, subscription_id, amount, payment_method, status, paid_at, due_date, confirmed_at, asaas_payment_id, asaas_invoice_url, asaas_bank_slip_url, asaas_split_status, asaas_split_percentage, notes, created_at, patients(full_name)",
         )
         .eq("tenant_id", tenant.id)
         .order("created_at", { ascending: false })
@@ -70,6 +76,8 @@ export const getTenantBilling = createServerFn({ method: "GET" })
     return {
       tenant,
       asaasConfigured: isAsaasConfigured(),
+      asaasMarketplaceConfigured: isAsaasMarketplaceConfigured(),
+      asaasMode: getAsaasModeLabel(tenant),
       totals: {
         subscriptions: subscriptionRows.length,
         active: subscriptionRows.filter((item) => ["trial", "active"].includes(item.status)).length,
@@ -177,13 +185,16 @@ export const createAsaasCharge = createServerFn({ method: "POST" })
 
     const customerId =
       patient.asaas_customer_id ||
-      (await createAndStoreAsaasCustomer(supabase, tenant.id, {
+      (await createAndStoreAsaasCustomer(supabase, tenant, {
         id: patient.id,
         full_name: patient.full_name,
         email: patient.email,
         phone: patient.phone,
         cpf: patient.cpf,
       }));
+
+    const asaasCredential = getTenantAsaasCredential(tenant);
+    const split = buildMedycoSplit(tenant, asaasCredential.usesTenantCredential);
 
     const charge = await createAsaasPayment({
       customer: customerId,
@@ -192,7 +203,10 @@ export const createAsaasCharge = createServerFn({ method: "POST" })
       dueDate: data.due_date,
       description: `Assinatura de benefícios - ${tenant.name}`,
       externalReference: subscription.id,
+      split,
+      apiKey: asaasCredential.apiKey,
     });
+    const firstSplit = charge.split?.[0];
 
     const { data: payment, error } = await supabase
       .from("payments")
@@ -208,7 +222,14 @@ export const createAsaasCharge = createServerFn({ method: "POST" })
         asaas_invoice_url: charge.invoiceUrl,
         asaas_bank_slip_url: charge.bankSlipUrl,
         asaas_pix_payload: charge.pixQrCode ?? charge.payload,
-        notes: "Cobrança criada via Asaas.",
+        asaas_split_wallet_id: firstSplit?.walletId ?? split?.[0]?.walletId,
+        asaas_split_percentage: firstSplit?.percentualValue ?? split?.[0]?.percentualValue,
+        asaas_split_status: firstSplit?.status ?? (split?.length ? "requested" : "not_applied"),
+        asaas_net_value: charge.netValue,
+        asaas_split_value: firstSplit?.totalValue,
+        notes: split?.length
+          ? "Cobrança criada via Asaas com split Medyco solicitado."
+          : "Cobrança criada via Asaas sem split automático. Configure subconta da clínica e wallet Medyco.",
       })
       .select(
         "id, amount, payment_method, status, due_date, asaas_payment_id, asaas_invoice_url, created_at",
@@ -357,7 +378,9 @@ async function syncPatientStatus(
 async function resolveTenant(supabase: SupabaseClient, slug: string) {
   const { data, error } = await supabase
     .from("tenants")
-    .select("id, slug, name, brand_color, plan, status")
+    .select(
+      "id, slug, name, brand_color, plan, status, monthly_fee, split_percentage, patient_subscription_suggestion, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled",
+    )
     .eq("slug", slug)
     .maybeSingle();
 
@@ -368,7 +391,7 @@ async function resolveTenant(supabase: SupabaseClient, slug: string) {
 
 async function createAndStoreAsaasCustomer(
   supabase: SupabaseClient,
-  tenantId: string,
+  tenant: TenantBillingConfig,
   patient: {
     id: string;
     full_name: string;
@@ -377,21 +400,73 @@ async function createAndStoreAsaasCustomer(
     cpf?: string | null;
   },
 ) {
+  const asaasCredential = getTenantAsaasCredential(tenant);
   const customer = await createAsaasCustomer({
     name: patient.full_name,
     email: patient.email,
     phone: onlyDigits(patient.phone),
     cpfCnpj: onlyDigits(patient.cpf),
+    apiKey: asaasCredential.apiKey,
   });
 
   const { error } = await supabase
     .from("patients")
     .update({ asaas_customer_id: customer.id })
-    .eq("tenant_id", tenantId)
+    .eq("tenant_id", tenant.id)
     .eq("id", patient.id);
   if (error) throw new Error(error.message);
 
   return customer.id;
+}
+
+type TenantBillingConfig = {
+  id: string;
+  slug: string;
+  name: string;
+  brand_color?: string | null;
+  plan?: string | null;
+  status: string;
+  monthly_fee?: number | string | null;
+  split_percentage?: number | string | null;
+  patient_subscription_suggestion?: number | string | null;
+  asaas_account_id?: string | null;
+  asaas_wallet_id?: string | null;
+  asaas_api_key_ref?: string | null;
+  asaas_onboarding_status?: string | null;
+  asaas_split_enabled?: boolean | null;
+};
+
+function getTenantAsaasCredential(tenant: TenantBillingConfig) {
+  const ref = tenant.asaas_api_key_ref?.trim();
+  const apiKey = ref ? process.env[ref] : undefined;
+  return {
+    apiKey,
+    usesTenantCredential: Boolean(apiKey),
+    ref,
+  };
+}
+
+function buildMedycoSplit(tenant: TenantBillingConfig, usesTenantCredential: boolean) {
+  const walletId = process.env.ASAAS_MEDYCO_WALLET_ID?.trim();
+  const splitPercentage = Number(tenant.split_percentage ?? 10);
+  if (!walletId || !tenant.asaas_split_enabled || splitPercentage <= 0 || !usesTenantCredential) {
+    return undefined;
+  }
+
+  return [
+    {
+      walletId,
+      percentualValue: splitPercentage,
+    },
+  ] satisfies AsaasSplitInput[];
+}
+
+function getAsaasModeLabel(tenant: TenantBillingConfig) {
+  if (!isAsaasConfigured()) return "not_configured";
+  if (!isAsaasMarketplaceConfigured()) return "platform_without_medyco_wallet";
+  if (!tenant.asaas_api_key_ref) return "platform_account_only";
+  if (!process.env[tenant.asaas_api_key_ref]) return "tenant_secret_missing";
+  return "tenant_subaccount_split";
 }
 
 function nextDueDate() {

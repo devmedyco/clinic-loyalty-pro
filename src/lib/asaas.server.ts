@@ -5,6 +5,13 @@ type AsaasCustomerInput = {
   email?: string | null;
   phone?: string | null;
   cpfCnpj?: string | null;
+  apiKey?: string;
+};
+
+export type AsaasSplitInput = {
+  walletId: string;
+  fixedValue?: number;
+  percentualValue?: number;
 };
 
 type AsaasPaymentInput = {
@@ -14,6 +21,8 @@ type AsaasPaymentInput = {
   dueDate: string;
   description: string;
   externalReference: string;
+  split?: AsaasSplitInput[];
+  apiKey?: string;
 };
 
 export type AsaasCustomer = {
@@ -25,11 +34,21 @@ export type AsaasPayment = {
   id: string;
   status?: string;
   value?: number;
+  netValue?: number;
   dueDate?: string;
   invoiceUrl?: string;
   bankSlipUrl?: string;
   pixQrCode?: string;
   payload?: string;
+  split?: Array<{
+    id?: string;
+    walletId?: string;
+    percentualValue?: number;
+    fixedValue?: number;
+    status?: string;
+    totalValue?: number;
+    netValue?: number;
+  }>;
 };
 
 const BASE_URLS: Record<AsaasEnvironment, string> = {
@@ -41,33 +60,42 @@ export function isAsaasConfigured() {
   return Boolean(process.env.ASAAS_API_KEY);
 }
 
+export function isAsaasMarketplaceConfigured() {
+  return Boolean(process.env.ASAAS_API_KEY && process.env.ASAAS_MEDYCO_WALLET_ID);
+}
+
 export async function createAsaasCustomer(input: AsaasCustomerInput) {
+  const { apiKey, ...body } = input;
   return asaasRequest<AsaasCustomer>("/customers", {
     method: "POST",
-    body: JSON.stringify(removeEmptyValues(input)),
+    body: JSON.stringify(removeEmptyValues(body)),
+    apiKey,
   });
 }
 
 export async function createAsaasPayment(input: AsaasPaymentInput) {
+  const { apiKey, ...body } = input;
   return asaasRequest<AsaasPayment>("/payments", {
     method: "POST",
-    body: JSON.stringify(input),
+    body: JSON.stringify(removeEmptyValues(body)),
+    apiKey,
   });
 }
 
-async function asaasRequest<T>(path: string, init: RequestInit) {
-  const apiKey = process.env.ASAAS_API_KEY;
+async function asaasRequest<T>(path: string, init: RequestInit & { apiKey?: string }) {
+  const { apiKey: requestApiKey, ...requestInit } = init;
+  const apiKey = requestApiKey || process.env.ASAAS_API_KEY;
   if (!apiKey) {
     throw new Error("Asaas ainda não configurado. Adicione ASAAS_API_KEY nos secrets.");
   }
 
   const environment = getEnvironment();
   const response = await fetch(`${BASE_URLS[environment]}${path}`, {
-    ...init,
+    ...requestInit,
     headers: {
       "Content-Type": "application/json",
       access_token: apiKey,
-      ...(init.headers ?? {}),
+      ...(requestInit.headers ?? {}),
     },
   });
 
