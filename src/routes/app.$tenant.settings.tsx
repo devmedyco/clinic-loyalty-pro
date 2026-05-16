@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ImagePlus, UploadCloud } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
@@ -258,29 +259,64 @@ function TenantSettingsPage() {
                   onChange={(event) => setForm({ ...form, logo_url: event.target.value })}
                   placeholder="https://..."
                 />
-                <label className="block sm:col-span-2">
-                  <span className="text-xs font-medium text-foreground">Upload da logo</span>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                    disabled={uploading}
-                    onChange={async (event) => {
-                      const file = event.target.files?.[0];
-                      if (!file || !form) return;
-                      setUploading(true);
-                      try {
-                        const url = await uploadTenantLogo(form.id, file);
-                        setForm({ ...form, logo_url: url });
-                        toast.success("Logo enviada. Clique em salvar para aplicar.");
-                      } catch (err) {
-                        toast.error((err as Error).message);
-                      } finally {
-                        setUploading(false);
-                      }
-                    }}
-                    className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
-                  />
-                </label>
+                <div className="sm:col-span-2">
+                  <span className="text-xs font-medium text-foreground">Logo da clínica</span>
+                  <div className="mt-1.5 flex flex-col gap-3 rounded-xl border border-input bg-surface-elevated p-4 sm:flex-row sm:items-center">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-surface">
+                      {form.logo_url ? (
+                        <img
+                          src={form.logo_url}
+                          alt="Logo da clínica"
+                          className="h-full w-full object-contain p-2"
+                        />
+                      ) : (
+                        <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground">
+                        {form.logo_url ? "Logo carregada" : "Enviar arquivo da marca"}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        Use PNG, JPG, WEBP ou SVG. Depois do envio, clique em salvar para aplicar no
+                        portal.
+                      </p>
+                      {form.logo_url && (
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                          {form.logo_url}
+                        </p>
+                      )}
+                    </div>
+                    <label
+                      aria-disabled={uploading}
+                      className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground shadow-soft transition hover:bg-accent aria-disabled:pointer-events-none aria-disabled:opacity-60"
+                    >
+                      <UploadCloud className="h-4 w-4" />
+                      {uploading ? "Enviando..." : "Escolher logo"}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                        disabled={uploading}
+                        onChange={async (event) => {
+                          const file = event.target.files?.[0];
+                          event.currentTarget.value = "";
+                          if (!file || !form) return;
+                          setUploading(true);
+                          try {
+                            const url = await uploadTenantLogo(form.id, file);
+                            setForm({ ...form, logo_url: url });
+                            toast.success("Logo enviada. Clique em salvar para aplicar.");
+                          } catch (err) {
+                            toast.error((err as Error).message);
+                          } finally {
+                            setUploading(false);
+                          }
+                        }}
+                        className="sr-only"
+                      />
+                    </label>
+                  </div>
+                </div>
                 <div className="sm:col-span-2 mt-2 border-t border-border pt-4">
                   <h3 className="text-sm font-medium text-foreground">Endereço</h3>
                 </div>
