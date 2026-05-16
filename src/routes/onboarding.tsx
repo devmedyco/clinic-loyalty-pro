@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Logo } from "@/components/brand/Logo";
 import { useRequireSession } from "@/hooks/use-auth-session";
+import { getPostLoginRoute } from "@/lib/access-routing";
 import { getMyAccess } from "@/lib/auth.functions";
 import { createTenant } from "@/lib/tenants.functions";
 
@@ -33,14 +34,8 @@ function OnboardingPage() {
 
   useEffect(() => {
     if (!access) return;
-    if (access.isSuperAdmin) {
-      navigate({ to: "/admin" });
-      return;
-    }
-    const firstTenant = access.tenants?.[0];
-    if (firstTenant) {
-      navigate({ to: `/app/${firstTenant.slug}` as never });
-    }
+    const nextRoute = getPostLoginRoute(access);
+    if (nextRoute !== "/onboarding") navigate({ to: nextRoute as never });
   }, [access, navigate]);
 
   async function onSubmit(event: React.FormEvent) {

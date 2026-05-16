@@ -26,12 +26,15 @@ function SignupPage() {
     setError(null);
     setInfo(null);
     setLoading(true);
+    const redirect = getSafeRedirect();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+          redirect ?? "auto",
+        )}`,
       },
     });
     setLoading(false);
@@ -43,7 +46,6 @@ function SignupPage() {
       setInfo("Verifique seu e-mail para confirmar a conta antes de entrar.");
       return;
     }
-    const redirect = getSafeRedirect();
     if (redirect) {
       navigate({ to: redirect as never });
       return;
