@@ -96,7 +96,9 @@ if (!ACCESS_TOKEN) {
 }
 
 if (!RESEND_API_KEY) {
-  throw new Error("Defina RESEND_API_KEY com a chave SMTP/API do Resend antes de rodar este script.");
+  throw new Error(
+    "Defina RESEND_API_KEY com a chave SMTP/API do Resend antes de rodar este script.",
+  );
 }
 
 const response = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth`, {
