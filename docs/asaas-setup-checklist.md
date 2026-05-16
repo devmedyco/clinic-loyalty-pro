@@ -27,19 +27,15 @@ A Medyco usa:
 
 ## Para cada clínica cliente
 
-1. Crie uma subconta Asaas para a clínica ou vincule uma conta Asaas da clínica.
+1. Na Medyco, acesse a configuração da clínica e clique em `Criar subconta Asaas`.
 2. Guarde imediatamente:
    - `account_id` da subconta.
    - `walletId` da clínica.
    - `apiKey` da subconta.
-3. No Lovable, crie um secret para a API key da clínica, por exemplo:
+3. A Medyco preenche `account_id`, `walletId`, status e nome do secret na clínica automaticamente.
+4. No Lovable, crie um secret para a API key da clínica, por exemplo:
    - `ASAAS_TENANT_SANTAVIDA_API_KEY`
-4. No painel Admin da Medyco, abra a clínica e preencha:
-   - ID da conta Asaas.
-   - Wallet ID da clínica.
-   - Nome do secret da API key da clínica.
-   - Status Asaas como ativo.
-   - Split ativo marcado.
+5. O valor desse secret deve ser a API key da subconta retornada pela Medyco após a criação.
 
 ## O que nao precisa criar manualmente
 

@@ -6,7 +6,11 @@ import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
 import { supabase } from "@/integrations/supabase-ext/client";
 import { lookupCep, lookupCnpj } from "@/lib/brasil-data";
-import { getTenantBySlug, updateTenantSettings } from "@/lib/tenants.functions";
+import {
+  createTenantAsaasSubaccount,
+  getTenantBySlug,
+  updateTenantSettings,
+} from "@/lib/tenants.functions";
 
 export const Route = createFileRoute("/app/$tenant/settings")({
   component: TenantSettingsPage,
@@ -47,15 +51,25 @@ type TenantFormState = {
 };
 
 type FieldValue = string | number | readonly string[];
+type AsaasSubaccountResult = {
+  id: string;
+  walletId: string;
+  apiKey: string;
+  apiKeyRef: string;
+  name?: string;
+};
 
 function TenantSettingsPage() {
   const { tenant } = Route.useParams();
   const queryClient = useQueryClient();
   const fetchTenant = useServerFn(getTenantBySlug);
   const updateTenant = useServerFn(updateTenantSettings);
+  const createSubaccount = useServerFn(createTenantAsaasSubaccount);
   const [form, setForm] = useState<TenantFormState | null>(null);
   const [uploading, setUploading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState<"cnpj" | "cep" | null>(null);
+  const [asaasModalOpen, setAsaasModalOpen] = useState(false);
+  const [asaasResult, setAsaasResult] = useState<AsaasSubaccountResult | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["tenant-settings", tenant],
@@ -105,6 +119,31 @@ function TenantSettingsPage() {
     onError: (err) => toast.error((err as Error).message),
   });
 
+  const asaasMutation = useMutation({
+    mutationFn: (value: AsaasSubaccountInput) => createSubaccount({ data: value }),
+    onSuccess: async (result) => {
+      setAsaasResult(result.subaccount);
+      setForm((current) =>
+        current
+          ? {
+              ...current,
+              asaas_account_id: result.tenant.asaas_account_id ?? "",
+              asaas_wallet_id: result.tenant.asaas_wallet_id ?? "",
+              asaas_api_key_ref: result.tenant.asaas_api_key_ref ?? "",
+              asaas_onboarding_status: result.tenant.asaas_onboarding_status ?? "active",
+              asaas_split_enabled: result.tenant.asaas_split_enabled ?? true,
+            }
+          : current,
+      );
+      toast.success("Subconta Asaas criada. Salve a API key como secret no Lovable.");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tenant", tenant] }),
+        queryClient.invalidateQueries({ queryKey: ["tenant-settings", tenant] }),
+      ]);
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+
   return (
     <>
       <PageHeader
@@ -117,356 +156,576 @@ function TenantSettingsPage() {
       ) : error ? (
         <Card className="p-6 text-sm text-destructive">{(error as Error).message}</Card>
       ) : form ? (
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Card className="p-6 lg:col-span-2">
-            <form
-              className="grid gap-4 sm:grid-cols-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                mutation.mutate(form);
-              }}
-            >
-              <Field
-                className="sm:col-span-2"
-                label="Nome da clínica"
-                value={form.name}
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
-                required
-              />
-              <Field
-                className="sm:col-span-2"
-                label="Razão social"
-                value={form.legal_name}
-                onChange={(event) => setForm({ ...form, legal_name: event.target.value })}
-              />
-              <Field
-                label="E-mail"
-                type="email"
-                value={form.email}
-                onChange={(event) => setForm({ ...form, email: event.target.value })}
-                placeholder="contato@clinica.com.br"
-              />
-              <Field
-                label="Telefone"
-                value={form.phone}
-                onChange={(event) => setForm({ ...form, phone: event.target.value })}
-                placeholder="(11) 99999-0000"
-              />
-              <Field
-                label="CNPJ"
-                value={form.cnpj}
-                onChange={(event) => setForm({ ...form, cnpj: event.target.value })}
-                placeholder="00.000.000/0001-00"
-              />
-              <div className="flex items-end">
-                <button
-                  type="button"
-                  disabled={lookupLoading === "cnpj" || form.cnpj.replace(/\D/g, "").length !== 14}
-                  onClick={async () => {
-                    if (!form) return;
-                    setLookupLoading("cnpj");
-                    try {
-                      const result = await lookupCnpj(form.cnpj);
-                      setForm({
-                        ...form,
-                        name: result.name || form.name,
-                        legal_name: result.legal_name || form.legal_name,
-                        cnpj: result.cnpj,
-                        email: result.email || form.email,
-                        phone: result.phone || form.phone,
-                        zip_code: result.zip_code || form.zip_code,
-                        street: result.street || form.street,
-                        number: result.number || form.number,
-                        complement: result.complement || form.complement,
-                        neighborhood: result.neighborhood || form.neighborhood,
-                        city: result.city || form.city,
-                        state: result.state || form.state,
-                      });
-                      toast.success("Dados do CNPJ preenchidos");
-                    } catch (err) {
-                      toast.error((err as Error).message);
-                    } finally {
-                      setLookupLoading(null);
+        <>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card className="p-6 lg:col-span-2">
+              <form
+                className="grid gap-4 sm:grid-cols-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  mutation.mutate(form);
+                }}
+              >
+                <Field
+                  className="sm:col-span-2"
+                  label="Nome da clínica"
+                  value={form.name}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
+                  required
+                />
+                <Field
+                  className="sm:col-span-2"
+                  label="Razão social"
+                  value={form.legal_name}
+                  onChange={(event) => setForm({ ...form, legal_name: event.target.value })}
+                />
+                <Field
+                  label="E-mail"
+                  type="email"
+                  value={form.email}
+                  onChange={(event) => setForm({ ...form, email: event.target.value })}
+                  placeholder="contato@clinica.com.br"
+                />
+                <Field
+                  label="Telefone"
+                  value={form.phone}
+                  onChange={(event) => setForm({ ...form, phone: event.target.value })}
+                  placeholder="(11) 99999-0000"
+                />
+                <Field
+                  label="CNPJ"
+                  value={form.cnpj}
+                  onChange={(event) => setForm({ ...form, cnpj: event.target.value })}
+                  placeholder="00.000.000/0001-00"
+                />
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    disabled={
+                      lookupLoading === "cnpj" || form.cnpj.replace(/\D/g, "").length !== 14
                     }
-                  }}
-                  className="w-full rounded-lg border border-input px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-accent disabled:opacity-60"
-                >
-                  {lookupLoading === "cnpj" ? "Buscando..." : "Buscar CNPJ"}
-                </button>
-              </div>
-              <label className="block">
-                <span className="text-xs font-medium text-foreground">Status</span>
-                <select
-                  value={form.status}
+                    onClick={async () => {
+                      if (!form) return;
+                      setLookupLoading("cnpj");
+                      try {
+                        const result = await lookupCnpj(form.cnpj);
+                        setForm({
+                          ...form,
+                          name: result.name || form.name,
+                          legal_name: result.legal_name || form.legal_name,
+                          cnpj: result.cnpj,
+                          email: result.email || form.email,
+                          phone: result.phone || form.phone,
+                          zip_code: result.zip_code || form.zip_code,
+                          street: result.street || form.street,
+                          number: result.number || form.number,
+                          complement: result.complement || form.complement,
+                          neighborhood: result.neighborhood || form.neighborhood,
+                          city: result.city || form.city,
+                          state: result.state || form.state,
+                        });
+                        toast.success("Dados do CNPJ preenchidos");
+                      } catch (err) {
+                        toast.error((err as Error).message);
+                      } finally {
+                        setLookupLoading(null);
+                      }
+                    }}
+                    className="w-full rounded-lg border border-input px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-accent disabled:opacity-60"
+                  >
+                    {lookupLoading === "cnpj" ? "Buscando..." : "Buscar CNPJ"}
+                  </button>
+                </div>
+                <label className="block">
+                  <span className="text-xs font-medium text-foreground">Status</span>
+                  <select
+                    value={form.status}
+                    onChange={(event) =>
+                      setForm({ ...form, status: event.target.value as TenantFormState["status"] })
+                    }
+                    className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
+                  >
+                    <option value="trial">Trial</option>
+                    <option value="active">Ativa</option>
+                    <option value="paused">Pausada</option>
+                    <option value="canceled">Cancelada</option>
+                  </select>
+                </label>
+                <Field
+                  className="sm:col-span-2"
+                  label="Logo URL"
+                  value={form.logo_url}
+                  onChange={(event) => setForm({ ...form, logo_url: event.target.value })}
+                  placeholder="https://..."
+                />
+                <label className="block sm:col-span-2">
+                  <span className="text-xs font-medium text-foreground">Upload da logo</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    disabled={uploading}
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      if (!file || !form) return;
+                      setUploading(true);
+                      try {
+                        const url = await uploadTenantLogo(form.id, file);
+                        setForm({ ...form, logo_url: url });
+                        toast.success("Logo enviada. Clique em salvar para aplicar.");
+                      } catch (err) {
+                        toast.error((err as Error).message);
+                      } finally {
+                        setUploading(false);
+                      }
+                    }}
+                    className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
+                  />
+                </label>
+                <div className="sm:col-span-2 mt-2 border-t border-border pt-4">
+                  <h3 className="text-sm font-medium text-foreground">Endereço</h3>
+                </div>
+                <Field
+                  label="CEP"
+                  value={form.zip_code}
+                  onChange={(event) => setForm({ ...form, zip_code: event.target.value })}
+                  placeholder="00000-000"
+                />
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    disabled={
+                      lookupLoading === "cep" || form.zip_code.replace(/\D/g, "").length !== 8
+                    }
+                    onClick={async () => {
+                      if (!form) return;
+                      setLookupLoading("cep");
+                      try {
+                        const result = await lookupCep(form.zip_code);
+                        setForm({ ...form, ...result });
+                        toast.success("Endereço preenchido pelo CEP");
+                      } catch (err) {
+                        toast.error((err as Error).message);
+                      } finally {
+                        setLookupLoading(null);
+                      }
+                    }}
+                    className="w-full rounded-lg border border-input px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-accent disabled:opacity-60"
+                  >
+                    {lookupLoading === "cep" ? "Buscando..." : "Buscar CEP"}
+                  </button>
+                </div>
+                <Field
+                  className="sm:col-span-2"
+                  label="Logradouro"
+                  value={form.street}
+                  onChange={(event) => setForm({ ...form, street: event.target.value })}
+                />
+                <Field
+                  label="Número"
+                  value={form.number}
+                  onChange={(event) => setForm({ ...form, number: event.target.value })}
+                />
+                <Field
+                  label="Complemento"
+                  value={form.complement}
+                  onChange={(event) => setForm({ ...form, complement: event.target.value })}
+                />
+                <Field
+                  label="Bairro"
+                  value={form.neighborhood}
+                  onChange={(event) => setForm({ ...form, neighborhood: event.target.value })}
+                />
+                <div className="grid gap-3 sm:grid-cols-[1fr_80px]">
+                  <Field
+                    label="Cidade"
+                    value={form.city}
+                    onChange={(event) => setForm({ ...form, city: event.target.value })}
+                  />
+                  <Field
+                    label="UF"
+                    maxLength={2}
+                    value={form.state}
+                    onChange={(event) => setForm({ ...form, state: event.target.value })}
+                  />
+                </div>
+                <div className="border-t border-border pt-4 sm:col-span-2">
+                  <h3 className="text-sm font-medium text-foreground">Modelo comercial</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    A Medyco cobra uma mensalidade fixa da clínica, uma taxa operacional por
+                    paciente pago e uma participação percentual.
+                  </p>
+                </div>
+                <Field
+                  label="Mensalidade da clínica"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.monthly_fee}
                   onChange={(event) =>
-                    setForm({ ...form, status: event.target.value as TenantFormState["status"] })
+                    setForm({ ...form, monthly_fee: Number(event.target.value) })
                   }
-                  className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
-                >
-                  <option value="trial">Trial</option>
-                  <option value="active">Ativa</option>
-                  <option value="paused">Pausada</option>
-                  <option value="canceled">Cancelada</option>
-                </select>
-              </label>
-              <Field
-                className="sm:col-span-2"
-                label="Logo URL"
-                value={form.logo_url}
-                onChange={(event) => setForm({ ...form, logo_url: event.target.value })}
-                placeholder="https://..."
-              />
-              <label className="block sm:col-span-2">
-                <span className="text-xs font-medium text-foreground">Upload da logo</span>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                  disabled={uploading}
-                  onChange={async (event) => {
-                    const file = event.target.files?.[0];
-                    if (!file || !form) return;
-                    setUploading(true);
-                    try {
-                      const url = await uploadTenantLogo(form.id, file);
-                      setForm({ ...form, logo_url: url });
-                      toast.success("Logo enviada. Clique em salvar para aplicar.");
-                    } catch (err) {
-                      toast.error((err as Error).message);
-                    } finally {
-                      setUploading(false);
-                    }
-                  }}
-                  className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
-                />
-              </label>
-              <div className="sm:col-span-2 mt-2 border-t border-border pt-4">
-                <h3 className="text-sm font-medium text-foreground">Endereço</h3>
-              </div>
-              <Field
-                label="CEP"
-                value={form.zip_code}
-                onChange={(event) => setForm({ ...form, zip_code: event.target.value })}
-                placeholder="00000-000"
-              />
-              <div className="flex items-end">
-                <button
-                  type="button"
-                  disabled={
-                    lookupLoading === "cep" || form.zip_code.replace(/\D/g, "").length !== 8
-                  }
-                  onClick={async () => {
-                    if (!form) return;
-                    setLookupLoading("cep");
-                    try {
-                      const result = await lookupCep(form.zip_code);
-                      setForm({ ...form, ...result });
-                      toast.success("Endereço preenchido pelo CEP");
-                    } catch (err) {
-                      toast.error((err as Error).message);
-                    } finally {
-                      setLookupLoading(null);
-                    }
-                  }}
-                  className="w-full rounded-lg border border-input px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-accent disabled:opacity-60"
-                >
-                  {lookupLoading === "cep" ? "Buscando..." : "Buscar CEP"}
-                </button>
-              </div>
-              <Field
-                className="sm:col-span-2"
-                label="Logradouro"
-                value={form.street}
-                onChange={(event) => setForm({ ...form, street: event.target.value })}
-              />
-              <Field
-                label="Número"
-                value={form.number}
-                onChange={(event) => setForm({ ...form, number: event.target.value })}
-              />
-              <Field
-                label="Complemento"
-                value={form.complement}
-                onChange={(event) => setForm({ ...form, complement: event.target.value })}
-              />
-              <Field
-                label="Bairro"
-                value={form.neighborhood}
-                onChange={(event) => setForm({ ...form, neighborhood: event.target.value })}
-              />
-              <div className="grid gap-3 sm:grid-cols-[1fr_80px]">
-                <Field
-                  label="Cidade"
-                  value={form.city}
-                  onChange={(event) => setForm({ ...form, city: event.target.value })}
                 />
                 <Field
-                  label="UF"
-                  maxLength={2}
-                  value={form.state}
-                  onChange={(event) => setForm({ ...form, state: event.target.value })}
+                  label="Taxa operacional por paciente"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.split_fixed_fee}
+                  onChange={(event) =>
+                    setForm({ ...form, split_fixed_fee: Number(event.target.value) })
+                  }
                 />
-              </div>
-              <div className="border-t border-border pt-4 sm:col-span-2">
-                <h3 className="text-sm font-medium text-foreground">Modelo comercial</h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  A Medyco cobra uma mensalidade fixa da clínica, uma taxa operacional por paciente
-                  pago e uma participação percentual.
-                </p>
-              </div>
-              <Field
-                label="Mensalidade da clínica"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.monthly_fee}
-                onChange={(event) => setForm({ ...form, monthly_fee: Number(event.target.value) })}
-              />
-              <Field
-                label="Taxa operacional por paciente"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.split_fixed_fee}
-                onChange={(event) =>
-                  setForm({ ...form, split_fixed_fee: Number(event.target.value) })
-                }
-              />
-              <Field
-                label="Participação Medyco (%)"
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={form.split_percentage}
-                onChange={(event) =>
-                  setForm({ ...form, split_percentage: Number(event.target.value) })
-                }
-              />
-              <Field
-                label="Sugestão assinatura paciente"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.patient_subscription_suggestion}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    patient_subscription_suggestion: Number(event.target.value),
-                  })
-                }
-              />
-              <div className="border-t border-border pt-4 sm:col-span-2">
-                <h3 className="text-sm font-medium text-foreground">Asaas marketplace</h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Modelo recomendado: a clínica recebe na própria subconta/carteira e a Medyco
-                  recebe o split automático.
-                </p>
-              </div>
-              <Field
-                label="ID da conta Asaas"
-                value={form.asaas_account_id}
-                onChange={(event) => setForm({ ...form, asaas_account_id: event.target.value })}
-                placeholder="Opcional"
-              />
-              <Field
-                label="Wallet ID da clínica"
-                value={form.asaas_wallet_id}
-                onChange={(event) => setForm({ ...form, asaas_wallet_id: event.target.value })}
-                placeholder="wallet da subconta"
-              />
-              <Field
-                className="sm:col-span-2"
-                label="Nome do secret da API key da clínica"
-                value={form.asaas_api_key_ref}
-                onChange={(event) => setForm({ ...form, asaas_api_key_ref: event.target.value })}
-                placeholder="Ex.: ASAAS_TENANT_SANTAVIDA_API_KEY"
-              />
-              <label className="block">
-                <span className="text-xs font-medium text-foreground">Status Asaas</span>
-                <select
-                  value={form.asaas_onboarding_status}
+                <Field
+                  label="Participação Medyco (%)"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={form.split_percentage}
+                  onChange={(event) =>
+                    setForm({ ...form, split_percentage: Number(event.target.value) })
+                  }
+                />
+                <Field
+                  label="Sugestão assinatura paciente"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.patient_subscription_suggestion}
                   onChange={(event) =>
                     setForm({
                       ...form,
-                      asaas_onboarding_status: event.target
-                        .value as TenantFormState["asaas_onboarding_status"],
+                      patient_subscription_suggestion: Number(event.target.value),
                     })
                   }
-                  className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
-                >
-                  <option value="not_started">Não iniciado</option>
-                  <option value="pending_documents">Documentos pendentes</option>
-                  <option value="under_review">Em análise</option>
-                  <option value="active">Ativo</option>
-                  <option value="rejected">Rejeitado</option>
-                  <option value="disabled">Desativado</option>
-                </select>
-              </label>
-              <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
-                <input
-                  type="checkbox"
-                  checked={form.asaas_split_enabled}
-                  onChange={(event) =>
-                    setForm({ ...form, asaas_split_enabled: event.target.checked })
-                  }
-                  className="h-4 w-4"
                 />
-                <span>
-                  <span className="block text-sm font-medium text-foreground">Split ativo</span>
-                  <span className="block text-xs text-muted-foreground">
-                    Solicitar R$ 2,90 + 7,9% para a Medyco nas cobranças do paciente.
-                  </span>
-                </span>
-              </label>
-              <label className="block">
-                <span className="text-xs font-medium text-foreground">Cor principal</span>
-                <div className="mt-1.5 flex gap-2">
-                  <input
-                    type="color"
-                    value={form.brand_color}
-                    onChange={(event) => setForm({ ...form, brand_color: event.target.value })}
-                    className="h-10 w-12 rounded-lg border border-input bg-surface-elevated p-1"
-                  />
-                  <input
-                    value={form.brand_color}
-                    onChange={(event) => setForm({ ...form, brand_color: event.target.value })}
-                    className="block flex-1 rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground shadow-soft outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-                    required
-                  />
+                <div className="border-t border-border pt-4 sm:col-span-2">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground">Asaas marketplace</h3>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Modelo recomendado: a clínica recebe na própria subconta/carteira e a Medyco
+                        recebe o split automático.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAsaasResult(null);
+                        setAsaasModalOpen(true);
+                      }}
+                      className="rounded-lg border border-input px-3 py-2 text-xs font-medium text-foreground transition hover:bg-accent"
+                    >
+                      Criar subconta Asaas
+                    </button>
+                  </div>
                 </div>
-              </label>
-              <div className="flex justify-end pt-2 sm:col-span-2">
-                <button
-                  disabled={mutation.isPending}
-                  className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
-                >
-                  {mutation.isPending ? "Salvando..." : "Salvar configurações"}
-                </button>
-              </div>
-            </form>
-          </Card>
+                <Field
+                  label="ID da conta Asaas"
+                  value={form.asaas_account_id}
+                  onChange={(event) => setForm({ ...form, asaas_account_id: event.target.value })}
+                  placeholder="Opcional"
+                />
+                <Field
+                  label="Wallet ID da clínica"
+                  value={form.asaas_wallet_id}
+                  onChange={(event) => setForm({ ...form, asaas_wallet_id: event.target.value })}
+                  placeholder="wallet da subconta"
+                />
+                <Field
+                  className="sm:col-span-2"
+                  label="Nome do secret da API key da clínica"
+                  value={form.asaas_api_key_ref}
+                  onChange={(event) => setForm({ ...form, asaas_api_key_ref: event.target.value })}
+                  placeholder="Ex.: ASAAS_TENANT_SANTAVIDA_API_KEY"
+                />
+                <label className="block">
+                  <span className="text-xs font-medium text-foreground">Status Asaas</span>
+                  <select
+                    value={form.asaas_onboarding_status}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        asaas_onboarding_status: event.target
+                          .value as TenantFormState["asaas_onboarding_status"],
+                      })
+                    }
+                    className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
+                  >
+                    <option value="not_started">Não iniciado</option>
+                    <option value="pending_documents">Documentos pendentes</option>
+                    <option value="under_review">Em análise</option>
+                    <option value="active">Ativo</option>
+                    <option value="rejected">Rejeitado</option>
+                    <option value="disabled">Desativado</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={form.asaas_split_enabled}
+                    onChange={(event) =>
+                      setForm({ ...form, asaas_split_enabled: event.target.checked })
+                    }
+                    className="h-4 w-4"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-foreground">Split ativo</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Solicitar R$ 2,90 + 7,9% para a Medyco nas cobranças do paciente.
+                    </span>
+                  </span>
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium text-foreground">Cor principal</span>
+                  <div className="mt-1.5 flex gap-2">
+                    <input
+                      type="color"
+                      value={form.brand_color}
+                      onChange={(event) => setForm({ ...form, brand_color: event.target.value })}
+                      className="h-10 w-12 rounded-lg border border-input bg-surface-elevated p-1"
+                    />
+                    <input
+                      value={form.brand_color}
+                      onChange={(event) => setForm({ ...form, brand_color: event.target.value })}
+                      className="block flex-1 rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground shadow-soft outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                      required
+                    />
+                  </div>
+                </label>
+                <div className="flex justify-end pt-2 sm:col-span-2">
+                  <button
+                    disabled={mutation.isPending}
+                    className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
+                  >
+                    {mutation.isPending ? "Salvando..." : "Salvar configurações"}
+                  </button>
+                </div>
+              </form>
+            </Card>
 
-          <Card className="p-6">
-            <div className="text-sm font-medium text-foreground">Preview da marca</div>
-            <div className="mt-4 rounded-2xl border border-border bg-surface p-5">
-              <div
-                className="flex h-12 w-12 items-center justify-center rounded-xl text-sm font-semibold text-white"
-                style={{ backgroundColor: form.brand_color }}
-              >
-                {initials(form.name)}
+            <Card className="p-6">
+              <div className="text-sm font-medium text-foreground">Preview da marca</div>
+              <div className="mt-4 rounded-2xl border border-border bg-surface p-5">
+                <div
+                  className="flex h-12 w-12 items-center justify-center rounded-xl text-sm font-semibold text-white"
+                  style={{ backgroundColor: form.brand_color }}
+                >
+                  {initials(form.name)}
+                </div>
+                <div className="mt-4 font-display text-2xl text-foreground">{form.name}</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {form.email || "E-mail não informado"}
+                </div>
+                <div className="mt-3 inline-flex rounded-md bg-brand-soft px-2 py-0.5 text-xs text-brand">
+                  {form.status}
+                </div>
               </div>
-              <div className="mt-4 font-display text-2xl text-foreground">{form.name}</div>
-              <div className="mt-1 text-sm text-muted-foreground">
-                {form.email || "E-mail não informado"}
-              </div>
-              <div className="mt-3 inline-flex rounded-md bg-brand-soft px-2 py-0.5 text-xs text-brand">
-                {form.status}
-              </div>
-            </div>
-          </Card>
-        </div>
+            </Card>
+          </div>
+          {asaasModalOpen && (
+            <AsaasSubaccountModal
+              tenant={form}
+              result={asaasResult}
+              loading={asaasMutation.isPending}
+              onClose={() => setAsaasModalOpen(false)}
+              onSubmit={(input) => asaasMutation.mutate(input)}
+            />
+          )}
+        </>
       ) : null}
     </>
+  );
+}
+
+type AsaasSubaccountInput = {
+  tenant_id: string;
+  name: string;
+  email: string;
+  cpfCnpj: string;
+  birthDate?: string;
+  companyType: "MEI" | "LIMITED" | "INDIVIDUAL" | "ASSOCIATION";
+  phone?: string;
+  mobilePhone: string;
+  incomeValue: number;
+  address: string;
+  addressNumber: string;
+  complement?: string;
+  province: string;
+  postalCode: string;
+  api_key_ref?: string;
+};
+
+function AsaasSubaccountModal({
+  tenant,
+  result,
+  loading,
+  onClose,
+  onSubmit,
+}: {
+  tenant: TenantFormState;
+  result: AsaasSubaccountResult | null;
+  loading: boolean;
+  onClose: () => void;
+  onSubmit: (input: AsaasSubaccountInput) => void;
+}) {
+  const suggestedSecret = `ASAAS_TENANT_${tenant.name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase()}_API_KEY`;
+  const [companyType, setCompanyType] = useState<AsaasSubaccountInput["companyType"]>("LIMITED");
+  const [birthDate, setBirthDate] = useState("");
+  const [mobilePhone, setMobilePhone] = useState(tenant.phone);
+  const [incomeValue, setIncomeValue] = useState("5000");
+  const [secretName, setSecretName] = useState(suggestedSecret);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border bg-surface-elevated p-6 shadow-elegant"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 className="font-display text-xl text-foreground">Criar subconta Asaas</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Usa a API key da conta Medyco configurada nos secrets e cria uma subconta para esta
+          clínica.
+        </p>
+
+        {result ? (
+          <div className="mt-5 space-y-4">
+            <div className="rounded-xl border border-success/30 bg-success/10 p-4 text-sm text-foreground">
+              Subconta criada. A clínica já recebeu ID, wallet e status ativo na Medyco.
+            </div>
+            <SecretBox label="Secret para criar no Lovable" value={result.apiKeyRef} />
+            <SecretBox label="Valor do secret (API key da clínica)" value={result.apiKey} />
+            <SecretBox label="ID da conta Asaas" value={result.id} />
+            <SecretBox label="Wallet ID da clínica" value={result.walletId} />
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+              >
+                Concluir
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form
+            className="mt-5 grid gap-4 sm:grid-cols-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onSubmit({
+                tenant_id: tenant.id,
+                name: tenant.legal_name || tenant.name,
+                email: tenant.email,
+                cpfCnpj: tenant.cnpj,
+                birthDate,
+                companyType,
+                phone: tenant.phone,
+                mobilePhone,
+                incomeValue: Number(incomeValue || 0),
+                address: tenant.street,
+                addressNumber: tenant.number,
+                complement: tenant.complement,
+                province: tenant.neighborhood,
+                postalCode: tenant.zip_code,
+                api_key_ref: secretName,
+              });
+            }}
+          >
+            <Field
+              className="sm:col-span-2"
+              label="Razão social/nome"
+              value={tenant.legal_name || tenant.name}
+              disabled
+            />
+            <Field label="CNPJ/CPF" value={tenant.cnpj} disabled />
+            <Field label="E-mail" value={tenant.email} disabled />
+            <label className="block">
+              <span className="text-xs font-medium text-foreground">Tipo da empresa</span>
+              <select
+                value={companyType}
+                onChange={(event) =>
+                  setCompanyType(event.target.value as AsaasSubaccountInput["companyType"])
+                }
+                className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
+              >
+                <option value="LIMITED">LTDA / limitada</option>
+                <option value="MEI">MEI</option>
+                <option value="INDIVIDUAL">Individual</option>
+                <option value="ASSOCIATION">Associação</option>
+              </select>
+            </label>
+            <Field
+              label="Data nasc. responsável"
+              type="date"
+              value={birthDate}
+              onChange={(event) => setBirthDate(event.target.value)}
+            />
+            <Field
+              label="Celular responsável"
+              value={mobilePhone}
+              onChange={(event) => setMobilePhone(event.target.value)}
+              required
+            />
+            <Field
+              label="Renda/faturamento mensal"
+              type="number"
+              min="0"
+              step="0.01"
+              value={incomeValue}
+              onChange={(event) => setIncomeValue(event.target.value)}
+              required
+            />
+            <Field label="CEP" value={tenant.zip_code} disabled />
+            <Field className="sm:col-span-2" label="Endereço" value={tenant.street} disabled />
+            <Field label="Número" value={tenant.number} disabled />
+            <Field label="Bairro" value={tenant.neighborhood} disabled />
+            <Field
+              className="sm:col-span-2"
+              label="Nome do secret no Lovable"
+              value={secretName}
+              onChange={(event) => setSecretName(event.target.value)}
+              required
+            />
+            <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning sm:col-span-2">
+              Depois de criar, copie a API key retornada e salve no Lovable com exatamente esse nome
+              de secret. A API key aparece apenas nessa confirmação.
+            </div>
+            <div className="flex gap-2 pt-2 sm:col-span-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 rounded-lg border border-border px-4 py-2 text-sm hover:bg-surface"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={loading}
+                className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
+              >
+                {loading ? "Criando..." : "Criar subconta"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SecretBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-4">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 break-all font-mono text-sm text-foreground">{value}</div>
+    </div>
   );
 }
 

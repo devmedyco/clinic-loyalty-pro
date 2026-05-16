@@ -25,6 +25,24 @@ type AsaasPaymentInput = {
   apiKey?: string;
 };
 
+type AsaasSubaccountInput = {
+  name: string;
+  email: string;
+  loginEmail?: string | null;
+  cpfCnpj: string;
+  birthDate?: string | null;
+  companyType?: "MEI" | "LIMITED" | "INDIVIDUAL" | "ASSOCIATION" | null;
+  phone?: string | null;
+  mobilePhone: string;
+  site?: string | null;
+  incomeValue: number;
+  address: string;
+  addressNumber: string;
+  complement?: string | null;
+  province: string;
+  postalCode: string;
+};
+
 export type AsaasCustomer = {
   id: string;
   name?: string;
@@ -49,6 +67,15 @@ export type AsaasPayment = {
     totalValue?: number;
     netValue?: number;
   }>;
+};
+
+export type AsaasSubaccount = {
+  id: string;
+  name?: string;
+  email?: string;
+  apiKey?: string;
+  walletId?: string;
+  accountNumber?: string;
 };
 
 const BASE_URLS: Record<AsaasEnvironment, string> = {
@@ -79,6 +106,13 @@ export async function createAsaasPayment(input: AsaasPaymentInput) {
     method: "POST",
     body: JSON.stringify(removeEmptyValues(body)),
     apiKey,
+  });
+}
+
+export async function createAsaasSubaccount(input: AsaasSubaccountInput) {
+  return asaasRequest<AsaasSubaccount>("/accounts", {
+    method: "POST",
+    body: JSON.stringify(removeEmptyValues(input)),
   });
 }
 

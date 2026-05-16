@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import { createAsaasSubaccount } from "@/lib/asaas.server";
 import {
   DEFAULT_MONTHLY_FEE,
   DEFAULT_PATIENT_SUBSCRIPTION,
@@ -107,6 +108,33 @@ const updateTenantSchema = z.object({
   state: optionalText(2),
 });
 
+const createTenantAsaasSubaccountSchema = z.object({
+  tenant_id: z.string().uuid(),
+  name: z.string().min(2).max(120),
+  email: z.string().email("E-mail inválido").max(160),
+  cpfCnpj: z.preprocess(
+    (value) => (typeof value === "string" ? value.replace(/\D/g, "") : value),
+    z.string().min(11, "CPF/CNPJ obrigatório").max(14, "CPF/CNPJ inválido"),
+  ),
+  birthDate: optionalText(10),
+  companyType: z.enum(["MEI", "LIMITED", "INDIVIDUAL", "ASSOCIATION"]).default("LIMITED"),
+  phone: optionalText(40),
+  mobilePhone: z.preprocess(
+    (value) => (typeof value === "string" ? value.replace(/\D/g, "") : value),
+    z.string().min(10, "Celular obrigatório").max(14, "Celular inválido"),
+  ),
+  incomeValue: z.coerce.number().min(0).default(5000),
+  address: z.string().min(2, "Endereço obrigatório").max(180),
+  addressNumber: z.string().min(1, "Número obrigatório").max(40),
+  complement: optionalText(120),
+  province: z.string().min(2, "Bairro obrigatório").max(120),
+  postalCode: z.preprocess(
+    (value) => (typeof value === "string" ? value.replace(/\D/g, "") : value),
+    z.string().length(8, "CEP deve ter 8 dígitos"),
+  ),
+  api_key_ref: optionalText(120),
+});
+
 export const createTenant = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => createTenantSchema.parse(input))
@@ -145,6 +173,85 @@ export const createTenant = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { tenant };
   });
+
+export const createTenantAsaasSubaccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => createTenantAsaasSubaccountSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: currentTenant, error: tenantError } = await supabase
+      .from("tenants")
+      .select("id, slug, name")
+      .eq("id", data.tenant_id)
+      .maybeSingle();
+
+    if (tenantError) throw new Error(tenantError.message);
+    if (!currentTenant) throw new Error("Clínica não encontrada ou sem acesso.");
+
+    const subaccount = await createAsaasSubaccount({
+      name: data.name,
+      email: data.email,
+      loginEmail: data.email,
+      cpfCnpj: data.cpfCnpj,
+      birthDate: data.birthDate,
+      companyType: data.companyType,
+      phone: onlyDigits(data.phone),
+      mobilePhone: data.mobilePhone,
+      incomeValue: data.incomeValue,
+      address: data.address,
+      addressNumber: data.addressNumber,
+      complement: data.complement,
+      province: data.province,
+      postalCode: data.postalCode,
+    });
+
+    if (!subaccount.id || !subaccount.walletId || !subaccount.apiKey) {
+      throw new Error("Asaas criou a subconta, mas não retornou id, walletId ou apiKey.");
+    }
+
+    const apiKeyRef =
+      data.api_key_ref || `ASAAS_TENANT_${toSecretSlug(currentTenant.slug)}_API_KEY`;
+    const { data: tenant, error } = await supabase
+      .from("tenants")
+      .update({
+        asaas_account_id: subaccount.id,
+        asaas_wallet_id: subaccount.walletId,
+        asaas_api_key_ref: apiKeyRef,
+        asaas_onboarding_status: "active",
+        asaas_split_enabled: true,
+      })
+      .eq("id", currentTenant.id)
+      .select(
+        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
+      )
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    return {
+      tenant,
+      subaccount: {
+        id: subaccount.id,
+        walletId: subaccount.walletId,
+        apiKey: subaccount.apiKey,
+        apiKeyRef,
+        name: subaccount.name,
+      },
+    };
+  });
+
+function onlyDigits(value?: string | null) {
+  return value?.replace(/\D/g, "") || undefined;
+}
+
+function toSecretSlug(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
+}
 
 export const getTenantBySlug = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
