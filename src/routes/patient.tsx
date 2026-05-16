@@ -1,8 +1,10 @@
-import { Outlet, createFileRoute } from "@tanstack/react-router";
+import { Outlet, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Icons, PortalShell } from "@/components/portal/Shell";
 import { useRequireSession } from "@/hooks/use-auth-session";
+import { getPostLoginRoute } from "@/lib/access-routing";
 import { getMyAccess } from "@/lib/auth.functions";
 import { getPatientPortal } from "@/lib/patient-portal.functions";
 
@@ -11,6 +13,7 @@ export const Route = createFileRoute("/patient")({
 });
 
 function PatientLayout() {
+  const navigate = useNavigate();
   const session = useRequireSession();
   const fetchAccess = useServerFn(getMyAccess);
   const fetchPortal = useServerFn(getPatientPortal);
@@ -25,8 +28,18 @@ function PatientLayout() {
     enabled: session.isAuthenticated,
   });
 
+  useEffect(() => {
+    if (!data || portal?.patient) return;
+    const route = getPostLoginRoute(data);
+    if (route !== "/patient") navigate({ to: route as never });
+  }, [data, navigate, portal?.patient]);
+
   if (session.isLoading) {
     return <div className="p-8 text-sm text-muted-foreground">Verificando sessão...</div>;
+  }
+
+  if (data && !portal?.patient && getPostLoginRoute(data) !== "/patient") {
+    return <div className="p-8 text-sm text-muted-foreground">Redirecionando...</div>;
   }
 
   return (
