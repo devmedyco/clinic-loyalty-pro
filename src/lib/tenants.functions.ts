@@ -8,7 +8,9 @@ export const listMyTenants = createServerFn({ method: "GET" })
     const { supabase } = context;
     const { data, error } = await supabase
       .from("tenants")
-      .select("id, slug, name, brand_color, plan, status, created_at")
+      .select(
+        "id, slug, name, brand_color, plan, status, monthly_fee, split_percentage, commercial_model, created_at",
+      )
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return { tenants: data ?? [] };
@@ -32,6 +34,9 @@ const createTenantSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/)
     .optional(),
   plan: z.enum(["starter", "professional", "enterprise"]).optional(),
+  monthly_fee: z.coerce.number().min(0).optional(),
+  split_percentage: z.coerce.number().min(0).max(100).optional(),
+  patient_subscription_suggestion: z.coerce.number().min(0).optional(),
   legal_name: optionalText(180),
   cnpj: optionalText(20),
   email: optionalText(160).pipe(z.string().email("E-mail inválido").optional()),
@@ -75,6 +80,9 @@ const updateTenantSchema = z.object({
     )
     .optional(),
   status: z.enum(["trial", "active", "paused", "canceled"]),
+  monthly_fee: z.coerce.number().min(0).optional(),
+  split_percentage: z.coerce.number().min(0).max(100).optional(),
+  patient_subscription_suggestion: z.coerce.number().min(0).optional(),
   zip_code: optionalText(12),
   street: optionalText(180),
   number: optionalText(40),
@@ -107,9 +115,15 @@ export const createTenant = createServerFn({ method: "POST" })
         state: data.state?.toUpperCase(),
         brand_color: data.brand_color ?? "#0ea5e9",
         plan: data.plan ?? "starter",
+        monthly_fee: data.monthly_fee ?? 197,
+        split_percentage: data.split_percentage ?? 10,
+        patient_subscription_suggestion: data.patient_subscription_suggestion ?? 39.9,
+        commercial_model: "base_plus_split",
         owner_id: userId,
       })
-      .select("id, slug, name, brand_color, plan, status")
+      .select(
+        "id, slug, name, brand_color, plan, status, monthly_fee, split_percentage, commercial_model",
+      )
       .single();
     if (error) throw new Error(error.message);
     return { tenant };
@@ -123,7 +137,7 @@ export const getTenantBySlug = createServerFn({ method: "GET" })
     const { data: tenant, error } = await supabase
       .from("tenants")
       .select(
-        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, owner_id",
+        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_percentage, patient_subscription_suggestion, commercial_model, owner_id",
       )
       .eq("slug", data.slug)
       .maybeSingle();
@@ -155,10 +169,14 @@ export const updateTenantSettings = createServerFn({ method: "POST" })
         city: data.city,
         state: data.state?.toUpperCase(),
         status: data.status,
+        monthly_fee: data.monthly_fee ?? 197,
+        split_percentage: data.split_percentage ?? 10,
+        patient_subscription_suggestion: data.patient_subscription_suggestion ?? 39.9,
+        commercial_model: "base_plus_split",
       })
       .eq("id", data.id)
       .select(
-        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, owner_id",
+        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_percentage, patient_subscription_suggestion, commercial_model, owner_id",
       )
       .single();
 

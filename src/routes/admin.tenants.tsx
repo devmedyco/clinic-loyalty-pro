@@ -63,7 +63,8 @@ function TenantsPage() {
               <tr>
                 <th className="px-5 py-3">Nome</th>
                 <th className="px-5 py-3">Slug</th>
-                <th className="px-5 py-3">Plano</th>
+                <th className="px-5 py-3">Mensalidade</th>
+                <th className="px-5 py-3">Split</th>
                 <th className="px-5 py-3">Status</th>
               </tr>
             </thead>
@@ -72,7 +73,12 @@ function TenantsPage() {
                 <tr key={t.id} className="border-t border-border">
                   <td className="px-5 py-4 font-medium text-foreground">{t.name}</td>
                   <td className="px-5 py-4 text-muted-foreground">/{t.slug}</td>
-                  <td className="px-5 py-4 capitalize">{t.plan}</td>
+                  <td className="px-5 py-4 text-muted-foreground">
+                    {formatCurrency(t.monthly_fee)}
+                  </td>
+                  <td className="px-5 py-4 text-muted-foreground">
+                    {formatPercent(t.split_percentage)}%
+                  </td>
                   <td className="px-5 py-4">
                     <span
                       className={`rounded-md px-2 py-0.5 text-xs ${
@@ -111,7 +117,9 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [slug, setSlug] = useState("");
-  const [plan, setPlan] = useState<"starter" | "professional" | "enterprise">("starter");
+  const [monthlyFee, setMonthlyFee] = useState("197");
+  const [splitPercentage, setSplitPercentage] = useState("10");
+  const [patientSubscriptionSuggestion, setPatientSubscriptionSuggestion] = useState("39.90");
   const [loading, setLoading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -136,7 +144,10 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
           city,
           state,
           slug,
-          plan,
+          plan: "starter",
+          monthly_fee: Number(monthlyFee || 197),
+          split_percentage: Number(splitPercentage || 10),
+          patient_subscription_suggestion: Number(patientSubscriptionSuggestion || 39.9),
         },
       });
       onCreated();
@@ -256,18 +267,37 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
               onChange={(e) => setState(e.target.value)}
             />
           </div>
-          <label className="block">
-            <span className="text-xs font-medium text-foreground">Plano</span>
-            <select
-              value={plan}
-              onChange={(e) => setPlan(e.target.value as "starter" | "professional" | "enterprise")}
-              className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground"
-            >
-              <option value="starter">Starter</option>
-              <option value="professional">Professional</option>
-              <option value="enterprise">Enterprise</option>
-            </select>
-          </label>
+          <div className="border-t border-border pt-4 sm:col-span-2">
+            <h3 className="text-sm font-medium text-foreground">Modelo comercial</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Mensalidade única + split sobre cada assinatura de paciente paga.
+            </p>
+          </div>
+          <Field
+            label="Mensalidade da clínica"
+            type="number"
+            min="0"
+            step="0.01"
+            value={monthlyFee}
+            onChange={(e) => setMonthlyFee(e.target.value)}
+          />
+          <Field
+            label="Split Medyco (%)"
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            value={splitPercentage}
+            onChange={(e) => setSplitPercentage(e.target.value)}
+          />
+          <Field
+            label="Sugestão assinatura paciente"
+            type="number"
+            min="0"
+            step="0.01"
+            value={patientSubscriptionSuggestion}
+            onChange={(e) => setPatientSubscriptionSuggestion(e.target.value)}
+          />
           {err && <p className="text-sm text-destructive">{err}</p>}
           <div className="flex gap-2 pt-2 sm:col-span-2">
             <button
@@ -304,4 +334,15 @@ function Field({
       />
     </label>
   );
+}
+
+function formatCurrency(value?: number | string | null) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value ?? 197));
+}
+
+function formatPercent(value?: number | string | null) {
+  return Number(value ?? 10).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 }

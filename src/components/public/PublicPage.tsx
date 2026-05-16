@@ -19,7 +19,7 @@ export function PublicPage({
           <Logo />
           <nav className="flex items-center gap-4 text-sm text-muted-foreground">
             <Link to="/planos" className="hover:text-foreground">
-              Planos
+              Modelo
             </Link>
             <Link to="/contato" className="hover:text-foreground">
               Contato

@@ -28,8 +28,13 @@ type TenantFormState = {
   neighborhood: string;
   city: string;
   state: string;
+  monthly_fee: number;
+  split_percentage: number;
+  patient_subscription_suggestion: number;
   status: "trial" | "active" | "paused" | "canceled";
 };
+
+type FieldValue = string | number | readonly string[];
 
 function TenantSettingsPage() {
   const { tenant } = Route.useParams();
@@ -63,6 +68,9 @@ function TenantSettingsPage() {
       neighborhood: data.tenant.neighborhood ?? "",
       city: data.tenant.city ?? "",
       state: data.tenant.state ?? "",
+      monthly_fee: Number(data.tenant.monthly_fee ?? 197),
+      split_percentage: Number(data.tenant.split_percentage ?? 10),
+      patient_subscription_suggestion: Number(data.tenant.patient_subscription_suggestion ?? 39.9),
       status: data.tenant.status,
     });
   }, [data?.tenant]);
@@ -280,6 +288,45 @@ function TenantSettingsPage() {
                   onChange={(event) => setForm({ ...form, state: event.target.value })}
                 />
               </div>
+              <div className="border-t border-border pt-4 sm:col-span-2">
+                <h3 className="text-sm font-medium text-foreground">Modelo comercial</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  A Medyco cobra uma mensalidade fixa da clínica e recebe split sobre cada paciente
+                  pagante.
+                </p>
+              </div>
+              <Field
+                label="Mensalidade da clínica"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.monthly_fee}
+                onChange={(event) => setForm({ ...form, monthly_fee: Number(event.target.value) })}
+              />
+              <Field
+                label="Split Medyco (%)"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={form.split_percentage}
+                onChange={(event) =>
+                  setForm({ ...form, split_percentage: Number(event.target.value) })
+                }
+              />
+              <Field
+                label="Sugestão assinatura paciente"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.patient_subscription_suggestion}
+                onChange={(event) =>
+                  setForm({
+                    ...form,
+                    patient_subscription_suggestion: Number(event.target.value),
+                  })
+                }
+              />
               <label className="block">
                 <span className="text-xs font-medium text-foreground">Cor principal</span>
                 <div className="mt-1.5 flex gap-2">
@@ -335,13 +382,18 @@ function TenantSettingsPage() {
 function Field({
   label,
   className = "",
+  value,
   ...props
-}: { label: string; className?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+}: { label: string; className?: string; value?: FieldValue } & Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  "value"
+>) {
   return (
     <label className={`block ${className}`}>
       <span className="text-xs font-medium text-foreground">{label}</span>
       <input
         {...props}
+        value={value}
         className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground shadow-soft outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
       />
     </label>

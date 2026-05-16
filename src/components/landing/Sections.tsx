@@ -1,7 +1,10 @@
 import { Link } from "@tanstack/react-router";
 
 const problems = [
-  { t: "Dependência de convênios", d: "Margens cada vez mais apertadas e regras impostas por terceiros." },
+  {
+    t: "Dependência de convênios",
+    d: "Margens cada vez mais apertadas e regras impostas por terceiros.",
+  },
   { t: "Receita imprevisível", d: "Caixa que oscila com a agenda e gera estresse operacional." },
   { t: "Agenda ociosa", d: "Horários vagos sem ferramenta para reativar pacientes." },
   { t: "Baixa fidelização", d: "Sem recorrência, o paciente vira uma transação única." },
@@ -24,42 +27,28 @@ const benefitsPatient = [
 ];
 
 const modules = [
-  { t: "Portal Clínica", d: "Operação completa: pacientes, equipe, serviços e financeiro." },
-  { t: "Portal Paciente", d: "App moderno de benefícios com cartão e histórico." },
+  { t: "Portal Clínica", d: "Pacientes, equipe, serviços, rede, billing, contratos e relatórios." },
+  { t: "Portal Paciente", d: "Cartão digital, assinatura, histórico, perfil e rede credenciada." },
   { t: "Validação por QR", d: "Recepção autoriza atendimentos em tempo real." },
-  { t: "Assinaturas", d: "Recorrência integrada ao Asaas pronta para escalar." },
+  {
+    t: "Assinaturas + split",
+    d: "Recorrência via Asaas com participação automática por paciente pago.",
+  },
   { t: "Multi-tenant", d: "White-label nativo, com slug, domínio e branding próprios." },
-  { t: "Admin global", d: "Para gestores Medyco: tenants, billing e métricas SaaS." },
+  { t: "Admin global", d: "Tenants, billing, métricas, auditoria, notificações e operação SaaS." },
+  {
+    t: "Cadastro inteligente",
+    d: "CNPJ e CEP preenchem dados automaticamente para reduzir atrito.",
+  },
+  { t: "Contratos e LGPD", d: "Termos, aceite digital e histórico jurídico por paciente." },
+  { t: "Relatórios", d: "Gráficos, CSV e PDF para pacientes, pagamentos e atendimentos." },
 ];
 
-const plans = [
-  {
-    name: "Starter",
-    price: "R$ 197",
-    sub: "/mês",
-    desc: "Para clínicas começando a recorrência.",
-    features: ["Até 200 pacientes ativos", "Cartão digital + QR", "1 unidade", "Suporte por e-mail"],
-    cta: "Começar agora",
-    highlight: false,
-  },
-  {
-    name: "Professional",
-    price: "R$ 497",
-    sub: "/mês",
-    desc: "Para clínicas em crescimento.",
-    features: ["Até 2.000 pacientes ativos", "White-label completo", "Múltiplas unidades", "Integrações Asaas", "Suporte prioritário"],
-    cta: "Mais popular",
-    highlight: true,
-  },
-  {
-    name: "Enterprise",
-    price: "Sob consulta",
-    sub: "",
-    desc: "Para redes e franquias.",
-    features: ["Pacientes ilimitados", "Domínio customizado", "API pública", "SLA dedicado", "Onboarding assistido"],
-    cta: "Falar com vendas",
-    highlight: false,
-  },
+const platformMetrics = [
+  { k: "Mensalidade clínica", v: "R$ 197" },
+  { k: "Split Medyco", v: "10%" },
+  { k: "Paciente sugerido", v: "R$ 39,90" },
+  { k: "Tempo de ativação", v: "dias" },
 ];
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
@@ -109,8 +98,8 @@ export function Solution() {
               <span className="italic gradient-text"> benefícios recorrentes</span>.
             </h2>
             <p className="mt-4 text-lg text-muted-foreground">
-              Assinatura mensal, cartão digital, validação por QR e gestão clínica — tudo
-              em uma única plataforma white-label.
+              Assinatura mensal, cartão digital, validação por QR e gestão clínica — tudo em uma
+              única plataforma white-label.
             </p>
             <div className="mt-8 space-y-4">
               {[
@@ -122,7 +111,15 @@ export function Solution() {
               ].map((s) => (
                 <div key={s} className="flex items-start gap-3">
                   <span className="mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand-soft text-brand">
-                    <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3"><path d="m4 8 3 3 5-6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <svg
+                      viewBox="0 0 16 16"
+                      className="h-3 w-3"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                    >
+                      <path d="m4 8 3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </span>
                   <span className="text-foreground">{s}</span>
                 </div>
@@ -132,14 +129,21 @@ export function Solution() {
 
           {/* Visual: cartão + QR */}
           <div className="relative">
-            <div className="absolute -inset-8 -z-10 bg-gradient-to-br from-brand/15 to-transparent blur-3xl" aria-hidden />
+            <div
+              className="absolute -inset-8 -z-10 bg-gradient-to-br from-brand/15 to-transparent blur-3xl"
+              aria-hidden
+            />
             <div className="relative aspect-[1.6/1] overflow-hidden rounded-2xl gradient-brand p-6 text-white shadow-elevated">
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="text-[10px] uppercase tracking-widest opacity-80">Clínica Santa Vida</div>
+                  <div className="text-[10px] uppercase tracking-widest opacity-80">
+                    Clínica Santa Vida
+                  </div>
                   <div className="mt-1 font-display text-2xl">Cartão Benefícios</div>
                 </div>
-                <div className="rounded-md bg-white/15 px-2 py-1 text-[10px] uppercase tracking-wider">Ativo</div>
+                <div className="rounded-md bg-white/15 px-2 py-1 text-[10px] uppercase tracking-wider">
+                  Ativo
+                </div>
               </div>
               <div className="mt-10">
                 <div className="text-[10px] uppercase tracking-widest opacity-80">Titular</div>
@@ -147,12 +151,15 @@ export function Solution() {
               </div>
               <div className="mt-3 flex items-end justify-between">
                 <div>
-                  <div className="text-[10px] uppercase tracking-widest opacity-80">Plano</div>
-                  <div className="font-medium">Professional · mensal</div>
+                  <div className="text-[10px] uppercase tracking-widest opacity-80">Modelo</div>
+                  <div className="font-medium">Base + split · mensal</div>
                 </div>
                 <div className="grid h-16 w-16 grid-cols-5 grid-rows-5 gap-px rounded bg-white p-1">
                   {Array.from({ length: 25 }).map((_, i) => (
-                    <span key={i} className={`${[0,2,3,5,7,8,11,13,16,17,19,20,22,24].includes(i) ? "bg-primary" : "bg-transparent"}`} />
+                    <span
+                      key={i}
+                      className={`${[0, 2, 3, 5, 7, 8, 11, 13, 16, 17, 19, 20, 22, 24].includes(i) ? "bg-primary" : "bg-transparent"}`}
+                    />
                   ))}
                 </div>
               </div>
@@ -160,11 +167,21 @@ export function Solution() {
             <div className="mt-4 rounded-xl border border-border bg-card p-4 shadow-soft">
               <div className="flex items-center gap-3">
                 <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-success/15 text-success">
-                  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m4 8 3 3 5-6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <svg
+                    viewBox="0 0 16 16"
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path d="m4 8 3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </span>
                 <div>
                   <div className="text-sm font-medium text-foreground">Atendimento autorizado</div>
-                  <div className="text-xs text-muted-foreground">Consulta clínica geral · desconto de 40% aplicado</div>
+                  <div className="text-xs text-muted-foreground">
+                    Consulta clínica geral · desconto de 40% aplicado
+                  </div>
                 </div>
               </div>
             </div>
@@ -229,7 +246,10 @@ export function Modules() {
         </div>
         <div className="mt-12 grid gap-4 md:grid-cols-3">
           {modules.map((m, i) => (
-            <div key={m.t} className="group rounded-2xl border border-border bg-card p-6 transition hover:border-brand/40 hover:shadow-elevated">
+            <div
+              key={m.t}
+              className="group rounded-2xl border border-border bg-card p-6 transition hover:border-brand/40 hover:shadow-elevated"
+            >
               <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand-soft text-brand">
                 <span className="font-display text-sm">{String(i + 1).padStart(2, "0")}</span>
               </div>
@@ -243,54 +263,181 @@ export function Modules() {
   );
 }
 
+export function ProductShowcase() {
+  return (
+    <section className="border-b border-border/60 bg-surface">
+      <div className="mx-auto max-w-7xl px-6 py-24">
+        <div className="max-w-2xl">
+          <Eyebrow>Produto real</Eyebrow>
+          <h2 className="mt-4 font-display text-4xl tracking-tight text-foreground md:text-5xl">
+            A Medyco já nasce como operação, não como apresentação.
+          </h2>
+          <p className="mt-4 text-lg text-muted-foreground">
+            Painéis separados, fluxos completos e dados que fazem sentido para a clínica, para o
+            paciente e para a plataforma mãe.
+          </p>
+        </div>
+        <div className="mt-12 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="overflow-hidden rounded-2xl border border-border bg-surface-elevated shadow-elevated">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div>
+                <div className="text-sm font-medium text-foreground">Portal Clínica</div>
+                <div className="text-xs text-muted-foreground">Relatórios · últimos 30 dias</div>
+              </div>
+              <div className="rounded-lg bg-brand-soft px-3 py-1 text-xs text-brand">
+                Base + split
+              </div>
+            </div>
+            <div className="grid gap-4 p-5 md:grid-cols-3">
+              {[
+                ["Receita final", "R$ 48.290"],
+                ["Economia gerada", "R$ 19.420"],
+                ["Validações", "1.284"],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-border bg-card p-4">
+                  <div className="text-xs text-muted-foreground">{label}</div>
+                  <div className="mt-1 font-display text-3xl text-foreground">{value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="px-5 pb-5">
+              <div className="flex h-44 items-end gap-2 rounded-xl border border-border bg-card p-5">
+                {[36, 58, 44, 72, 64, 84, 52, 90, 76, 96, 70, 88].map((height, index) => (
+                  <span
+                    key={index}
+                    className="flex-1 rounded-t-md gradient-brand transition duration-500 hover:opacity-80"
+                    style={{ height: `${height}%` }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-5">
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-foreground">Validação QR</div>
+                  <div className="text-xs text-muted-foreground">Recepção em tempo real</div>
+                </div>
+                <span className="rounded-full bg-success/15 px-3 py-1 text-xs text-success">
+                  Autorizado
+                </span>
+              </div>
+              <div className="mt-5 rounded-xl border border-border bg-surface p-4">
+                <div className="font-medium text-foreground">Maria Eduarda Costa</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  Termo aceito · assinatura ativa · cartão válido
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+              <div className="text-sm font-medium text-foreground">Portal Paciente</div>
+              <div className="mt-4 overflow-hidden rounded-xl gradient-brand p-5 text-white">
+                <div className="text-xs uppercase tracking-widest opacity-80">Cartão digital</div>
+                <div className="mt-8 font-display text-2xl">Santa Vida Benefits</div>
+                <div className="mt-2 text-sm opacity-80">MED-8AF2-91</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function Plans() {
   return (
     <section id="planos" className="border-b border-border/60 bg-surface">
       <div className="mx-auto max-w-7xl px-6 py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <Eyebrow>Planos</Eyebrow>
+          <Eyebrow>Modelo comercial</Eyebrow>
           <h2 className="mt-4 font-display text-4xl tracking-tight text-foreground md:text-5xl">
-            Escolha o ritmo da sua operação.
+            Mensalidade baixa. Crescimento compartilhado.
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Sem fidelidade. Cancele quando quiser. Suporte humano em todos os planos.
+            A clínica paga uma mensalidade única para usar a plataforma e a Medyco participa de cada
+            paciente pagante via split.
           </p>
         </div>
-        <div className="mt-12 grid gap-4 md:grid-cols-3">
-          {plans.map((p) => (
-            <div
-              key={p.name}
-              className={`relative rounded-2xl border p-6 ${p.highlight ? "border-brand bg-surface-elevated shadow-elevated" : "border-border bg-surface-elevated"}`}
+        <div className="mt-12 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="rounded-2xl border border-brand bg-surface-elevated p-6 shadow-elevated">
+            <div className="inline-flex rounded-full gradient-brand px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
+              Modelo padrão
+            </div>
+            <div className="mt-6 font-display text-5xl text-foreground">R$ 197</div>
+            <p className="mt-1 text-sm text-muted-foreground">por mês por clínica</p>
+            <div className="mt-6 rounded-xl border border-border bg-surface p-4">
+              <div className="text-sm font-medium text-foreground">+ 10% via split</div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                aplicado somente quando o paciente paga a assinatura do cartão.
+              </p>
+            </div>
+            <ul className="mt-6 space-y-2.5 border-t border-border pt-6">
+              {[
+                "Sem cobrança por paciente inativo",
+                "Cartão digital, QR e portal paciente inclusos",
+                "Rede credenciada, contratos, billing e relatórios",
+                "Cadastro inteligente com CNPJ e CEP",
+                "Condição customizada para redes e franquias",
+              ].map((f) => (
+                <li key={f} className="flex items-start gap-2.5 text-sm text-foreground">
+                  <span className="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-brand-soft text-brand">
+                    <svg
+                      viewBox="0 0 16 16"
+                      className="h-2.5 w-2.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                    >
+                      <path d="m4 8 3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <Link
+              to="/signup"
+              className="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
             >
-              {p.highlight && (
-                <div className="absolute -top-3 left-6 rounded-full gradient-brand px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-                  Mais popular
+              Criar plataforma
+            </Link>
+          </div>
+          <div className="rounded-2xl border border-border bg-card p-6">
+            <h3 className="font-display text-2xl text-foreground">Exemplo prático</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Clínica com 100 pacientes pagando R$ 39,90 por mês.
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {platformMetrics.map((metric) => (
+                <div key={metric.k} className="rounded-xl border border-border bg-surface p-4">
+                  <div className="text-xs text-muted-foreground">{metric.k}</div>
+                  <div className="mt-1 font-display text-3xl text-foreground">{metric.v}</div>
                 </div>
-              )}
-              <div className="font-display text-xl text-foreground">{p.name}</div>
-              <p className="mt-1 text-sm text-muted-foreground">{p.desc}</p>
-              <div className="mt-6 flex items-baseline gap-1">
-                <span className="font-display text-4xl text-foreground">{p.price}</span>
-                <span className="text-sm text-muted-foreground">{p.sub}</span>
-              </div>
+              ))}
+            </div>
+            <div className="mt-6 rounded-xl border border-border bg-surface p-5">
+              <div className="text-sm text-muted-foreground">Receita estimada Medyco</div>
+              <div className="mt-1 font-display text-4xl text-foreground">R$ 596/mês</div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                R$ 197 de mensalidade + R$ 399 de split sobre assinaturas pagas.
+              </p>
+            </div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <Link
                 to="/signup"
-                className={`mt-6 inline-flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium transition ${p.highlight ? "bg-primary text-primary-foreground hover:opacity-90" : "border border-border bg-background text-foreground hover:bg-accent"}`}
+                className="inline-flex items-center justify-center rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-accent"
               >
-                {p.cta}
+                Começar agora
               </Link>
-              <ul className="mt-6 space-y-2.5 border-t border-border pt-6">
-                {p.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2.5 text-sm text-foreground">
-                    <span className="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-brand-soft text-brand">
-                      <svg viewBox="0 0 16 16" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="3"><path d="m4 8 3 3 5-6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </span>
-                    {f}
-                  </li>
-                ))}
-              </ul>
+              <a
+                href="mailto:contato@medyco.com.br"
+                className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+              >
+                Falar com vendas
+              </a>
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </section>
@@ -343,7 +490,7 @@ export function Footer() {
           </p>
         </div>
         {[
-          { t: "Plataforma", l: ["Solução", "Módulos", "Planos", "Demonstração"] },
+          { t: "Plataforma", l: ["Solução", "Módulos", "Modelo", "Demonstração"] },
           { t: "Empresa", l: ["Sobre", "Blog", "Contato", "Carreiras"] },
           { t: "Legal", l: ["Termos", "Privacidade", "LGPD", "Status"] },
         ].map((g) => (
@@ -352,7 +499,10 @@ export function Footer() {
             <ul className="mt-3 space-y-2">
               {g.l.map((i) => (
                 <li key={i}>
-                  <a className="text-sm text-muted-foreground transition hover:text-foreground" href="#">
+                  <a
+                    className="text-sm text-muted-foreground transition hover:text-foreground"
+                    href="#"
+                  >
                     {i}
                   </a>
                 </li>
@@ -363,8 +513,12 @@ export function Footer() {
       </div>
       <div className="border-t border-border">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
-          <span className="text-xs text-muted-foreground">© {new Date().getFullYear()} Medyco. Todos os direitos reservados.</span>
-          <span className="text-xs text-muted-foreground">Feito para clínicas que querem crescer.</span>
+          <span className="text-xs text-muted-foreground">
+            © {new Date().getFullYear()} Medyco. Todos os direitos reservados.
+          </span>
+          <span className="text-xs text-muted-foreground">
+            Feito para clínicas que querem crescer.
+          </span>
         </div>
       </div>
     </footer>

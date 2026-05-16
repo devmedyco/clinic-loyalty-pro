@@ -19,7 +19,7 @@ function AdminBillingPage() {
     <>
       <PageHeader
         title="Billing SaaS"
-        subtitle="Visão comercial dos planos das clínicas. Gateway de cobrança ainda será conectado."
+        subtitle="Mensalidade fixa das clínicas e participação Medyco por paciente pagante."
       />
       {error && <Card className="p-6 text-sm text-destructive">{(error as Error).message}</Card>}
       <div className="grid gap-4 md:grid-cols-3">
@@ -33,12 +33,12 @@ function AdminBillingPage() {
         <StatCard
           label="MRR previsto"
           value={isLoading ? "..." : formatCurrency(data?.totals.expectedMrr)}
-          delta="baseado no plano atual"
+          delta="mensalidades das clínicas"
         />
         <StatCard
-          label="Gateway"
-          value={isLoading ? "..." : data?.totals.billingConnected ? "Conectado" : "Pendente"}
-          delta="Asaas/Stripe próximo bloco"
+          label="Split médio"
+          value={isLoading ? "..." : `${formatPercent(data?.totals.averageSplit)}%`}
+          delta="sobre pacientes pagos"
         />
       </div>
       <Card className="mt-6 overflow-hidden">
@@ -54,9 +54,10 @@ function AdminBillingPage() {
               <thead className="bg-surface text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-5 py-3">Clínica</th>
-                  <th className="px-5 py-3">Plano</th>
+                  <th className="px-5 py-3">Mensalidade</th>
+                  <th className="px-5 py-3">Split</th>
                   <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Valor previsto</th>
+                  <th className="px-5 py-3">Modelo</th>
                 </tr>
               </thead>
               <tbody>
@@ -66,13 +67,14 @@ function AdminBillingPage() {
                       <div className="font-medium text-foreground">{tenant.name}</div>
                       <div className="text-xs text-muted-foreground">/{tenant.slug}</div>
                     </td>
-                    <td className="px-5 py-4 capitalize text-foreground">{tenant.plan}</td>
-                    <td className="px-5 py-4 text-muted-foreground">{tenant.billing_status}</td>
                     <td className="px-5 py-4 font-medium text-foreground">
-                      {tenant.expected_amount > 0
-                        ? formatCurrency(tenant.expected_amount)
-                        : "Sob consulta"}
+                      {formatCurrency(tenant.expected_amount)}
                     </td>
+                    <td className="px-5 py-4 text-muted-foreground">
+                      {formatPercent(tenant.split_percentage)}%
+                    </td>
+                    <td className="px-5 py-4 text-muted-foreground">{tenant.billing_status}</td>
+                    <td className="px-5 py-4 text-muted-foreground">Base + split</td>
                   </tr>
                 ))}
               </tbody>
@@ -93,4 +95,8 @@ function formatCurrency(value?: number) {
     style: "currency",
     currency: "BRL",
   }).format(value ?? 0);
+}
+
+function formatPercent(value?: number) {
+  return Number(value ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 }

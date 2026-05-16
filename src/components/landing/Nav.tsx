@@ -4,7 +4,7 @@ import { Logo } from "@/components/brand/Logo";
 const links = [
   { href: "#solucao", label: "Solução" },
   { href: "#modulos", label: "Plataforma" },
-  { href: "#planos", label: "Planos" },
+  { href: "#planos", label: "Modelo" },
   { href: "#contato", label: "Contato" },
 ];
 
@@ -36,7 +36,15 @@ export function LandingNav() {
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
           >
             Criar plataforma
-            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 4 4 4-4 4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg
+              viewBox="0 0 16 16"
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="m6 4 4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </Link>
         </div>
       </div>

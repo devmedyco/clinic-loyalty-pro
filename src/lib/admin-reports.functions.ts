@@ -9,7 +9,7 @@ export const getAdminMetrics = createServerFn({ method: "GET" })
 
     const [tenants, patients, validations, executions, services, invitations, recentTenants] =
       await Promise.all([
-        supabase.from("tenants").select("plan, status, created_at"),
+        supabase.from("tenants").select("commercial_model, status, created_at"),
         supabase.from("patients").select("status, created_at"),
         supabase
           .from("card_validations")
@@ -20,7 +20,9 @@ export const getAdminMetrics = createServerFn({ method: "GET" })
         supabase.from("staff_invitations").select("status, created_at"),
         supabase
           .from("tenants")
-          .select("id, name, slug, plan, status, created_at")
+          .select(
+            "id, name, slug, status, monthly_fee, split_percentage, commercial_model, created_at",
+          )
           .order("created_at", { ascending: false })
           .limit(8),
       ]);
@@ -60,7 +62,7 @@ export const getAdminMetrics = createServerFn({ method: "GET" })
         activeServices: serviceRows.filter((service) => service.active).length,
         pendingInvites: inviteRows.filter((invite) => invite.status === "pending").length,
       },
-      planMix: groupCount(tenantRows, "plan"),
+      commercialModel: groupCount(tenantRows, "commercial_model"),
       tenantStatus: groupCount(tenantRows, "status"),
       patientStatus: groupCount(patientRows, "status"),
       recentTenants: recentTenants.data ?? [],
@@ -74,14 +76,14 @@ export const getAdminBilling = createServerFn({ method: "GET" })
 
     const { data: tenants, error } = await supabase
       .from("tenants")
-      .select("id, name, slug, plan, status, created_at")
+      .select("id, name, slug, status, monthly_fee, split_percentage, commercial_model, created_at")
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(error.message);
 
     const rows = (tenants ?? []).map((tenant) => ({
       ...tenant,
-      expected_amount: planAmount(tenant.plan),
+      expected_amount: Number(tenant.monthly_fee ?? 197),
       billing_status:
         tenant.status === "active"
           ? "operacional"
@@ -95,6 +97,11 @@ export const getAdminBilling = createServerFn({ method: "GET" })
         tenants: rows.length,
         activeTenants: rows.filter((tenant) => ["active", "trial"].includes(tenant.status)).length,
         expectedMrr: rows.reduce((total, tenant) => total + tenant.expected_amount, 0),
+        averageSplit:
+          rows.length > 0
+            ? rows.reduce((total, tenant) => total + Number(tenant.split_percentage ?? 10), 0) /
+              rows.length
+            : 0,
         billingConnected: false,
       },
       tenants: rows,
@@ -189,15 +196,6 @@ function groupCount<T extends Record<string, unknown>>(rows: T[], key: keyof T) 
 
 function sumAmounts<T extends Record<string, unknown>>(rows: T[], key: keyof T) {
   return rows.reduce((total, row) => total + Number(row[key] || 0), 0);
-}
-
-function planAmount(plan: string) {
-  const amounts: Record<string, number> = {
-    starter: 199,
-    professional: 499,
-    enterprise: 0,
-  };
-  return amounts[plan] ?? 0;
 }
 
 function tenantLabel(value: unknown) {

@@ -43,7 +43,7 @@ function AdminMetricsPage() {
         />
       </div>
       <div className="mt-6 grid gap-5 lg:grid-cols-3">
-        <BreakdownCard title="Planos" data={data?.planMix} loading={isLoading} />
+        <BreakdownCard title="Modelo comercial" data={data?.commercialModel} loading={isLoading} />
         <BreakdownCard title="Status das clínicas" data={data?.tenantStatus} loading={isLoading} />
         <BreakdownCard
           title="Status dos pacientes"
@@ -68,7 +68,7 @@ function AdminMetricsPage() {
                   <div className="text-xs text-muted-foreground">/{tenant.slug}</div>
                 </div>
                 <div className="text-right text-xs text-muted-foreground">
-                  <div>{tenant.plan}</div>
+                  <div>{commercialModelLabel(tenant.commercial_model)}</div>
                   <div>{tenant.status}</div>
                 </div>
               </div>
@@ -78,6 +78,10 @@ function AdminMetricsPage() {
       </Card>
     </>
   );
+}
+
+function commercialModelLabel(value?: string) {
+  return value === "custom" ? "Contrato customizado" : "Base + split";
 }
 
 function BreakdownCard({
