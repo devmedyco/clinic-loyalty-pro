@@ -83,6 +83,13 @@ function PatientInvitePage() {
             {error && (
               <div className="mb-4 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {(error as Error).message}
+                <button
+                  type="button"
+                  onClick={() => supabase.auth.signOut()}
+                  className="mt-3 block rounded-md border border-destructive/30 px-3 py-1.5 text-xs font-medium"
+                >
+                  Sair e entrar com outro e-mail
+                </button>
               </div>
             )}
             {isSuccess ? (

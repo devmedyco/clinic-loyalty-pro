@@ -14,6 +14,7 @@ function SignupPage() {
   const navigate = useNavigate();
   const fetchAccess = useServerFn(getMyAccess);
   const copy = getSignupCopy();
+  const authSearch = getAuthSearch();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -121,7 +122,11 @@ function SignupPage() {
       </form>
       <div className="mt-6 text-center text-sm text-muted-foreground">
         Já tem conta?{" "}
-        <Link to="/login" className="text-foreground hover:text-brand transition">
+        <Link
+          to="/login"
+          search={authSearch as never}
+          className="text-foreground hover:text-brand transition"
+        >
           Entrar
         </Link>
       </div>
@@ -159,6 +164,17 @@ function getSafeRedirect() {
   const redirect = new URLSearchParams(window.location.search).get("redirect");
   if (!redirect || !redirect.startsWith("/") || redirect.startsWith("//")) return null;
   return redirect;
+}
+
+function getAuthSearch() {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  const redirect = getSafeRedirect();
+  const portal = params.get("portal");
+  return {
+    ...(portal ? { portal } : {}),
+    ...(redirect ? { redirect } : {}),
+  };
 }
 
 function getPortalContext(): "clinic" | "patient" | "admin" {

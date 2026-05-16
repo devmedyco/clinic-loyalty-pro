@@ -14,6 +14,7 @@ function LoginPage() {
   const navigate = useNavigate();
   const fetchAccess = useServerFn(getMyAccess);
   const copy = getLoginCopy();
+  const authSearch = getAuthSearch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -97,11 +98,16 @@ function LoginPage() {
       <div className="mt-4 flex items-center justify-between text-sm">
         <Link
           to="/reset-password"
+          search={authSearch as never}
           className="text-muted-foreground hover:text-foreground transition"
         >
           Esqueci a senha
         </Link>
-        <Link to="/signup" className="text-foreground hover:text-brand transition">
+        <Link
+          to="/signup"
+          search={authSearch as never}
+          className="text-foreground hover:text-brand transition"
+        >
           {copy.signupLabel}
         </Link>
       </div>
@@ -139,6 +145,17 @@ function getSafeRedirect() {
   const redirect = new URLSearchParams(window.location.search).get("redirect");
   if (!redirect || !redirect.startsWith("/") || redirect.startsWith("//")) return null;
   return redirect;
+}
+
+function getAuthSearch() {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  const redirect = getSafeRedirect();
+  const portal = params.get("portal");
+  return {
+    ...(portal ? { portal } : {}),
+    ...(redirect ? { redirect } : {}),
+  };
 }
 
 function getPortalContext(): "clinic" | "patient" | "admin" {

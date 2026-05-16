@@ -7,6 +7,7 @@ export const Route = createFileRoute("/_auth/reset-password")({
 });
 
 function ResetPasswordPage() {
+  const authSearch = getAuthSearch();
   const [mode, setMode] = useState<"request" | "update">("request");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -91,12 +92,27 @@ function ResetPasswordPage() {
         </button>
       </form>
       <div className="mt-6 text-center text-sm text-muted-foreground">
-        <Link to="/login" className="text-foreground hover:text-brand transition">
+        <Link
+          to="/login"
+          search={authSearch as never}
+          className="text-foreground hover:text-brand transition"
+        >
           ← Voltar para login
         </Link>
       </div>
     </div>
   );
+}
+
+function getAuthSearch() {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  const portal = params.get("portal");
+  const redirect = params.get("redirect");
+  return {
+    ...(portal ? { portal } : {}),
+    ...(redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? { redirect } : {}),
+  };
 }
 
 function Field({
