@@ -62,7 +62,7 @@ function SignupPage() {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-          redirect ?? "/onboarding",
+          redirect ?? "auto",
         )}`,
       },
     });
