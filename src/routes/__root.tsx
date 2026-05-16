@@ -78,9 +78,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Crie seu próprio cartão de benefícios em saúde. Assinatura recorrente, cartão digital e validação por QR para sua clínica.",
+          "Crie seu próprio cartão de benefícios em saúde com assinatura recorrente, QR Code, portal do paciente e gestão completa para clínicas.",
       },
       { name: "author", content: "Medyco" },
+      { name: "robots", content: "index, follow" },
       {
         property: "og:title",
         content: "Medyco — Infraestrutura de benefícios em saúde para clínicas",
@@ -91,15 +92,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Transforme sua clínica em uma operação recorrente com assinatura, cartão digital e validação inteligente.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://medyco.com.br" },
       { name: "twitter:card", content: "summary_large_image" },
       {
         name: "twitter:title",
         content: "Medyco — Infraestrutura de benefícios em saúde para clínicas",
-      },
-      {
-        name: "description",
-        content:
-          "Crie seu próprio cartão de benefícios em saúde com assinatura recorrente, QR Code, portal do paciente e gestão completa para clínicas.",
       },
       {
         property: "og:description",
@@ -124,6 +121,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "canonical", href: "https://medyco.com.br" },
       {
         rel: "preconnect",
         href: "https://fonts.googleapis.com",
