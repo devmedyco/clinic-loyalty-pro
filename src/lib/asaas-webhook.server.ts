@@ -12,6 +12,15 @@ type AsaasWebhookPayload = {
     invoiceUrl?: string;
     bankSlipUrl?: string;
     dateCreated?: string;
+    netValue?: number;
+    split?: Array<{
+      walletId?: string;
+      fixedValue?: number;
+      percentualValue?: number;
+      status?: string;
+      totalValue?: number;
+      netValue?: number;
+    }>;
   };
 };
 
@@ -55,6 +64,7 @@ export async function handleAsaasWebhook(request: Request) {
         payment.confirmedDate ??
         new Date().toISOString())
       : null;
+  const firstSplit = payment.split?.[0];
 
   const { data: paymentRow, error: paymentError } = await supabaseAdmin
     .from("payments")
@@ -64,6 +74,12 @@ export async function handleAsaasWebhook(request: Request) {
       confirmed_at: paidAt,
       asaas_invoice_url: payment.invoiceUrl,
       asaas_bank_slip_url: payment.bankSlipUrl,
+      asaas_net_value: payment.netValue,
+      asaas_split_wallet_id: firstSplit?.walletId,
+      asaas_split_fixed_fee: firstSplit?.fixedValue,
+      asaas_split_percentage: firstSplit?.percentualValue,
+      asaas_split_status: firstSplit?.status,
+      asaas_split_value: firstSplit?.totalValue,
     })
     .eq("asaas_payment_id", payment.id)
     .select("id, tenant_id, patient_id, subscription_id")

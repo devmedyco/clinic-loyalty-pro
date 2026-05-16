@@ -44,6 +44,8 @@ type Payment = {
   asaas_split_status?: string | null;
   asaas_split_fixed_fee?: number | string | null;
   asaas_split_percentage?: number | string | null;
+  asaas_net_value?: number | string | null;
+  asaas_split_value?: number | string | null;
   created_at: string;
   patients?: { full_name: string } | null;
 };
@@ -323,6 +325,14 @@ function BillingPage() {
                           {payment.asaas_split_percentage
                             ? ` · ${formatPercent(payment.asaas_split_percentage)}%`
                             : ""}
+                          {payment.asaas_split_value
+                            ? ` · ${formatCurrency(payment.asaas_split_value)} repassado`
+                            : ""}
+                        </div>
+                      )}
+                      {payment.asaas_net_value && (
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Líquido Asaas: {formatCurrency(payment.asaas_net_value)}
                         </div>
                       )}
                       {payment.status !== "paid" && (

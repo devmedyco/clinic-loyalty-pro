@@ -35,7 +35,12 @@ Use este roteiro depois de cada publish no Lovable para conferir se os três per
 
 ## 4. Fluxo financeiro
 
+- Em `/admin/settings`, conferir se Asaas sandbox mostra API, wallet e webhook configurados.
+- Em `/app/slug-da-clinica/settings`, criar subconta Asaas sandbox para a clínica.
+- Salvar a API key da subconta no Lovable com o nome de secret exibido pela Medyco.
 - Criar cobrança pendente para um paciente.
+- Abrir o link de cobrança Asaas e simular o pagamento no sandbox.
+- Conferir se webhook atualiza pagamento, assinatura, paciente e status do split.
 - Enviar lembrete de cobrança por e-mail.
 - Marcar pagamento como pago e confirmar que o paciente volta para ativo.
 - Marcar assinatura como inadimplente, cancelada, pausada e reativada.

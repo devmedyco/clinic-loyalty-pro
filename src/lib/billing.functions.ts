@@ -65,7 +65,7 @@ export const getTenantBilling = createServerFn({ method: "GET" })
       supabase
         .from("payments")
         .select(
-          "id, tenant_id, patient_id, subscription_id, amount, payment_method, status, paid_at, due_date, confirmed_at, asaas_payment_id, asaas_invoice_url, asaas_bank_slip_url, asaas_split_status, asaas_split_fixed_fee, asaas_split_percentage, notes, created_at, patients(full_name)",
+          "id, tenant_id, patient_id, subscription_id, amount, payment_method, status, paid_at, due_date, confirmed_at, asaas_payment_id, asaas_invoice_url, asaas_bank_slip_url, asaas_net_value, asaas_split_value, asaas_split_status, asaas_split_fixed_fee, asaas_split_percentage, notes, created_at, patients(full_name)",
         )
         .eq("tenant_id", tenant.id)
         .order("created_at", { ascending: false })
