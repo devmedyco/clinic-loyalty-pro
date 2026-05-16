@@ -190,6 +190,81 @@ export const getAdminSettingsStatus = createServerFn({ method: "GET" })
     asaasMarketplaceReady: Boolean(process.env.ASAAS_API_KEY && process.env.ASAAS_MEDYCO_WALLET_ID),
   }));
 
+export const getAdminReadiness = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context;
+
+    const [tenants, patients, payments, legalDocuments, invitations] = await Promise.all([
+      supabase
+        .from("tenants")
+        .select(
+          "id, name, slug, cnpj, email, status, monthly_fee, split_percentage, asaas_onboarding_status, asaas_api_key_ref, asaas_wallet_id",
+        ),
+      supabase.from("patients").select("id, tenant_id, status, user_id, email, cpf"),
+      supabase.from("payments").select("id, tenant_id, status, asaas_payment_id"),
+      supabase.from("legal_documents").select("id, type, active"),
+      supabase.from("staff_invitations").select("id, status"),
+    ]);
+
+    for (const result of [tenants, patients, payments, legalDocuments, invitations]) {
+      if (result.error) throw new Error(result.error.message);
+    }
+
+    const tenantRows = tenants.data ?? [];
+    const patientRows = patients.data ?? [];
+    const paymentRows = payments.data ?? [];
+    const legalRows = legalDocuments.data ?? [];
+    const inviteRows = invitations.data ?? [];
+
+    const activeLegalTypes = new Set(
+      legalRows.filter((document) => document.active).map((document) => document.type),
+    );
+    const tenantGaps = tenantRows
+      .map((tenant) => ({
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+        gaps: [
+          !tenant.cnpj ? "CNPJ" : null,
+          !tenant.email ? "e-mail" : null,
+          !tenant.asaas_wallet_id ? "wallet Asaas" : null,
+          !tenant.asaas_api_key_ref ? "secret Asaas" : null,
+          tenant.asaas_onboarding_status !== "active" ? "Asaas ativo" : null,
+        ].filter(Boolean),
+      }))
+      .filter((tenant) => tenant.gaps.length > 0);
+
+    return {
+      environment: {
+        resend: Boolean(process.env.RESEND_API_KEY),
+        appBaseUrl: Boolean(process.env.APP_BASE_URL),
+        asaasApi: Boolean(process.env.ASAAS_API_KEY),
+        asaasWallet: Boolean(process.env.ASAAS_MEDYCO_WALLET_ID),
+        asaasWebhook: Boolean(process.env.ASAAS_WEBHOOK_TOKEN),
+      },
+      totals: {
+        tenants: tenantRows.length,
+        activeTenants: tenantRows.filter((tenant) => ["active", "trial"].includes(tenant.status))
+          .length,
+        patients: patientRows.length,
+        linkedPatients: patientRows.filter((patient) => Boolean(patient.user_id)).length,
+        payments: paymentRows.length,
+        asaasPayments: paymentRows.filter((payment) => Boolean(payment.asaas_payment_id)).length,
+        pendingInvites: inviteRows.filter((invite) => invite.status === "pending").length,
+      },
+      legal: {
+        patientTerms: activeLegalTypes.has("patient_terms"),
+        privacyPolicy: activeLegalTypes.has("privacy_policy"),
+        platformTerms: activeLegalTypes.has("platform_terms"),
+        clinicAgreement: activeLegalTypes.has("clinic_agreement"),
+        billingPolicy: activeLegalTypes.has("billing_policy"),
+      },
+      tenants: tenantRows,
+      tenantGaps,
+    };
+  });
+
 function groupCount<T extends Record<string, unknown>>(rows: T[], key: keyof T) {
   return rows.reduce<Record<string, number>>((groups, row) => {
     const value = String(row[key] ?? "sem_status");

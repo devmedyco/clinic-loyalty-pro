@@ -34,6 +34,7 @@ import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AppTenantRouteImport } from './routes/app.$tenant'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as AdminReadinessRouteImport } from './routes/admin.readiness'
 import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
 import { Route as AdminMetricsRouteImport } from './routes/admin.metrics'
 import { Route as AdminBillingRouteImport } from './routes/admin.billing'
@@ -179,6 +180,11 @@ const AdminSettingsRoute = AdminSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminReadinessRoute = AdminReadinessRouteImport.update({
+  id: '/readiness',
+  path: '/readiness',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
@@ -300,6 +306,7 @@ export interface FileRoutesByFullPath {
   '/admin/billing': typeof AdminBillingRoute
   '/admin/metrics': typeof AdminMetricsRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/readiness': typeof AdminReadinessRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/app/$tenant': typeof AppTenantRouteWithChildren
@@ -344,6 +351,7 @@ export interface FileRoutesByTo {
   '/admin/billing': typeof AdminBillingRoute
   '/admin/metrics': typeof AdminMetricsRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/readiness': typeof AdminReadinessRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -391,6 +399,7 @@ export interface FileRoutesById {
   '/admin/billing': typeof AdminBillingRoute
   '/admin/metrics': typeof AdminMetricsRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/readiness': typeof AdminReadinessRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/app/$tenant': typeof AppTenantRouteWithChildren
@@ -439,6 +448,7 @@ export interface FileRouteTypes {
     | '/admin/billing'
     | '/admin/metrics'
     | '/admin/notifications'
+    | '/admin/readiness'
     | '/admin/settings'
     | '/admin/tenants'
     | '/app/$tenant'
@@ -483,6 +493,7 @@ export interface FileRouteTypes {
     | '/admin/billing'
     | '/admin/metrics'
     | '/admin/notifications'
+    | '/admin/readiness'
     | '/admin/settings'
     | '/admin/tenants'
     | '/auth/callback'
@@ -529,6 +540,7 @@ export interface FileRouteTypes {
     | '/admin/billing'
     | '/admin/metrics'
     | '/admin/notifications'
+    | '/admin/readiness'
     | '/admin/settings'
     | '/admin/tenants'
     | '/app/$tenant'
@@ -753,6 +765,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/readiness': {
+      id: '/admin/readiness'
+      path: '/readiness'
+      fullPath: '/admin/readiness'
+      preLoaderRoute: typeof AdminReadinessRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/notifications': {
       id: '/admin/notifications'
       path: '/notifications'
@@ -915,6 +934,7 @@ interface AdminRouteChildren {
   AdminBillingRoute: typeof AdminBillingRoute
   AdminMetricsRoute: typeof AdminMetricsRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
+  AdminReadinessRoute: typeof AdminReadinessRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminTenantsRoute: typeof AdminTenantsRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -925,6 +945,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminBillingRoute: AdminBillingRoute,
   AdminMetricsRoute: AdminMetricsRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
+  AdminReadinessRoute: AdminReadinessRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminTenantsRoute: AdminTenantsRoute,
   AdminIndexRoute: AdminIndexRoute,
