@@ -15,11 +15,14 @@ Use este roteiro depois de cada publish no Lovable para conferir se os três per
 
 - Entrar no portal da clínica em `/app/slug-da-clinica`.
 - Criar um paciente em `/app/slug-da-clinica/patients`.
+- Confirmar que o paciente ganhou número de cartão curto no formato `MED-123456`.
+- Confirmar que a primeira cobrança pendente foi criada com vencimento imediato.
 - Abrir a ficha do paciente e conferir dados, cartão, assinatura, pagamentos, termos, convites, validações e atendimentos.
 - Enviar convite de acesso para o paciente.
 - Importar pacientes por CSV usando as colunas `nome, cpf, email, telefone, status`.
 - Criar ou revisar serviços em `/app/slug-da-clinica/services`.
 - Validar o cartão em `/app/slug-da-clinica/validate`.
+- Testar validação por câmera no celular usando o QR Code do cartão do paciente.
 - Registrar atendimento em `/app/slug-da-clinica/executions`.
 - Registrar cobrança ou pagamento em `/app/slug-da-clinica/billing`.
 - Exportar CSV de pacientes, pagamentos e atendimentos.
@@ -28,8 +31,9 @@ Use este roteiro depois de cada publish no Lovable para conferir se os três per
 ## 3. Paciente
 
 - Abrir o link recebido por convite e criar acesso com o mesmo e-mail convidado.
+- Conferir que o convite pede apenas senha e confirmação de senha, sem recadastrar nome/e-mail.
 - Entrar em `/patient`.
-- Conferir cartão digital, assinatura, histórico, rede e perfil.
+- Conferir cartão digital com cor e logo da clínica, QR Code real, assinatura, histórico, rede e perfil.
 - Aceitar termos obrigatórios em `/patient/terms`.
 - Validar que o cartão só é autorizado se o paciente estiver ativo e com termos aceitos.
 - Se aparecer a tela de criar clínica, sair da conta atual e repetir o teste em janela anônima ou outro navegador. Isso indica sessão misturada, não fluxo de paciente.
