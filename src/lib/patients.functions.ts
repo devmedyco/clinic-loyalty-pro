@@ -60,6 +60,10 @@ const acceptPatientInvitationSchema = z.object({
   token: z.string().min(16).max(200),
 });
 
+const completePatientInvitationSchema = acceptPatientInvitationSchema.extend({
+  password: z.string().min(6, "A senha precisa ter pelo menos 6 caracteres").max(120),
+});
+
 const importPatientsSchema = tenantSlugSchema.extend({
   patients: z
     .array(
@@ -288,13 +292,15 @@ export const createPatient = createServerFn({ method: "POST" })
       patient_id: patient.id,
       plan: "benefits",
       status: data.status === "delinquent" ? "past_due" : "active",
-      next_due_date: nextDueDate(),
+      next_due_date: today(),
     });
 
     if (subscriptionError) {
       await supabase.from("patients").delete().eq("id", patient.id).eq("tenant_id", tenant.id);
       throw new Error(subscriptionError.message);
     }
+
+    await createInitialPendingPayment(supabase, tenant, patient.id);
 
     return { tenant, patient: { ...patient, benefit_cards: [card] } };
   });
@@ -452,6 +458,89 @@ export const acceptPatientInvitation = createServerFn({ method: "POST" })
     return { accepted: true, tenant: tenantRelation };
   });
 
+export const completePatientInvitation = createServerFn({ method: "POST" })
+  .inputValidator((input) => completePatientInvitationSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { data: invitation, error } = await supabaseAdmin
+      .from("patient_invitations")
+      .select(
+        "id, tenant_id, patient_id, email, status, expires_at, patients(full_name), tenants(id, slug, name)",
+      )
+      .eq("token", data.token)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    if (!invitation) throw new Error("Convite não encontrado ou já utilizado.");
+    if (new Date(invitation.expires_at).getTime() < Date.now()) {
+      throw new Error("Este convite expirou. Solicite um novo convite à clínica.");
+    }
+
+    const patient = singleRelation(invitation.patients);
+    const tenant = singleRelation(invitation.tenants);
+    const patientName = patient?.full_name ?? invitation.email;
+
+    const { data: createdUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email: invitation.email,
+      password: data.password,
+      email_confirm: true,
+      user_metadata: { full_name: patientName },
+    });
+
+    if (createError) {
+      const message = createError.message.toLowerCase();
+      if (message.includes("already") || message.includes("registered")) {
+        throw new Error(
+          "Este e-mail já possui acesso. Entre com sua senha para liberar o cartão deste convite.",
+        );
+      }
+      throw new Error(createError.message);
+    }
+
+    const userId = createdUser.user?.id;
+    if (!userId) throw new Error("Não foi possível criar o acesso do paciente.");
+
+    const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
+      id: userId,
+      email: invitation.email,
+      full_name: patientName,
+    });
+    if (profileError) throw new Error(profileError.message);
+
+    const { error: patientError } = await supabaseAdmin
+      .from("patients")
+      .update({ user_id: userId })
+      .eq("tenant_id", invitation.tenant_id)
+      .eq("id", invitation.patient_id);
+    if (patientError) throw new Error(patientError.message);
+
+    const { error: roleError } = await supabaseAdmin.from("user_roles").insert({
+      user_id: userId,
+      tenant_id: invitation.tenant_id,
+      role: "patient",
+    });
+    if (roleError && !roleError.message.includes("duplicate key")) {
+      throw new Error(roleError.message);
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from("patient_invitations")
+      .update({
+        status: "accepted",
+        accepted_by: userId,
+        accepted_at: new Date().toISOString(),
+      })
+      .eq("id", invitation.id);
+    if (updateError) throw new Error(updateError.message);
+
+    return {
+      accepted: true,
+      email: invitation.email,
+      tenant,
+      patient: { full_name: patientName },
+    };
+  });
+
 export const importPatients = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => importPatientsSchema.parse(input))
@@ -512,11 +601,13 @@ export const importPatients = createServerFn({ method: "POST" })
             patient_id: patient.id,
             plan: "benefits",
             status: input.status === "delinquent" ? "past_due" : "active",
-            next_due_date: nextDueDate(),
+            next_due_date: today(),
           }),
         ]);
         if (cardResult.error) throw new Error(cardResult.error.message);
         if (subscriptionResult.error) throw new Error(subscriptionResult.error.message);
+
+        await createInitialPendingPayment(supabase, tenant, patient.id);
 
         created.push(patient);
       } catch (err) {
@@ -533,13 +624,54 @@ export const importPatients = createServerFn({ method: "POST" })
 async function resolveTenant(supabase: SupabaseClient, slug: string) {
   const { data, error } = await supabase
     .from("tenants")
-    .select("id, slug, name, brand_color, plan, status")
+    .select("id, slug, name, brand_color, plan, status, patient_subscription_suggestion")
     .eq("slug", slug)
     .maybeSingle();
 
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Clínica não encontrada ou sem acesso");
   return data;
+}
+
+async function createInitialPendingPayment(
+  supabase: SupabaseClient,
+  tenant: { id: string; patient_subscription_suggestion?: number | string | null },
+  patientId: string,
+) {
+  const amount = Number(tenant.patient_subscription_suggestion ?? 39.9);
+  if (!Number.isFinite(amount) || amount <= 0) return;
+
+  const { data: subscription, error: subscriptionError } = await supabase
+    .from("subscriptions")
+    .select("id")
+    .eq("tenant_id", tenant.id)
+    .eq("patient_id", patientId)
+    .maybeSingle();
+  if (subscriptionError) throw new Error(subscriptionError.message);
+  if (!subscription) return;
+
+  const { data: existing, error: existingError } = await supabase
+    .from("payments")
+    .select("id")
+    .eq("tenant_id", tenant.id)
+    .eq("patient_id", patientId)
+    .eq("subscription_id", subscription.id)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (existingError) throw new Error(existingError.message);
+  if (existing) return;
+
+  const { error } = await supabase.from("payments").insert({
+    tenant_id: tenant.id,
+    patient_id: patientId,
+    subscription_id: subscription.id,
+    amount,
+    payment_method: "manual",
+    status: "pending",
+    due_date: today(),
+    notes: "Primeira cobrança gerada automaticamente no cadastro do paciente.",
+  });
+  if (error) throw new Error(error.message);
 }
 
 async function expireOldPatientInvitation(
@@ -588,7 +720,7 @@ function isValidCpf(value: string) {
 }
 
 function createCardNumber() {
-  return `MED-${randomHex(4).toUpperCase()}-${randomHex(2).toUpperCase()}`;
+  return `MED-${randomNumeric(6)}`;
 }
 
 function createQrToken() {
@@ -603,6 +735,14 @@ function randomHex(bytes: number) {
     .join("");
 }
 
+function randomNumeric(length: number) {
+  const values = new Uint8Array(length);
+  crypto.getRandomValues(values);
+  return Array.from(values)
+    .map((value) => String(value % 10))
+    .join("");
+}
+
 function sumPaid(rows: Array<{ amount: number | string; status: string }>) {
   return rows
     .filter((row) => row.status === "paid")
@@ -613,8 +753,10 @@ function sumNumeric<T extends Record<string, unknown>>(rows: T[], key: keyof T) 
   return rows.reduce((total, row) => total + Number(row[key] ?? 0), 0);
 }
 
-function nextDueDate() {
-  const date = new Date();
-  date.setDate(date.getDate() + 30);
-  return date.toISOString().slice(0, 10);
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function singleRelation<T>(value: T | T[] | null | undefined) {
+  return Array.isArray(value) ? value[0] : value;
 }

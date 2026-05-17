@@ -108,7 +108,7 @@ function BreakdownCard({
           {entries.map(([label, value]) => (
             <div key={label}>
               <div className="flex justify-between text-sm">
-                <span className="capitalize text-foreground">{label}</span>
+                <span className="text-foreground">{metricLabel(label)}</span>
                 <span className="text-muted-foreground">{value}</span>
               </div>
               <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
@@ -123,6 +123,21 @@ function BreakdownCard({
       )}
     </Card>
   );
+}
+
+function metricLabel(value: string) {
+  const labels: Record<string, string> = {
+    base_fixed_plus_split: "Mensalidade + taxa por paciente",
+    base_plus_split: "Mensalidade + participação",
+    custom: "Contrato customizado",
+    trial: "Teste",
+    active: "Ativa",
+    paused: "Pausada",
+    canceled: "Cancelada",
+    inactive: "Inativo",
+    delinquent: "Inadimplente",
+  };
+  return labels[value] ?? value;
 }
 
 function formatNumber(value?: number) {

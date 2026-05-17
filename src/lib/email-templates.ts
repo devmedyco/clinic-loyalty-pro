@@ -93,10 +93,10 @@ export function patientInviteEmail(input: PatientInviteEmailInput) {
         Olá, <strong>${escapeHtml(input.patientName)}</strong>.
       </p>
       <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#475569">
-        <strong>${escapeHtml(input.tenantName)}</strong> criou seu acesso ao cartão digital de benefícios. Entre pelo botão abaixo para criar senha ou fazer login com o mesmo e-mail.
+        <strong>${escapeHtml(input.tenantName)}</strong> criou seu acesso ao cartão digital de benefícios. Use o botão abaixo para definir sua senha com segurança.
       </p>
     `,
-    buttonLabel: "Acessar meu cartão",
+    buttonLabel: "Criar senha do cartão",
     buttonUrl: input.inviteUrl,
     footer: `Este convite expira em ${formatDate(input.expiresAt)}. Se o botão não funcionar, copie este link:`,
   });

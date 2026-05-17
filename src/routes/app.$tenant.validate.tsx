@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, QrCode, ScanLine, XCircle } from "lucide-react";
-import { useState } from "react";
+import { Camera, CheckCircle2, QrCode, ScanLine, XCircle } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
 import { listRecentCardValidations, validateCard } from "@/lib/card-validations.functions";
@@ -46,6 +46,12 @@ type RecentValidation = {
   } | null;
 };
 
+type ValidationInput = { tokenOverride?: string };
+
+type BarcodeDetectorConstructor = new (options: { formats: string[] }) => {
+  detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>>;
+};
+
 function ValidatePage() {
   const { tenant } = Route.useParams();
   const queryClient = useQueryClient();
@@ -61,7 +67,8 @@ function ValidatePage() {
   });
 
   const mutation = useMutation({
-    mutationFn: () => runValidation({ data: { tenant, token, notes } }),
+    mutationFn: (input?: ValidationInput) =>
+      runValidation({ data: { tenant, token: input?.tokenOverride ?? token, notes } }),
     onSuccess: async (response) => {
       setResult(response as ValidationResult);
       if (response.authorized) {
@@ -77,6 +84,13 @@ function ValidatePage() {
   });
 
   const validations = (data?.validations ?? []) as RecentValidation[];
+  const handleQrDetected = useCallback(
+    (value: string) => {
+      setToken(value);
+      mutation.mutate({ tokenOverride: value });
+    },
+    [mutation],
+  );
 
   return (
     <>
@@ -132,6 +146,7 @@ function ValidatePage() {
                   {mutation.isPending ? "Validando..." : "Validar cartão"}
                 </button>
               </form>
+              <QrCameraScanner disabled={mutation.isPending} onDetected={handleQrDetected} />
             </div>
           </div>
 
@@ -160,6 +175,110 @@ function ValidatePage() {
         </Card>
       </div>
     </>
+  );
+}
+
+function QrCameraScanner({
+  disabled,
+  onDetected,
+}: {
+  disabled: boolean;
+  onDetected: (value: string) => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!scanning) return undefined;
+
+    let cancelled = false;
+    let frame = 0;
+
+    async function start() {
+      const BarcodeDetector = getBarcodeDetector();
+      if (!BarcodeDetector) {
+        setMessage(
+          "Leitor de QR não suportado neste navegador. Use Chrome no celular ou digite o número.",
+        );
+        setScanning(false);
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setMessage("Câmera indisponível neste navegador.");
+        setScanning(false);
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false,
+        });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+
+        const detector = new BarcodeDetector({ formats: ["qr_code"] });
+        const scan = async () => {
+          if (cancelled || !videoRef.current) return;
+          try {
+            const codes = await detector.detect(videoRef.current);
+            const value = codes[0]?.rawValue?.trim();
+            if (value) {
+              onDetected(value);
+              setScanning(false);
+              return;
+            }
+          } catch {
+            setMessage("Não foi possível ler o QR Code. Tente aproximar ou melhorar a luz.");
+          }
+          frame = window.requestAnimationFrame(scan);
+        };
+        frame = window.requestAnimationFrame(scan);
+      } catch {
+        setMessage("Autorize o uso da câmera para escanear o QR Code.");
+        setScanning(false);
+      }
+    }
+
+    start();
+
+    return () => {
+      cancelled = true;
+      if (frame) window.cancelAnimationFrame(frame);
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
+  }, [onDetected, scanning]);
+
+  return (
+    <div className="mt-3 rounded-2xl bg-white/10 p-4 ring-1 ring-white/20">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          setMessage(null);
+          setScanning((value) => !value);
+        }}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/25 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/10 disabled:opacity-60"
+      >
+        <Camera className="h-4 w-4" />
+        {scanning ? "Parar câmera" : "Escanear QR com câmera"}
+      </button>
+      {scanning && (
+        <video
+          ref={videoRef}
+          muted
+          playsInline
+          className="mt-3 aspect-video w-full rounded-xl bg-black object-cover"
+        />
+      )}
+      {message && <div className="mt-3 text-xs opacity-80">{message}</div>}
+    </div>
   );
 }
 
@@ -258,4 +377,8 @@ function formatDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function getBarcodeDetector() {
+  return (window as Window & { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
 }

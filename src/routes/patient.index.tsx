@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
+import QRCode from "qrcode";
+import { useEffect, useState } from "react";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
 import { getPatientPortal } from "@/lib/patient-portal.functions";
 
@@ -42,7 +44,7 @@ function PatientCard() {
 
   return (
     <>
-      <PageHeader title="Seu cartão" subtitle="Apresente este token na recepção da clínica." />
+      <PageHeader title="Seu cartão" subtitle="Apresente o QR Code ou o número do cartão." />
       {!data.legal?.accepted && (
         <Card className="mb-6 border-warning/30 bg-warning/10 p-5">
           <div className="text-sm font-medium text-foreground">Assinatura pendente</div>
@@ -59,36 +61,15 @@ function PatientCard() {
       )}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <div
-            className="relative aspect-[1.6/1] max-w-md overflow-hidden rounded-3xl p-7 text-white shadow-elevated"
-            style={{
-              background: data.tenant?.brand_color ?? "linear-gradient(135deg, #0f172a, #0ea5e9)",
-            }}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="text-[10px] uppercase tracking-widest opacity-80">
-                  {data.tenant?.name ?? "Medyco"}
-                </div>
-                <div className="mt-1 font-display text-2xl">Cartão Benefícios</div>
-              </div>
-              <div className="rounded-md bg-white/15 px-2 py-1 text-[10px] uppercase tracking-wider">
-                {active ? "Ativo" : "Inativo"}
-              </div>
-            </div>
-            <div className="mt-12">
-              <div className="text-[10px] uppercase tracking-widest opacity-80">Titular</div>
-              <div className="mt-0.5 text-lg font-medium">{data.patient.full_name}</div>
-            </div>
-            <div className="mt-3 flex items-end justify-between gap-4">
-              <div className="min-w-0">
-                <div className="text-[10px] uppercase tracking-widest opacity-80">Cartão</div>
-                <div className="truncate font-medium">{data.card.card_number}</div>
-                <div className="mt-1 truncate text-xs opacity-80">{data.card.qr_token}</div>
-              </div>
-              <QrMark />
-            </div>
-          </div>
+          <DigitalBenefitCard
+            patientName={data.patient.full_name}
+            cardNumber={data.card.card_number}
+            qrToken={data.card.qr_token}
+            tenantName={data.tenant?.name}
+            tenantLogoUrl={data.tenant?.logo_url}
+            tenantBrandColor={data.tenant?.brand_color}
+            active={Boolean(active)}
+          />
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               onClick={() => navigator.clipboard?.writeText(data.card.qr_token)}
@@ -134,6 +115,90 @@ function PatientCard() {
   );
 }
 
+function DigitalBenefitCard({
+  patientName,
+  cardNumber,
+  qrToken,
+  tenantName,
+  tenantLogoUrl,
+  tenantBrandColor,
+  active,
+}: {
+  patientName: string;
+  cardNumber: string;
+  qrToken: string;
+  tenantName?: string | null;
+  tenantLogoUrl?: string | null;
+  tenantBrandColor?: string | null;
+  active: boolean;
+}) {
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    QRCode.toDataURL(qrToken, {
+      margin: 1,
+      width: 220,
+      color: { dark: "#0f172a", light: "#ffffff" },
+    })
+      .then((url) => {
+        if (mounted) setQrCodeUrl(url);
+      })
+      .catch(() => {
+        if (mounted) setQrCodeUrl("");
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [qrToken]);
+
+  return (
+    <div
+      className="relative aspect-[1.6/1] max-w-md overflow-hidden rounded-3xl p-7 text-white shadow-elevated"
+      style={{ background: cardBackground(tenantBrandColor) }}
+    >
+      <div className="flex items-start justify-between">
+        <div className="min-w-0">
+          {tenantLogoUrl ? (
+            <img
+              src={tenantLogoUrl}
+              alt={tenantName ?? "Clínica"}
+              className="mb-3 max-h-10 max-w-32 rounded-md bg-white/90 object-contain p-1.5"
+            />
+          ) : null}
+          <div className="text-[10px] uppercase tracking-widest opacity-80">
+            {tenantName ?? "Medyco"}
+          </div>
+          <div className="mt-1 font-display text-2xl">Cartão Benefícios</div>
+        </div>
+        <div className="rounded-md bg-white/15 px-2 py-1 text-[10px] uppercase tracking-wider">
+          {active ? "Ativo" : "Inativo"}
+        </div>
+      </div>
+      <div className="mt-12">
+        <div className="text-[10px] uppercase tracking-widest opacity-80">Titular</div>
+        <div className="mt-0.5 text-lg font-medium">{patientName}</div>
+      </div>
+      <div className="mt-3 flex items-end justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-[10px] uppercase tracking-widest opacity-80">Número do cartão</div>
+          <div className="font-display text-2xl tracking-wide">{cardNumber}</div>
+          <div className="mt-1 text-xs opacity-80">QR Code seguro para validação</div>
+        </div>
+        {qrCodeUrl ? (
+          <img
+            src={qrCodeUrl}
+            alt="QR Code do cartão"
+            className="h-24 w-24 shrink-0 rounded-lg bg-white p-1.5"
+          />
+        ) : (
+          <QrMark />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function QrMark() {
   const filled = [
     0, 2, 3, 5, 7, 8, 11, 13, 16, 17, 19, 20, 22, 24, 28, 30, 32, 35, 37, 40, 42, 44, 46, 48,
@@ -145,6 +210,11 @@ function QrMark() {
       ))}
     </div>
   );
+}
+
+function cardBackground(brandColor?: string | null) {
+  const color = brandColor?.trim() || "#0ea5e9";
+  return `linear-gradient(135deg, #0f172a 0%, ${color} 55%, #14b8a6 100%)`;
 }
 
 function formatCurrency(value: number) {

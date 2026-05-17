@@ -694,7 +694,5 @@ function downloadCsv(filename: string, rows: string[][]) {
 
 function defaultDueDate(value?: string | null) {
   if (value) return value;
-  const date = new Date();
-  date.setDate(date.getDate() + 3);
-  return date.toISOString().slice(0, 10);
+  return new Date().toISOString().slice(0, 10);
 }
