@@ -13,26 +13,18 @@ export function staffInviteEmail(input: StaffInviteEmailInput) {
     `Este convite expira em ${formatDate(input.expiresAt)}.`,
   ].join("\n\n");
 
-  const html = `
-    <div style="margin:0;padding:0;background:#f6f8fb;font-family:Inter,Arial,sans-serif;color:#0f172a">
-      <div style="max-width:560px;margin:0 auto;padding:40px 20px">
-        <div style="border-radius:18px;background:#ffffff;border:1px solid #e5e7eb;padding:32px;box-shadow:0 20px 50px rgba(15,23,42,.08)">
-          <div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#0ea5e9;font-weight:700">Medyco</div>
-          <h1 style="margin:18px 0 10px;font-size:26px;line-height:1.2;color:#0f172a">Você recebeu um convite</h1>
-          <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#475569">
-            Você foi convidado para acessar <strong>${escapeHtml(input.tenantName)}</strong> na Medyco como <strong>${escapeHtml(input.roleLabel)}</strong>.
-          </p>
-          <a href="${input.inviteUrl}" style="display:inline-block;border-radius:10px;background:#0ea5e9;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 18px">
-            Aceitar convite
-          </a>
-          <p style="margin:22px 0 0;font-size:13px;line-height:1.6;color:#64748b">
-            Este convite expira em ${formatDate(input.expiresAt)}. Se o botão não funcionar, copie este link:
-          </p>
-          <p style="word-break:break-all;margin:8px 0 0;font-size:12px;line-height:1.5;color:#64748b">${input.inviteUrl}</p>
-        </div>
-      </div>
-    </div>
-  `;
+  const html = baseEmail({
+    eyebrow: "Convite de equipe",
+    title: "Você recebeu um convite",
+    body: `
+      <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#475569">
+        Você foi convidado para acessar <strong>${escapeHtml(input.tenantName)}</strong> na Medyco como <strong>${escapeHtml(input.roleLabel)}</strong>.
+      </p>
+    `,
+    buttonLabel: "Aceitar convite",
+    buttonUrl: input.inviteUrl,
+    footer: `Este convite expira em ${formatDate(input.expiresAt)}. Se o botão não funcionar, copie este link:`,
+  });
 
   return { subject, html, text };
 }
@@ -181,23 +173,30 @@ function baseEmail({
   footer?: string;
 }) {
   return `
-    <div style="margin:0;padding:0;background:#f6f8fb;font-family:Inter,Arial,sans-serif;color:#0f172a">
-      <div style="max-width:560px;margin:0 auto;padding:40px 20px">
-        <div style="border-radius:18px;background:#ffffff;border:1px solid #e5e7eb;padding:32px;box-shadow:0 20px 50px rgba(15,23,42,.08)">
-          <div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#0ea5e9;font-weight:700">Medyco</div>
-          <div style="margin-top:18px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;font-weight:700">${escapeHtml(eyebrow)}</div>
-          <h1 style="margin:8px 0 10px;font-size:26px;line-height:1.2;color:#0f172a">${escapeHtml(title)}</h1>
-          ${body}
-          ${
-            buttonLabel && buttonUrl
-              ? `<a href="${buttonUrl}" style="display:inline-block;border-radius:10px;background:#0ea5e9;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 18px">${escapeHtml(buttonLabel)}</a>`
-              : ""
-          }
-          ${
-            footer && buttonUrl
-              ? `<p style="margin:22px 0 0;font-size:13px;line-height:1.6;color:#64748b">${escapeHtml(footer)}</p><p style="word-break:break-all;margin:8px 0 0;font-size:12px;line-height:1.5;color:#64748b">${buttonUrl}</p>`
-              : ""
-          }
+    <div style="margin:0;padding:0;background:#eef6f9;font-family:Inter,Arial,sans-serif;color:#0f172a">
+      <div style="max-width:600px;margin:0 auto;padding:40px 20px">
+        <div style="overflow:hidden;border-radius:24px;background:#ffffff;border:1px solid #dbe7ee;box-shadow:0 24px 70px rgba(15,23,42,.10)">
+          <div style="background:linear-gradient(135deg,#042f3a,#0ea5e9 55%,#14b8a6);padding:28px 32px;color:#ffffff">
+            <div style="display:inline-block;border-radius:999px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);padding:7px 12px;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase">Medyco</div>
+            <div style="margin-top:18px;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.78);font-weight:800">${escapeHtml(eyebrow)}</div>
+            <h1 style="margin:8px 0 0;font-size:30px;line-height:1.12;color:#ffffff">${escapeHtml(title)}</h1>
+          </div>
+          <div style="padding:30px 32px 32px">
+            ${body}
+            ${
+              buttonLabel && buttonUrl
+                ? `<a href="${buttonUrl}" style="display:inline-block;border-radius:12px;background:#042f3a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;padding:13px 18px">${escapeHtml(buttonLabel)}</a>`
+                : ""
+            }
+            ${
+              footer && buttonUrl
+                ? `<p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#64748b">${escapeHtml(footer)}</p><p style="word-break:break-all;margin:8px 0 0;font-size:12px;line-height:1.5;color:#64748b">${buttonUrl}</p>`
+                : ""
+            }
+            <div style="margin-top:28px;border-top:1px solid #e5edf2;padding-top:16px;font-size:12px;line-height:1.5;color:#94a3b8">
+              Medyco envia apenas mensagens operacionais sobre acesso, cobrança, termos e uso do cartão de benefícios.
+            </div>
+          </div>
         </div>
       </div>
     </div>

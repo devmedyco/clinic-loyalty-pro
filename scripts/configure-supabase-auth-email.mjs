@@ -119,16 +119,21 @@ console.log(`Supabase Auth SMTP e templates atualizados para o projeto ${PROJECT
 
 function authEmailTemplate({ eyebrow, title, intro, buttonLabel, buttonUrl, footer }) {
   return `
-<div style="margin:0;padding:0;background:#f6f8fb;font-family:Inter,Arial,sans-serif;color:#0f172a">
-  <div style="max-width:560px;margin:0 auto;padding:40px 20px">
-    <div style="border-radius:18px;background:#ffffff;border:1px solid #e5e7eb;padding:32px;box-shadow:0 20px 50px rgba(15,23,42,.08)">
-      <div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#0ea5e9;font-weight:700">Medyco</div>
-      <div style="margin-top:18px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;font-weight:700">${eyebrow}</div>
-      <h1 style="margin:8px 0 10px;font-size:26px;line-height:1.2;color:#0f172a">${title}</h1>
-      <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#475569">${intro}</p>
-      <a href="${buttonUrl}" style="display:inline-block;border-radius:10px;background:#0ea5e9;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 18px">${buttonLabel}</a>
-      <p style="margin:22px 0 0;font-size:13px;line-height:1.6;color:#64748b">${footer}</p>
-      <p style="word-break:break-all;margin:8px 0 0;font-size:12px;line-height:1.5;color:#64748b">${buttonUrl}</p>
+<div style="margin:0;padding:0;background:#eef6f9;font-family:Inter,Arial,sans-serif;color:#0f172a">
+  <div style="max-width:600px;margin:0 auto;padding:40px 20px">
+    <div style="overflow:hidden;border-radius:24px;background:#ffffff;border:1px solid #dbe7ee;box-shadow:0 24px 70px rgba(15,23,42,.10)">
+      <div style="background:linear-gradient(135deg,#042f3a,#0ea5e9 55%,#14b8a6);padding:28px 32px;color:#ffffff">
+        <div style="display:inline-block;border-radius:999px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);padding:7px 12px;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase">Medyco</div>
+        <div style="margin-top:18px;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.78);font-weight:800">${eyebrow}</div>
+        <h1 style="margin:8px 0 0;font-size:30px;line-height:1.12;color:#ffffff">${title}</h1>
+      </div>
+      <div style="padding:30px 32px 32px">
+        <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#475569">${intro}</p>
+        <a href="${buttonUrl}" style="display:inline-block;border-radius:12px;background:#042f3a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;padding:13px 18px">${buttonLabel}</a>
+        <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#64748b">${footer}</p>
+        <p style="word-break:break-all;margin:8px 0 0;font-size:12px;line-height:1.5;color:#64748b">${buttonUrl}</p>
+        <div style="margin-top:28px;border-top:1px solid #e5edf2;padding-top:16px;font-size:12px;line-height:1.5;color:#94a3b8">Medyco envia mensagens operacionais sobre acesso, seguranca e uso da plataforma.</div>
+      </div>
     </div>
   </div>
 </div>`.trim();
