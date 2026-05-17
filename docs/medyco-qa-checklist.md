@@ -7,6 +7,8 @@ Use este roteiro depois de cada publish no Lovable para conferir se os três per
 - Entrar com o super admin em `/admin`.
 - Conferir se o painel mostra clínicas, pacientes, receita e validações.
 - Abrir `/admin/tenants` e criar uma clínica de teste.
+- Confirmar que o super admin permanece no admin global após criar a clínica.
+- Confirmar que o e-mail da clínica recebeu convite para criar senha e acessar o painel próprio.
 - Abrir `/admin/metrics` e confirmar que a clínica aparece nos números.
 - Abrir `/admin/audit` e conferir se a linha do tempo carrega sem tela quebrada.
 - Abrir `/admin/billing` e `/admin/settings` para validar estados vazios e mensagens.
@@ -63,7 +65,8 @@ Use este roteiro depois de cada publish no Lovable para conferir se os três per
 
 - Usar três navegadores ou perfis diferentes: um para super admin, um para clínica e um para paciente.
 - Criar uma clínica com CNPJ, e-mail, telefone e CEP reais de teste.
-- Confirmar se a clínica recebeu convite da Medyco e boas-vindas do Asaas quando a subconta for criada.
+- Confirmar se a clínica recebeu convite da Medyco, criou senha e entrou em `/app/slug-da-clinica`.
+- Confirmar se a clínica recebeu boas-vindas do Asaas quando a subconta for criada.
 - Criar um paciente com outro e-mail, enviar convite e aceitar pelo navegador reservado ao paciente.
 - Testar login direto depois do aceite: `/admin` para dono da plataforma, `/app/slug-da-clinica` para clínica e `/patient` para paciente.
 - Ao apagar uma clínica de teste, conferir no Asaas sandbox se a subconta/carteira antiga não será reutilizada em novo teste com dados iguais.
