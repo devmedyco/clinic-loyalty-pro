@@ -25,6 +25,17 @@ type AsaasPaymentInput = {
   apiKey?: string;
 };
 
+type AsaasSubscriptionInput = {
+  customer: string;
+  billingType: "PIX" | "BOLETO" | "CREDIT_CARD";
+  value: number;
+  nextDueDate: string;
+  cycle: "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "BIMONTHLY" | "QUARTERLY" | "SEMIANNUALLY" | "YEARLY";
+  description: string;
+  externalReference?: string;
+  apiKey?: string;
+};
+
 type AsaasSubaccountInput = {
   name: string;
   email: string;
@@ -69,6 +80,23 @@ export type AsaasPayment = {
   }>;
 };
 
+export type AsaasPaymentList = {
+  object?: string;
+  hasMore?: boolean;
+  totalCount?: number;
+  data?: AsaasPayment[];
+};
+
+export type AsaasSubscription = {
+  id: string;
+  status?: string;
+  value?: number;
+  nextDueDate?: string;
+  billingType?: string;
+  cycle?: string;
+  description?: string;
+};
+
 export type AsaasSubaccount = {
   id: string;
   name?: string;
@@ -105,6 +133,22 @@ export async function createAsaasPayment(input: AsaasPaymentInput) {
   return asaasRequest<AsaasPayment>("/payments", {
     method: "POST",
     body: JSON.stringify(removeEmptyValues(body)),
+    apiKey,
+  });
+}
+
+export async function createAsaasSubscription(input: AsaasSubscriptionInput) {
+  const { apiKey, ...body } = input;
+  return asaasRequest<AsaasSubscription>("/subscriptions", {
+    method: "POST",
+    body: JSON.stringify(removeEmptyValues(body)),
+    apiKey,
+  });
+}
+
+export async function listAsaasSubscriptionPayments(subscriptionId: string, apiKey?: string) {
+  return asaasRequest<AsaasPaymentList>(`/subscriptions/${subscriptionId}/payments`, {
+    method: "GET",
     apiKey,
   });
 }

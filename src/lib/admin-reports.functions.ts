@@ -1,7 +1,23 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
 import { assertSuperAdminAccess } from "@/lib/admin-auth.server";
-import { DEFAULT_SPLIT_FIXED_FEE, DEFAULT_SPLIT_PERCENTAGE } from "@/lib/commercial-model";
+import {
+  DEFAULT_MONTHLY_FEE,
+  DEFAULT_SPLIT_FIXED_FEE,
+  DEFAULT_SPLIT_PERCENTAGE,
+} from "@/lib/commercial-model";
+import {
+  createAsaasCustomer,
+  createAsaasSubscription,
+  isAsaasConfigured,
+  listAsaasSubscriptionPayments,
+} from "@/lib/asaas.server";
+
+const startTenantSaasBillingSchema = z.object({
+  tenant_id: z.string().uuid(),
+  billing_type: z.enum(["PIX", "BOLETO", "CREDIT_CARD"]).default("PIX"),
+});
 
 export const getAdminMetrics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -81,7 +97,7 @@ export const getAdminBilling = createServerFn({ method: "GET" })
     const { data: tenants, error } = await supabase
       .from("tenants")
       .select(
-        "id, name, slug, status, monthly_fee, split_fixed_fee, split_percentage, commercial_model, created_at",
+        "id, name, slug, status, email, cnpj, monthly_fee, split_fixed_fee, split_percentage, commercial_model, asaas_saas_customer_id, asaas_saas_subscription_id, saas_billing_status, saas_billing_type, saas_next_due_date, saas_invoice_url, saas_billing_error, created_at",
       )
       .order("created_at", { ascending: false });
 
@@ -90,12 +106,7 @@ export const getAdminBilling = createServerFn({ method: "GET" })
     const rows = (tenants ?? []).map((tenant) => ({
       ...tenant,
       expected_amount: Number(tenant.monthly_fee ?? 197),
-      billing_status:
-        tenant.status === "active"
-          ? "operacional"
-          : tenant.status === "trial"
-            ? "trial"
-            : tenant.status,
+      billing_status: tenant.saas_billing_status ?? "not_started",
     }));
 
     return {
@@ -119,9 +130,99 @@ export const getAdminBilling = createServerFn({ method: "GET" })
                 0,
               ) / rows.length
             : 0,
-        billingConnected: false,
+        billingConnected: rows.some((tenant) => Boolean(tenant.asaas_saas_subscription_id)),
+        billingPending: rows.filter((tenant) => tenant.saas_billing_status === "pending").length,
+        billingActive: rows.filter((tenant) => tenant.saas_billing_status === "active").length,
+        asaasConfigured: isAsaasConfigured(),
       },
       tenants: rows,
+    };
+  });
+
+export const startTenantSaasBilling = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => startTenantSaasBillingSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertSuperAdminAccess(supabase, userId);
+
+    if (!isAsaasConfigured()) {
+      throw new Error("Asaas principal ainda não configurado. Salve ASAAS_API_KEY nos secrets.");
+    }
+
+    const { data: tenant, error: tenantError } = await supabase
+      .from("tenants")
+      .select(
+        "id, name, legal_name, slug, email, phone, cnpj, monthly_fee, asaas_saas_customer_id, asaas_saas_subscription_id",
+      )
+      .eq("id", data.tenant_id)
+      .maybeSingle();
+
+    if (tenantError) throw new Error(tenantError.message);
+    if (!tenant) throw new Error("Clínica não encontrada.");
+    if (tenant.asaas_saas_subscription_id) {
+      throw new Error("Esta clínica já tem uma assinatura SaaS criada no Asaas.");
+    }
+    if (!tenant.email) {
+      throw new Error("Cadastre o e-mail financeiro da clínica antes de ativar a mensalidade.");
+    }
+
+    const monthlyFee = Number(tenant.monthly_fee ?? DEFAULT_MONTHLY_FEE);
+    if (monthlyFee <= 0) throw new Error("A mensalidade da clínica precisa ser maior que zero.");
+
+    let customerId = tenant.asaas_saas_customer_id;
+    if (!customerId) {
+      const customer = await createAsaasCustomer({
+        name: tenant.legal_name || tenant.name,
+        email: tenant.email,
+        phone: tenant.phone,
+        cpfCnpj: tenant.cnpj,
+      });
+      customerId = customer.id;
+    }
+
+    const firstDueDate = today();
+    const subscription = await createAsaasSubscription({
+      customer: customerId,
+      billingType: data.billing_type,
+      value: monthlyFee,
+      nextDueDate: firstDueDate,
+      cycle: "MONTHLY",
+      description: `Mensalidade Medyco - ${tenant.name}`,
+      externalReference: `tenant:${tenant.id}:saas`,
+    });
+    const firstPayment = await getFirstSubscriptionPayment(subscription.id);
+
+    const { data: updatedTenant, error: updateError } = await supabase
+      .from("tenants")
+      .update({
+        asaas_saas_customer_id: customerId,
+        asaas_saas_subscription_id: subscription.id,
+        saas_billing_status: "pending",
+        saas_billing_type: data.billing_type,
+        saas_next_due_date: firstPayment?.dueDate ?? subscription.nextDueDate ?? firstDueDate,
+        saas_invoice_url: firstPayment?.invoiceUrl,
+        saas_last_payment_id: firstPayment?.id,
+        saas_started_at: new Date().toISOString(),
+        saas_canceled_at: null,
+        saas_billing_error: null,
+      })
+      .eq("id", tenant.id)
+      .select(
+        "id, name, slug, status, email, cnpj, monthly_fee, split_fixed_fee, split_percentage, commercial_model, asaas_saas_customer_id, asaas_saas_subscription_id, saas_billing_status, saas_billing_type, saas_next_due_date, saas_invoice_url, saas_billing_error, created_at",
+      )
+      .single();
+
+    if (updateError) throw new Error(updateError.message);
+
+    return {
+      tenant: updatedTenant,
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        nextDueDate: firstPayment?.dueDate ?? subscription.nextDueDate ?? firstDueDate,
+        invoiceUrl: firstPayment?.invoiceUrl,
+      },
     };
   });
 
@@ -302,6 +403,19 @@ function groupCount<T extends Record<string, unknown>>(rows: T[], key: keyof T) 
 
 function sumAmounts<T extends Record<string, unknown>>(rows: T[], key: keyof T) {
   return rows.reduce((total, row) => total + Number(row[key] || 0), 0);
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function getFirstSubscriptionPayment(subscriptionId: string) {
+  try {
+    const payments = await listAsaasSubscriptionPayments(subscriptionId);
+    return payments.data?.[0] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function tenantLabel(value: unknown) {

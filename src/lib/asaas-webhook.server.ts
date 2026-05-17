@@ -5,7 +5,10 @@ type AsaasWebhookPayload = {
   event?: string;
   payment?: {
     id?: string;
+    subscription?: string;
+    externalReference?: string;
     status?: string;
+    dueDate?: string;
     paymentDate?: string;
     clientPaymentDate?: string;
     confirmedDate?: string;
@@ -65,6 +68,10 @@ export async function handleAsaasWebhook(request: Request) {
         new Date().toISOString())
       : null;
   const firstSplit = payment.split?.[0];
+  const syncedTenantBilling = await syncTenantSaasBillingFromPayment(payment, mappedStatus);
+  if (syncedTenantBilling) {
+    return json({ received: true, synced: "tenant_saas_billing" });
+  }
 
   const { data: paymentRow, error: paymentError } = await supabaseAdmin
     .from("payments")
@@ -94,6 +101,35 @@ export async function handleAsaasWebhook(request: Request) {
   return json({ received: true });
 }
 
+async function syncTenantSaasBillingFromPayment(
+  payment: NonNullable<AsaasWebhookPayload["payment"]>,
+  status: "pending" | "paid" | "failed" | "refunded" | "canceled",
+) {
+  const subscriptionId = payment.subscription;
+  const tenantIdFromReference = extractTenantId(payment.externalReference);
+  if (!subscriptionId && !tenantIdFromReference) return false;
+
+  const update = {
+    saas_billing_status: mapTenantBillingStatus(status),
+    saas_last_payment_id: payment.id,
+    saas_invoice_url: payment.invoiceUrl,
+    saas_next_due_date:
+      status === "paid" ? nextDueDate() : payment.dueDate ? payment.dueDate : undefined,
+    saas_canceled_at: status === "canceled" ? new Date().toISOString() : null,
+    saas_billing_error:
+      status === "failed" ? "Cobrança marcada como vencida ou falhou no Asaas." : null,
+  };
+
+  let query = supabaseAdmin.from("tenants").update(update);
+  query = tenantIdFromReference
+    ? query.eq("id", tenantIdFromReference)
+    : query.eq("asaas_saas_subscription_id", subscriptionId);
+
+  const { data, error } = await query.select("id").maybeSingle();
+  if (error) throw new Error(error.message);
+  return Boolean(data);
+}
+
 function validateWebhookToken(request: Request) {
   const expected = process.env.ASAAS_WEBHOOK_TOKEN;
   if (!expected) {
@@ -113,6 +149,12 @@ function validateWebhookToken(request: Request) {
   return null;
 }
 
+function extractTenantId(externalReference?: string) {
+  if (!externalReference?.startsWith("tenant:")) return null;
+  const [, tenantId, scope] = externalReference.split(":");
+  return scope === "saas" ? tenantId : null;
+}
+
 function buildEventId(payload: AsaasWebhookPayload, event: string) {
   if (payload.id) return payload.id;
   const paymentId = payload.payment?.id ?? "no-payment";
@@ -122,6 +164,13 @@ function buildEventId(payload: AsaasWebhookPayload, event: string) {
     payload.payment?.paymentDate ??
     new Date().toISOString();
   return `${event}:${paymentId}:${marker}`;
+}
+
+function mapTenantBillingStatus(status: "pending" | "paid" | "failed" | "refunded" | "canceled") {
+  if (status === "paid") return "active";
+  if (status === "failed") return "overdue";
+  if (status === "canceled" || status === "refunded") return "canceled";
+  return "pending";
 }
 
 function mapAsaasStatus(event: string, status?: string) {

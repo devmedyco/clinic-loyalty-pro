@@ -43,11 +43,13 @@ Use este roteiro depois de cada publish no Lovable para conferir se os três per
 ## 4. Fluxo financeiro
 
 - Em `/admin/settings`, conferir se Asaas sandbox mostra API, wallet e webhook configurados.
+- Em `/admin/billing`, ativar a mensalidade SaaS da clínica e confirmar que o status muda para cobrança pendente.
+- Confirmar no Asaas sandbox da conta principal da Medyco que foi criada uma assinatura mensal de R$ 197,00 para a clínica.
 - Em `/app/slug-da-clinica/settings`, criar subconta Asaas sandbox para a clínica.
 - Salvar a API key da subconta no Lovable com o nome de secret exibido pela Medyco.
 - Criar cobrança pendente para um paciente.
 - Abrir o link de cobrança Asaas e simular o pagamento no sandbox.
-- Conferir se webhook atualiza pagamento, assinatura, paciente e status do split.
+- Conferir se webhook atualiza mensalidade SaaS, pagamento do paciente, assinatura, paciente e status do split.
 - Enviar lembrete de cobrança por e-mail.
 - Marcar pagamento como pago e confirmar que o paciente volta para ativo.
 - Marcar assinatura como inadimplente, cancelada, pausada e reativada.
