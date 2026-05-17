@@ -368,6 +368,7 @@ export const getAdminSettingsStatus = createServerFn({ method: "GET" })
     return {
       resendConfigured: Boolean(process.env.RESEND_API_KEY),
       emailFrom: process.env.EMAIL_FROM || "Medyco <no-reply@medyco.com.br>",
+      salesEmail: process.env.SALES_EMAIL || "contato@medyco.com.br",
       appBaseUrl: process.env.APP_BASE_URL || "https://medyco.com.br",
       asaasConfigured: Boolean(process.env.ASAAS_API_KEY),
       asaasEnvironment: process.env.ASAAS_ENVIRONMENT || "sandbox",

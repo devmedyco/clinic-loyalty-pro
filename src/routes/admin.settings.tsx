@@ -46,6 +46,11 @@ function AdminSettingsPage() {
               active
             />
             <SettingRow
+              label="E-mail comercial"
+              value={data?.salesEmail ?? "contato@medyco.com.br"}
+              active
+            />
+            <SettingRow
               label="URL base"
               value={data?.appBaseUrl ?? "https://medyco.com.br"}
               active
