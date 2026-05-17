@@ -153,6 +153,13 @@ export async function listAsaasSubscriptionPayments(subscriptionId: string, apiK
   });
 }
 
+export async function deleteAsaasSubscription(subscriptionId: string, apiKey?: string) {
+  return asaasRequest<{ deleted?: boolean; id?: string }>(`/subscriptions/${subscriptionId}`, {
+    method: "DELETE",
+    apiKey,
+  });
+}
+
 export async function createAsaasSubaccount(input: AsaasSubaccountInput) {
   return asaasRequest<AsaasSubaccount>("/accounts", {
     method: "POST",

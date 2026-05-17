@@ -61,6 +61,46 @@ export function clinicOnboardingEmail(input: {
   return { subject, html, text };
 }
 
+export function clinicSaasBillingEmail(input: {
+  tenantName: string;
+  amount: number;
+  dueDate?: string | null;
+  invoiceUrl?: string | null;
+}) {
+  const value = formatCurrency(input.amount);
+  const due = input.dueDate ? formatDate(input.dueDate) : "vencimento imediato";
+  const subject = `${input.tenantName}: mensalidade Medyco disponível`;
+  const text = [
+    `A mensalidade Medyco da clínica ${input.tenantName} foi criada.`,
+    `Valor: ${value}.`,
+    `Vencimento: ${due}.`,
+    input.invoiceUrl ? `Acesse a cobrança: ${input.invoiceUrl}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const html = baseEmail({
+    eyebrow: "Mensalidade Medyco",
+    title: "Sua mensalidade está disponível",
+    body: `
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#475569">
+        A mensalidade da clínica <strong>${escapeHtml(input.tenantName)}</strong> foi ativada na Medyco.
+      </p>
+      <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#475569">
+        Valor: <strong>${value}</strong><br/>
+        Vencimento: <strong>${due}</strong>
+      </p>
+      <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#475569">
+        Essa cobrança mantém o painel operacional, cartões digitais, validação QR, relatórios e gestão dos pacientes ativos.
+      </p>
+    `,
+    buttonLabel: input.invoiceUrl ? "Abrir cobrança" : undefined,
+    buttonUrl: input.invoiceUrl ?? undefined,
+  });
+
+  return { subject, html, text };
+}
+
 type PatientInviteEmailInput = {
   tenantName: string;
   patientName: string;

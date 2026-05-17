@@ -53,6 +53,7 @@ export const getTenantBilling = createServerFn({ method: "GET" })
     const { supabase } = context;
     const tenant = await resolveTenant(supabase, data.tenant);
     await ensurePatientSubscriptions(supabase, tenant.id);
+    await syncOverduePayments(supabase, tenant.id);
 
     const [subscriptions, payments] = await Promise.all([
       supabase
@@ -307,6 +308,49 @@ async function ensurePatientSubscriptions(supabase: SupabaseClient, tenantId: st
     })),
   );
   if (error) throw new Error(error.message);
+}
+
+async function syncOverduePayments(supabase: SupabaseClient, tenantId: string) {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const cutoff = yesterday.toISOString().slice(0, 10);
+
+  const { data: payments, error } = await supabase
+    .from("payments")
+    .select("id, patient_id, subscription_id")
+    .eq("tenant_id", tenantId)
+    .eq("status", "pending")
+    .not("due_date", "is", null)
+    .lte("due_date", cutoff);
+  if (error) throw new Error(error.message);
+  if (!payments?.length) return;
+
+  const { error: updateError } = await supabase
+    .from("payments")
+    .update({
+      status: "failed",
+      notes: "Cobrança marcada automaticamente como vencida pelo financeiro Medyco.",
+    })
+    .eq("tenant_id", tenantId)
+    .in(
+      "id",
+      payments.map((payment) => payment.id),
+    );
+  if (updateError) throw new Error(updateError.message);
+
+  await Promise.all(
+    payments
+      .filter((payment) => payment.subscription_id)
+      .map((payment) =>
+        syncSubscriptionStatus(
+          supabase,
+          tenantId,
+          payment.patient_id,
+          payment.subscription_id!,
+          "past_due",
+        ),
+      ),
+  );
 }
 
 async function ensurePatientSubscription(

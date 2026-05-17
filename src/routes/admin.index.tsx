@@ -16,6 +16,14 @@ type RecentTenant = {
   created_at: string;
 };
 
+type DashboardTotals = {
+  tenants?: number;
+  activeTenants?: number;
+  patients?: number;
+  validations30d?: number;
+  revenue30d?: number;
+};
+
 function AdminOverview() {
   const fetchDashboard = useServerFn(getAdminDashboard);
   const { data, isLoading, error } = useQuery({
@@ -32,7 +40,12 @@ function AdminOverview() {
         title="Visão geral"
         subtitle="Saúde da operação Medyco em tempo real."
         action={
-          <button className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90">
+          <button
+            type="button"
+            disabled={!data}
+            onClick={() => downloadAdminSnapshot(totals, recentTenants)}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+          >
             Exportar relatório
           </button>
         }
@@ -122,4 +135,39 @@ function formatCurrency(value?: number) {
     style: "currency",
     currency: "BRL",
   }).format(value ?? 0);
+}
+
+function downloadAdminSnapshot(totals?: DashboardTotals, recentTenants: RecentTenant[] = []) {
+  const rows = [
+    ["Indicador", "Valor"],
+    ["Tenants", String(totals?.tenants ?? 0)],
+    ["Tenants ativos", String(totals?.activeTenants ?? 0)],
+    ["Pacientes", String(totals?.patients ?? 0)],
+    ["Validações 30d", String(totals?.validations30d ?? 0)],
+    ["Receita 30d", String(totals?.revenue30d ?? 0)],
+    [],
+    ["Últimas clínicas", "Slug", "Status", "Criada em"],
+    ...recentTenants.map((tenant) => [
+      tenant.name,
+      tenant.slug,
+      tenant.status,
+      formatDate(tenant.created_at),
+    ]),
+  ];
+  const csv = rows
+    .map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(";"))
+    .join("\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `medyco-admin-${new Date().toISOString().slice(0, 10)}.csv`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
+    new Date(value),
+  );
 }

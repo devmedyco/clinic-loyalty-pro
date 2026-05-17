@@ -3,7 +3,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
-import { getAdminBilling, startTenantSaasBilling } from "@/lib/admin-reports.functions";
+import {
+  cancelTenantSaasBilling,
+  getAdminBilling,
+  startTenantSaasBilling,
+} from "@/lib/admin-reports.functions";
 
 export const Route = createFileRoute("/admin/billing")({
   component: AdminBillingPage,
@@ -13,6 +17,7 @@ function AdminBillingPage() {
   const queryClient = useQueryClient();
   const fetchBilling = useServerFn(getAdminBilling);
   const startBilling = useServerFn(startTenantSaasBilling);
+  const cancelBilling = useServerFn(cancelTenantSaasBilling);
   const { data, isLoading, error } = useQuery({
     queryKey: ["admin-billing"],
     queryFn: () => fetchBilling(),
@@ -32,6 +37,20 @@ function AdminBillingPage() {
       );
     },
   });
+  const cancelBillingMutation = useMutation({
+    mutationFn: (tenantId: string) => cancelBilling({ data: { tenant_id: tenantId } }),
+    onSuccess: async () => {
+      toast.success("Mensalidade SaaS cancelada no Asaas.");
+      await queryClient.invalidateQueries({ queryKey: ["admin-billing"] });
+    },
+    onError: (mutationError) => {
+      toast.error(
+        mutationError instanceof Error
+          ? mutationError.message
+          : "Não foi possível cancelar a mensalidade.",
+      );
+    },
+  });
 
   return (
     <>
@@ -40,6 +59,12 @@ function AdminBillingPage() {
         subtitle="Mensalidade fixa das clínicas, taxa operacional e participação por paciente pagante."
       />
       {error && <Card className="p-6 text-sm text-destructive">{(error as Error).message}</Card>}
+      {!isLoading && data && !data.totals.asaasConfigured && (
+        <Card className="mb-5 p-5 text-sm text-warning">
+          Asaas principal ainda não está configurado. Salve ASAAS_API_KEY para ativar mensalidades
+          de clínicas.
+        </Card>
+      )}
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
           label="Clínicas"
@@ -120,21 +145,41 @@ function AdminBillingPage() {
                         : "Aguardando ativação"}
                     </td>
                     <td className="px-5 py-4 text-right">
-                      {tenant.asaas_saas_subscription_id ? (
+                      {tenant.asaas_saas_subscription_id &&
+                      tenant.billing_status !== "canceled" &&
+                      tenant.billing_status !== "failed" ? (
                         <div className="flex flex-col items-end gap-1">
                           <span className="text-xs text-muted-foreground">
                             Assinatura {tenant.asaas_saas_subscription_id}
                           </span>
-                          {tenant.saas_invoice_url && (
-                            <a
-                              href={tenant.saas_invoice_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs font-medium text-brand hover:underline"
+                          <div className="flex flex-wrap justify-end gap-2">
+                            {tenant.saas_invoice_url && (
+                              <a
+                                href={tenant.saas_invoice_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs font-medium text-brand hover:underline"
+                              >
+                                Abrir cobrança
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              disabled={cancelBillingMutation.isPending}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    `Cancelar a mensalidade SaaS de ${tenant.name} no Asaas?`,
+                                  )
+                                ) {
+                                  cancelBillingMutation.mutate(tenant.id);
+                                }
+                              }}
+                              className="text-xs font-medium text-destructive hover:underline disabled:opacity-60"
                             >
-                              Abrir cobrança
-                            </a>
-                          )}
+                              Cancelar
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <button
@@ -151,7 +196,10 @@ function AdminBillingPage() {
                             ? "Ativando..."
                             : !tenant.email
                               ? "Sem e-mail"
-                              : "Ativar mensalidade"}
+                              : tenant.billing_status === "canceled" ||
+                                  tenant.billing_status === "failed"
+                                ? "Reativar mensalidade"
+                                : "Ativar mensalidade"}
                         </button>
                       )}
                     </td>

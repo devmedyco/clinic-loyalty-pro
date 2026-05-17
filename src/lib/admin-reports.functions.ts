@@ -10,13 +10,20 @@ import {
 import {
   createAsaasCustomer,
   createAsaasSubscription,
+  deleteAsaasSubscription,
   isAsaasConfigured,
   listAsaasSubscriptionPayments,
 } from "@/lib/asaas.server";
+import { clinicSaasBillingEmail } from "@/lib/email-templates";
+import { sendEmail } from "@/lib/email.server";
 
 const startTenantSaasBillingSchema = z.object({
   tenant_id: z.string().uuid(),
   billing_type: z.enum(["PIX", "BOLETO", "CREDIT_CARD"]).default("PIX"),
+});
+
+const cancelTenantSaasBillingSchema = z.object({
+  tenant_id: z.string().uuid(),
 });
 
 export const getAdminMetrics = createServerFn({ method: "GET" })
@@ -153,14 +160,17 @@ export const startTenantSaasBilling = createServerFn({ method: "POST" })
     const { data: tenant, error: tenantError } = await supabase
       .from("tenants")
       .select(
-        "id, name, legal_name, slug, email, phone, cnpj, monthly_fee, asaas_saas_customer_id, asaas_saas_subscription_id",
+        "id, name, legal_name, slug, email, phone, cnpj, monthly_fee, asaas_saas_customer_id, asaas_saas_subscription_id, saas_billing_status",
       )
       .eq("id", data.tenant_id)
       .maybeSingle();
 
     if (tenantError) throw new Error(tenantError.message);
     if (!tenant) throw new Error("Clínica não encontrada.");
-    if (tenant.asaas_saas_subscription_id) {
+    if (
+      tenant.asaas_saas_subscription_id &&
+      !["canceled", "failed"].includes(tenant.saas_billing_status ?? "")
+    ) {
       throw new Error("Esta clínica já tem uma assinatura SaaS criada no Asaas.");
     }
     if (!tenant.email) {
@@ -215,6 +225,14 @@ export const startTenantSaasBilling = createServerFn({ method: "POST" })
 
     if (updateError) throw new Error(updateError.message);
 
+    const emailTemplate = clinicSaasBillingEmail({
+      tenantName: tenant.name,
+      amount: monthlyFee,
+      dueDate: firstPayment?.dueDate ?? subscription.nextDueDate ?? firstDueDate,
+      invoiceUrl: firstPayment?.invoiceUrl,
+    });
+    const billingEmail = await sendEmail({ to: tenant.email, ...emailTemplate });
+
     return {
       tenant: updatedTenant,
       subscription: {
@@ -223,7 +241,51 @@ export const startTenantSaasBilling = createServerFn({ method: "POST" })
         nextDueDate: firstPayment?.dueDate ?? subscription.nextDueDate ?? firstDueDate,
         invoiceUrl: firstPayment?.invoiceUrl,
       },
+      billingEmail,
     };
+  });
+
+export const cancelTenantSaasBilling = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => cancelTenantSaasBillingSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertSuperAdminAccess(supabase, userId);
+
+    if (!isAsaasConfigured()) {
+      throw new Error("Asaas principal ainda não configurado. Salve ASAAS_API_KEY nos secrets.");
+    }
+
+    const { data: tenant, error: tenantError } = await supabase
+      .from("tenants")
+      .select("id, name, asaas_saas_subscription_id")
+      .eq("id", data.tenant_id)
+      .maybeSingle();
+
+    if (tenantError) throw new Error(tenantError.message);
+    if (!tenant) throw new Error("Clínica não encontrada.");
+    if (!tenant.asaas_saas_subscription_id) {
+      throw new Error("Esta clínica ainda não tem assinatura SaaS no Asaas.");
+    }
+
+    await deleteAsaasSubscription(tenant.asaas_saas_subscription_id);
+
+    const { data: updatedTenant, error: updateError } = await supabase
+      .from("tenants")
+      .update({
+        saas_billing_status: "canceled",
+        saas_canceled_at: new Date().toISOString(),
+        saas_billing_error: null,
+      })
+      .eq("id", tenant.id)
+      .select(
+        "id, name, slug, status, email, cnpj, monthly_fee, split_fixed_fee, split_percentage, commercial_model, asaas_saas_customer_id, asaas_saas_subscription_id, saas_billing_status, saas_billing_type, saas_next_due_date, saas_invoice_url, saas_billing_error, created_at",
+      )
+      .single();
+
+    if (updateError) throw new Error(updateError.message);
+
+    return { tenant: updatedTenant };
   });
 
 export const getAdminAudit = createServerFn({ method: "GET" })
@@ -327,7 +389,7 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
       supabase
         .from("tenants")
         .select(
-          "id, name, slug, cnpj, email, status, monthly_fee, split_fixed_fee, split_percentage, asaas_onboarding_status, asaas_api_key_ref, asaas_wallet_id",
+          "id, name, slug, cnpj, email, status, monthly_fee, split_fixed_fee, split_percentage, asaas_onboarding_status, asaas_api_key_ref, asaas_wallet_id, asaas_saas_subscription_id, saas_billing_status",
         ),
       supabase.from("patients").select("id, tenant_id, status, user_id, email, cpf"),
       supabase.from("payments").select("id, tenant_id, status, asaas_payment_id"),
@@ -359,6 +421,8 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
           !tenant.asaas_wallet_id ? "wallet Asaas" : null,
           !tenant.asaas_api_key_ref ? "secret Asaas" : null,
           tenant.asaas_onboarding_status !== "active" ? "Asaas ativo" : null,
+          !tenant.asaas_saas_subscription_id ? "mensalidade Medyco" : null,
+          tenant.saas_billing_status === "overdue" ? "mensalidade em atraso" : null,
         ].filter(Boolean),
       }))
       .filter((tenant) => tenant.gaps.length > 0);

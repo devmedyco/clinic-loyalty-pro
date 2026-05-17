@@ -43,7 +43,15 @@ export const queuePaymentReminderNotifications = createServerFn({ method: "POST"
       .lte("due_date", until.toISOString().slice(0, 10));
     if (error) throw new Error(error.message);
 
-    const rows = (payments ?? []).map((payment) => {
+    const { data: tenants, error: tenantsError } = await supabase
+      .from("tenants")
+      .select("id, name, slug, monthly_fee, saas_billing_status, saas_next_due_date")
+      .in("saas_billing_status", ["pending", "overdue"])
+      .not("saas_next_due_date", "is", null)
+      .lte("saas_next_due_date", until.toISOString().slice(0, 10));
+    if (tenantsError) throw new Error(tenantsError.message);
+
+    const paymentRows = (payments ?? []).map((payment) => {
       const patient = relation(payment.patients);
       const tenant = relation(payment.tenants);
       return {
@@ -61,11 +69,82 @@ export const queuePaymentReminderNotifications = createServerFn({ method: "POST"
       };
     });
 
+    const tenantRows = (tenants ?? []).map((tenant) => ({
+      tenant_id: tenant.id,
+      patient_id: null,
+      recipient_user_id: null,
+      type: "tenant_saas_due",
+      channel: "in_app",
+      title:
+        tenant.saas_billing_status === "overdue"
+          ? "Mensalidade SaaS em atraso"
+          : "Mensalidade SaaS pendente",
+      body: `${tenant.name} possui mensalidade Medyco de ${formatCurrency(tenant.monthly_fee)} para acompanhar.`,
+      action_url: "/admin/billing",
+      status: "queued",
+      scheduled_for: tenant.saas_next_due_date,
+      metadata: { tenant_id: tenant.id, slug: tenant.slug },
+    }));
+
+    const rows = await removeExistingReminders(supabase, [...paymentRows, ...tenantRows]);
     if (rows.length === 0) return { created: 0 };
     const { error: insertError } = await supabase.from("notifications").insert(rows);
     if (insertError) throw new Error(insertError.message);
     return { created: rows.length };
   });
+
+async function removeExistingReminders(
+  supabase: SupabaseClient,
+  rows: Array<{
+    type: string;
+    status: string;
+    metadata: Record<string, unknown>;
+  }>,
+) {
+  const paymentIds = rows
+    .map((row) => row.metadata.payment_id)
+    .filter((id): id is string => typeof id === "string");
+  const tenantIds = rows
+    .map((row) => row.metadata.tenant_id)
+    .filter((id): id is string => typeof id === "string");
+
+  if (paymentIds.length === 0 && tenantIds.length === 0) return rows;
+
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("type, metadata")
+    .in("status", ["queued", "unread"])
+    .or(
+      [
+        paymentIds.length ? `metadata->>payment_id.in.(${paymentIds.join(",")})` : null,
+        tenantIds.length ? `metadata->>tenant_id.in.(${tenantIds.join(",")})` : null,
+      ]
+        .filter(Boolean)
+        .join(","),
+    );
+  if (error) throw new Error(error.message);
+
+  const existingPayments = new Set(
+    (data ?? [])
+      .filter((item) => item.type === "payment_due")
+      .map((item) => (item.metadata as Record<string, unknown>).payment_id)
+      .filter((id): id is string => typeof id === "string"),
+  );
+  const existingTenants = new Set(
+    (data ?? [])
+      .filter((item) => item.type === "tenant_saas_due")
+      .map((item) => (item.metadata as Record<string, unknown>).tenant_id)
+      .filter((id): id is string => typeof id === "string"),
+  );
+
+  return rows.filter((row) => {
+    const paymentId = row.metadata.payment_id;
+    const tenantId = row.metadata.tenant_id;
+    if (typeof paymentId === "string" && existingPayments.has(paymentId)) return false;
+    if (typeof tenantId === "string" && existingTenants.has(tenantId)) return false;
+    return true;
+  });
+}
 
 function relation<T>(value: T | T[] | null | undefined) {
   return Array.isArray(value) ? value[0] : value;
