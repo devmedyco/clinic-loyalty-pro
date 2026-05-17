@@ -3,6 +3,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase-ext/client.server";
 import { createAsaasSubaccount } from "@/lib/asaas.server";
 import {
   DEFAULT_MONTHLY_FEE,
@@ -143,8 +144,16 @@ export const createTenant = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => createTenantSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: tenant, error } = await supabase
+    const { supabase, user, userId } = context;
+    const isSuperAdmin = await checkSuperAdmin(supabase, userId);
+    const shouldCreateClinicOwner =
+      isSuperAdmin && data.email && data.email.toLowerCase() !== user.email?.toLowerCase();
+    const ownerId = shouldCreateClinicOwner
+      ? await getOrCreateClinicOwnerUser(data.email!, data.name)
+      : userId;
+    const tenantClient = shouldCreateClinicOwner ? supabaseAdmin : supabase;
+
+    const { data: tenant, error } = await tenantClient
       .from("tenants")
       .insert({
         name: data.name,
@@ -168,7 +177,7 @@ export const createTenant = createServerFn({ method: "POST" })
         patient_subscription_suggestion:
           data.patient_subscription_suggestion ?? DEFAULT_PATIENT_SUBSCRIPTION,
         commercial_model: "base_fixed_plus_split",
-        owner_id: userId,
+        owner_id: ownerId,
       })
       .select(
         "id, slug, name, brand_color, plan, status, monthly_fee, split_fixed_fee, split_percentage, commercial_model",
@@ -178,7 +187,7 @@ export const createTenant = createServerFn({ method: "POST" })
 
     const clinicInvite = data.email
       ? await createClinicAdminInvite({
-          supabase,
+          supabase: shouldCreateClinicOwner ? supabaseAdmin : supabase,
           tenant,
           email: data.email,
           invitedBy: userId,
@@ -256,6 +265,52 @@ export const createTenantAsaasSubaccount = createServerFn({ method: "POST" })
 
 function onlyDigits(value?: string | null) {
   return value?.replace(/\D/g, "") || undefined;
+}
+
+async function checkSuperAdmin(supabase: SupabaseClient, userId: string) {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("role", "super_admin")
+    .limit(1);
+  if (error) throw new Error(error.message);
+  return Boolean(data?.length);
+}
+
+async function getOrCreateClinicOwnerUser(email: string, clinicName: string) {
+  const normalizedEmail = email.toLowerCase();
+  const { data: existingProfile, error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("email", normalizedEmail)
+    .maybeSingle();
+  if (profileError) throw new Error(profileError.message);
+  if (existingProfile?.id) return existingProfile.id;
+
+  const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    email: normalizedEmail,
+    password: createTemporaryPassword(),
+    email_confirm: true,
+    user_metadata: { full_name: clinicName },
+  });
+
+  if (error) throw new Error(error.message);
+  if (!data.user?.id) throw new Error("Não foi possível criar o usuário dono da clínica.");
+  return data.user.id;
+}
+
+function createTemporaryPassword() {
+  return `${randomToken(18)}aA1!`;
+}
+
+function randomToken(length: number) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const values = new Uint8Array(length);
+  crypto.getRandomValues(values);
+  return Array.from(values)
+    .map((value) => alphabet[value % alphabet.length])
+    .join("");
 }
 
 function toSecretSlug(value: string) {

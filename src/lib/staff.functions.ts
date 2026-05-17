@@ -3,6 +3,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase-ext/client.server";
 import { staffInviteEmail } from "@/lib/email-templates";
 import { sendEmail } from "@/lib/email.server";
 
@@ -21,6 +22,10 @@ const revokeSchema = tenantSlugSchema.extend({
 
 const acceptSchema = z.object({
   token: z.string().min(16).max(200),
+});
+
+const completeStaffInvitationSchema = acceptSchema.extend({
+  password: z.string().min(6, "A senha precisa ter pelo menos 6 caracteres").max(120),
 });
 
 export const listStaff = createServerFn({ method: "GET" })
@@ -185,6 +190,75 @@ export const acceptStaffInvitation = createServerFn({ method: "POST" })
     return {
       accepted: true,
       tenant: tenantRelation,
+    };
+  });
+
+export const completeStaffInvitation = createServerFn({ method: "POST" })
+  .inputValidator((input) => completeStaffInvitationSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { data: invitation, error } = await supabaseAdmin
+      .from("staff_invitations")
+      .select("id, tenant_id, email, role, status, expires_at, tenants(id, slug, name)")
+      .eq("token", data.token)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    if (!invitation) throw new Error("Convite não encontrado ou já utilizado.");
+    if (new Date(invitation.expires_at).getTime() < Date.now()) {
+      throw new Error("Este convite expirou.");
+    }
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("email", invitation.email.toLowerCase())
+      .maybeSingle();
+    if (profileError) throw new Error(profileError.message);
+
+    let userId = profile?.id;
+    if (userId) {
+      const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: data.password,
+        email_confirm: true,
+      });
+      if (updateUserError) throw new Error(updateUserError.message);
+    } else {
+      const { data: createdUser, error: createUserError } =
+        await supabaseAdmin.auth.admin.createUser({
+          email: invitation.email.toLowerCase(),
+          password: data.password,
+          email_confirm: true,
+        });
+      if (createUserError) throw new Error(createUserError.message);
+      userId = createdUser.user?.id;
+    }
+
+    if (!userId) throw new Error("Não foi possível criar o acesso da clínica.");
+
+    const { error: roleError } = await supabaseAdmin.from("user_roles").insert({
+      user_id: userId,
+      tenant_id: invitation.tenant_id,
+      role: invitation.role,
+    });
+    if (roleError && !roleError.message.includes("duplicate key")) {
+      throw new Error(roleError.message);
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from("staff_invitations")
+      .update({
+        status: "accepted",
+        accepted_by: userId,
+        accepted_at: new Date().toISOString(),
+      })
+      .eq("id", invitation.id);
+    if (updateError) throw new Error(updateError.message);
+
+    return {
+      accepted: true,
+      email: invitation.email,
+      tenant: Array.isArray(invitation.tenants) ? invitation.tenants[0] : invitation.tenants,
     };
   });
 

@@ -14,7 +14,7 @@ function AdminLayout() {
   const navigate = useNavigate();
   const session = useRequireSession();
   const fetchAccess = useServerFn(getMyAccess);
-  const { data } = useQuery({
+  const { data, isLoading: accessLoading } = useQuery({
     queryKey: ["my-access"],
     queryFn: () => fetchAccess(),
     enabled: session.isAuthenticated,
@@ -26,7 +26,7 @@ function AdminLayout() {
     navigate({ to: (firstTenant ? `/app/${firstTenant.slug}` : "/onboarding") as never });
   }, [data, navigate]);
 
-  if (session.isLoading) {
+  if (session.isLoading || !session.isAuthenticated || accessLoading || !data) {
     return <div className="p-8 text-sm text-muted-foreground">Verificando sessão...</div>;
   }
   if (data && !data.isSuperAdmin) {

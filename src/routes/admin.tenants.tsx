@@ -213,7 +213,9 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-display text-xl text-foreground">Nova clínica</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Você será o admin desta clínica.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          A clínica receberá um convite para criar senha e acessar o painel próprio.
+        </p>
         <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={onSubmit}>
           <Field
             label="CNPJ"
