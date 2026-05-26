@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, Outlet, createFileRoute, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Eye, Send, Upload } from "lucide-react";
@@ -89,6 +89,7 @@ const emptyPatient: PatientFormState = {
 
 function PatientsPage() {
   const { tenant } = Route.useParams();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const queryClient = useQueryClient();
   const fetchPatients = useServerFn(listPatients);
   const create = useServerFn(createPatient);
@@ -191,6 +192,11 @@ function PatientsPage() {
   });
 
   const patients = (data?.patients ?? []) as Patient[];
+  const basePath = `/app/${tenant}/patients`;
+
+  if (pathname !== basePath && pathname.startsWith(`${basePath}/`)) {
+    return <Outlet />;
+  }
 
   return (
     <>
@@ -449,10 +455,7 @@ function ImportModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div
         className="w-full max-w-2xl rounded-xl border border-border bg-surface-elevated p-6 shadow-elegant"
         onClick={(event) => event.stopPropagation()}
@@ -517,10 +520,7 @@ function PatientModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div
         className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border bg-surface-elevated p-6 shadow-elegant"
         onClick={(event) => event.stopPropagation()}
