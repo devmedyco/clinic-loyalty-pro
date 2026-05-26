@@ -28,9 +28,9 @@ function OnboardingPage() {
   const [error, setError] = useState<string | null>(null);
 
   const { data: access, isLoading } = useQuery({
-    queryKey: ["my-access"],
+    queryKey: ["my-access", session.userId, "onboarding"],
     queryFn: () => fetchAccess(),
-    enabled: session.isAuthenticated,
+    enabled: session.isAuthenticated && Boolean(session.userId),
   });
 
   useEffect(() => {
@@ -81,6 +81,7 @@ function OnboardingPage() {
                   <button
                     type="button"
                     onClick={async () => {
+                      queryClient.clear();
                       await supabase.auth.signOut();
                       navigate({
                         to: "/login",

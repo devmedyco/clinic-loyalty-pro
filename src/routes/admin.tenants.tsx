@@ -281,10 +281,11 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
             required
           />
           <Field
-            label="E-mail"
+            label="E-mail do responsável"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            required
           />
           <Field label="Telefone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           <Field label="CEP" value={zipCode} onChange={(e) => setZipCode(e.target.value)} />

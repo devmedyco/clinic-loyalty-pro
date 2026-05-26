@@ -1,22 +1,44 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase-ext/client";
+
+type AuthState = {
+  status: "loading" | "authenticated" | "anonymous";
+  userId?: string;
+};
 
 export function useRequireSession() {
   const navigate = useNavigate();
-  const [state, setState] = useState<"loading" | "authenticated" | "anonymous">("loading");
+  const queryClient = useQueryClient();
+  const lastUserIdRef = useRef<string | null>(null);
+  const [state, setState] = useState<AuthState>({ status: "loading" });
 
   useEffect(() => {
     let active = true;
 
+    function setAuthenticated(userId: string) {
+      if (lastUserIdRef.current && lastUserIdRef.current !== userId) {
+        queryClient.clear();
+      }
+      lastUserIdRef.current = userId;
+      setState({ status: "authenticated", userId });
+    }
+
+    function setAnonymous() {
+      lastUserIdRef.current = null;
+      queryClient.clear();
+      setState({ status: "anonymous" });
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
       if (data.session) {
-        setState("authenticated");
+        setAuthenticated(data.session.user.id);
         return;
       }
 
-      setState("anonymous");
+      setAnonymous();
       navigate({
         to: "/login",
         search: {
@@ -29,11 +51,11 @@ export function useRequireSession() {
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
       if (session) {
-        setState("authenticated");
+        setAuthenticated(session.user.id);
         return;
       }
 
-      setState("anonymous");
+      setAnonymous();
       navigate({
         to: "/login",
         search: { portal: getPortalFromPath(window.location.pathname) } as never,
@@ -44,11 +66,12 @@ export function useRequireSession() {
       active = false;
       subscription.subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, queryClient]);
 
   return {
-    isLoading: state === "loading",
-    isAuthenticated: state === "authenticated",
+    isLoading: state.status === "loading",
+    isAuthenticated: state.status === "authenticated",
+    userId: state.userId,
   };
 }
 

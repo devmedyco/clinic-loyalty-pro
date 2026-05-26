@@ -1,9 +1,10 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { useQueryClient } from "@tanstack/react-query";
 import { Chrome } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase-ext/client";
-import { getPostLoginRoute } from "@/lib/access-routing";
+import { getPostAuthRoute } from "@/lib/access-routing";
 import { getMyAccess } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/_auth/login")({
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/_auth/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const fetchAccess = useServerFn(getMyAccess);
   const copy = getLoginCopy();
   const authSearch = getAuthSearch();
@@ -24,19 +26,16 @@ function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    queryClient.clear();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
       setError(error.message);
       return;
     }
-    const redirect = getSafeRedirect();
-    if (redirect) {
-      navigate({ to: redirect as never });
-      return;
-    }
+    queryClient.clear();
     const access = await fetchAccess();
-    navigate({ to: getPostLoginRoute(access) as never });
+    navigate({ to: getPostAuthRoute(access, getSafeRedirect()) as never });
   }
 
   async function onGoogleLogin() {

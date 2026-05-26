@@ -1,6 +1,6 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, CreditCard, LockKeyhole } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase-ext/client";
@@ -13,6 +13,7 @@ export const Route = createFileRoute("/patient-invite/$token")({
 function PatientInvitePage() {
   const { token } = Route.useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const completeInvite = useServerFn(completePatientInvitation);
   const acceptInvite = useServerFn(acceptPatientInvitation);
   const [password, setPassword] = useState("");
@@ -41,6 +42,7 @@ function PatientInvitePage() {
         password,
       });
       if (error) throw new Error(error.message);
+      queryClient.clear();
       return result;
     },
     onSuccess: () => navigate({ to: "/patient/terms" }),
@@ -48,7 +50,10 @@ function PatientInvitePage() {
 
   const acceptExistingMutation = useMutation({
     mutationFn: () => acceptInvite({ data: { token } }),
-    onSuccess: () => navigate({ to: "/patient/terms" }),
+    onSuccess: () => {
+      queryClient.clear();
+      navigate({ to: "/patient/terms" });
+    },
   });
 
   return (
@@ -76,7 +81,10 @@ function PatientInvitePage() {
                 {(acceptExistingMutation.error as Error).message}
                 <button
                   type="button"
-                  onClick={() => supabase.auth.signOut().then(() => setAuthenticated(false))}
+                  onClick={() => {
+                    queryClient.clear();
+                    supabase.auth.signOut().then(() => setAuthenticated(false));
+                  }}
                   className="mt-3 block rounded-md border border-destructive/30 px-3 py-1.5 text-xs font-medium"
                 >
                   Sair e criar senha com outro e-mail

@@ -1,9 +1,10 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { useQueryClient } from "@tanstack/react-query";
 import { Chrome } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase-ext/client";
-import { getPostLoginRoute } from "@/lib/access-routing";
+import { getPostAuthRoute } from "@/lib/access-routing";
 import { getMyAccess } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/_auth/signup")({
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/_auth/signup")({
 
 function SignupPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const fetchAccess = useServerFn(getMyAccess);
   const copy = getSignupCopy();
   const authSearch = getAuthSearch();
@@ -27,6 +29,7 @@ function SignupPage() {
     setError(null);
     setInfo(null);
     setLoading(true);
+    queryClient.clear();
     const redirect = getSafeRedirect();
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -47,12 +50,9 @@ function SignupPage() {
       setInfo("Verifique seu e-mail para confirmar a conta antes de entrar.");
       return;
     }
-    if (redirect) {
-      navigate({ to: redirect as never });
-      return;
-    }
+    queryClient.clear();
     const access = await fetchAccess();
-    navigate({ to: getPostLoginRoute(access) as never });
+    navigate({ to: getPostAuthRoute(access, redirect) as never });
   }
 
   async function onGoogleSignup() {

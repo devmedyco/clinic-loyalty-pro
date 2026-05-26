@@ -18,14 +18,14 @@ function PatientLayout() {
   const fetchAccess = useServerFn(getMyAccess);
   const fetchPortal = useServerFn(getPatientPortal);
   const { data } = useQuery({
-    queryKey: ["my-access"],
+    queryKey: ["my-access", session.userId, "patient"],
     queryFn: () => fetchAccess(),
-    enabled: session.isAuthenticated,
+    enabled: session.isAuthenticated && Boolean(session.userId),
   });
   const { data: portal } = useQuery({
-    queryKey: ["patient-portal-shell"],
+    queryKey: ["patient-portal-shell", session.userId],
     queryFn: () => fetchPortal(),
-    enabled: session.isAuthenticated,
+    enabled: session.isAuthenticated && Boolean(session.userId),
   });
 
   useEffect(() => {

@@ -493,20 +493,40 @@ export function Footer() {
           </p>
         </div>
         {[
-          { t: "Plataforma", l: ["Solução", "Módulos", "Modelo", "Demonstração"] },
-          { t: "Empresa", l: ["Sobre", "Blog", "Contato", "Carreiras"] },
-          { t: "Legal", l: ["Termos", "Privacidade", "LGPD", "Status"] },
+          {
+            t: "Plataforma",
+            l: [
+              { label: "Solução", href: "#solucao" },
+              { label: "Módulos", href: "#modulos" },
+              { label: "Modelo", href: "#planos" },
+              { label: "Demonstração", href: "#contato" },
+            ],
+          },
+          {
+            t: "Empresa",
+            l: [
+              { label: "Planos", href: "/planos" },
+              { label: "Contato", href: "/contato" },
+            ],
+          },
+          {
+            t: "Legal",
+            l: [
+              { label: "Termos", href: "/termos" },
+              { label: "Privacidade", href: "/privacidade" },
+            ],
+          },
         ].map((g) => (
           <div key={g.t}>
             <div className="text-sm font-medium text-foreground">{g.t}</div>
             <ul className="mt-3 space-y-2">
-              {g.l.map((i) => (
-                <li key={i}>
+              {g.l.map((item) => (
+                <li key={item.label}>
                   <a
                     className="text-sm text-muted-foreground transition hover:text-foreground"
-                    href="#"
+                    href={item.href}
                   >
-                    {i}
+                    {item.label}
                   </a>
                 </li>
               ))}

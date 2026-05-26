@@ -146,12 +146,21 @@ export const createTenant = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, user, userId } = context;
     const isSuperAdmin = await checkSuperAdmin(supabase, userId);
-    const shouldCreateClinicOwner =
-      isSuperAdmin && data.email && data.email.toLowerCase() !== user.email?.toLowerCase();
-    const ownerId = shouldCreateClinicOwner
+    if (isSuperAdmin && !data.email) {
+      throw new Error(
+        "Informe o e-mail do responsável da clínica. O admin global não deve virar dono operacional da clínica.",
+      );
+    }
+    if (isSuperAdmin && data.email?.toLowerCase() === user.email?.toLowerCase()) {
+      throw new Error(
+        "Use um e-mail da clínica diferente do e-mail do super admin para evitar mistura de acessos.",
+      );
+    }
+
+    const ownerId = isSuperAdmin
       ? await getOrCreateClinicOwnerUser(data.email!, data.name)
       : userId;
-    const tenantClient = shouldCreateClinicOwner ? supabaseAdmin : supabase;
+    const tenantClient = isSuperAdmin ? supabaseAdmin : supabase;
 
     const { data: tenant, error } = await tenantClient
       .from("tenants")
@@ -187,7 +196,7 @@ export const createTenant = createServerFn({ method: "POST" })
 
     const clinicInvite = data.email
       ? await createClinicAdminInvite({
-          supabase: shouldCreateClinicOwner ? supabaseAdmin : supabase,
+          supabase: isSuperAdmin ? supabaseAdmin : supabase,
           tenant,
           email: data.email,
           invitedBy: userId,

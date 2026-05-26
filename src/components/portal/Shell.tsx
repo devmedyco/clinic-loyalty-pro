@@ -1,4 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { LogOut, Moon, Sun } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { supabase } from "@/integrations/supabase-ext/client";
@@ -30,6 +31,7 @@ export function PortalShell({
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [darkMode, setDarkMode] = useState(false);
   const resolvedItems = items.map((item) => ({
     ...item,
@@ -48,6 +50,7 @@ export function PortalShell({
   }, []);
 
   async function onLogout() {
+    queryClient.clear();
     await supabase.auth.signOut();
     navigate({ to: "/login" });
   }
@@ -154,9 +157,12 @@ export function PortalShell({
               {darkMode ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
               {darkMode ? "Claro" : "Escuro"}
             </button>
-            <button className="rounded-lg border border-input bg-surface-elevated px-3 py-2 text-xs text-muted-foreground transition hover:bg-accent">
+            <Link
+              to="/contato"
+              className="rounded-lg border border-input bg-surface-elevated px-3 py-2 text-xs text-muted-foreground transition hover:bg-accent"
+            >
               Suporte
-            </button>
+            </Link>
             <button
               onClick={onLogout}
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-muted-foreground transition hover:bg-accent"

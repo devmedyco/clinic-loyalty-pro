@@ -15,9 +15,9 @@ function AdminLayout() {
   const session = useRequireSession();
   const fetchAccess = useServerFn(getMyAccess);
   const { data, isLoading: accessLoading } = useQuery({
-    queryKey: ["my-access"],
+    queryKey: ["my-access", session.userId, "admin"],
     queryFn: () => fetchAccess(),
-    enabled: session.isAuthenticated,
+    enabled: session.isAuthenticated && Boolean(session.userId),
   });
 
   useEffect(() => {

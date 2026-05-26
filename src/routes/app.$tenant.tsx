@@ -17,14 +17,14 @@ function ClinicLayout() {
   const fetchTenant = useServerFn(getTenantBySlug);
   const fetchAccess = useServerFn(getMyAccess);
   const { data, isLoading, error } = useQuery({
-    queryKey: ["tenant", tenant],
+    queryKey: ["tenant", tenant, session.userId],
     queryFn: () => fetchTenant({ data: { slug: tenant } }),
-    enabled: session.isAuthenticated,
+    enabled: session.isAuthenticated && Boolean(session.userId),
   });
   const { data: access } = useQuery({
-    queryKey: ["my-access"],
+    queryKey: ["my-access", session.userId, "clinic"],
     queryFn: () => fetchAccess(),
-    enabled: session.isAuthenticated,
+    enabled: session.isAuthenticated && Boolean(session.userId),
   });
 
   if (session.isLoading || isLoading) {

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase-ext/client";
-import { getPostLoginRoute } from "@/lib/access-routing";
+import { getPostAuthRoute, getPostLoginRoute } from "@/lib/access-routing";
 import { getMyAccess } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/auth/callback")({
@@ -36,13 +36,16 @@ function AuthCallbackPage() {
         await supabase.auth.getSession();
       }
 
-      if (rawNext === "auto") {
-        const access = await fetchAccess();
-        window.location.replace(getPostLoginRoute(access));
+      const safeNext = getSafeNext(rawNext);
+      if (safeNext && isAuthFlowNext(safeNext)) {
+        window.location.replace(safeNext);
         return;
       }
 
-      window.location.replace(getSafeNext(rawNext) ?? "/onboarding");
+      const access = await fetchAccess();
+      window.location.replace(
+        rawNext === "auto" ? getPostLoginRoute(access) : getPostAuthRoute(access, safeNext),
+      );
     }
 
     finishAuth().catch((error) => {
@@ -64,4 +67,12 @@ function AuthCallbackPage() {
 function getSafeNext(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return null;
   return value;
+}
+
+function isAuthFlowNext(value: string) {
+  return (
+    value === "/reset-password" ||
+    value.startsWith("/invite/") ||
+    value.startsWith("/patient-invite/")
+  );
 }
