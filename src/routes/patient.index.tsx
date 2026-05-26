@@ -40,10 +40,13 @@ function PatientCard() {
     );
   }
 
+  const hasPaidPayment = (data.payments ?? []).some((payment) => payment.status === "paid");
+  const subscriptionPaid = data.subscription?.status === "active" && hasPaidPayment;
   const active =
     data.card.active &&
     (!data.card.expires_at || new Date(data.card.expires_at).getTime() > Date.now()) &&
-    data.legal?.accepted;
+    data.legal?.accepted &&
+    subscriptionPaid;
 
   return (
     <>
@@ -59,6 +62,20 @@ function PatientCard() {
             className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
           >
             Assinar termo
+          </Link>
+        </Card>
+      )}
+      {data.legal?.accepted && !subscriptionPaid && (
+        <Card className="mb-6 border-warning/30 bg-warning/10 p-5">
+          <div className="text-sm font-medium text-foreground">Pagamento pendente</div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            O cartão será liberado automaticamente quando a primeira mensalidade for confirmada.
+          </p>
+          <Link
+            to="/patient/subscription"
+            className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+          >
+            Ver cobrança
           </Link>
         </Card>
       )}

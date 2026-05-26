@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase-ext/client.server";
 import { assertSuperAdminAccess } from "@/lib/admin-auth.server";
 import {
   DEFAULT_MONTHLY_FEE,
@@ -24,6 +25,10 @@ const startTenantSaasBillingSchema = z.object({
 
 const cancelTenantSaasBillingSchema = z.object({
   tenant_id: z.string().uuid(),
+});
+
+const grantSuperAdminSchema = z.object({
+  email: z.string().trim().email().max(160),
 });
 
 export const getAdminMetrics = createServerFn({ method: "GET" })
@@ -378,6 +383,95 @@ export const getAdminSettingsStatus = createServerFn({ method: "GET" })
         process.env.ASAAS_API_KEY && process.env.ASAAS_MEDYCO_WALLET_ID,
       ),
     };
+  });
+
+export const listSuperAdmins = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertSuperAdminAccess(supabase, userId);
+
+    const { data: roles, error: rolesError } = await supabaseAdmin
+      .from("user_roles")
+      .select("id, user_id, created_at")
+      .eq("role", "super_admin")
+      .order("created_at", { ascending: false });
+    if (rolesError) throw new Error(rolesError.message);
+
+    const userIds = [...new Set((roles ?? []).map((role) => role.user_id))];
+    const { data: profiles, error: profilesError } = userIds.length
+      ? await supabaseAdmin.from("profiles").select("id, full_name, email").in("id", userIds)
+      : { data: [], error: null };
+    if (profilesError) throw new Error(profilesError.message);
+
+    const usersResult = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (usersResult.error) throw new Error(usersResult.error.message);
+
+    const profilesById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+    const usersById = new Map((usersResult.data.users ?? []).map((user) => [user.id, user]));
+
+    return {
+      admins: (roles ?? []).map((role) => {
+        const profile = profilesById.get(role.user_id);
+        const user = usersById.get(role.user_id);
+        return {
+          id: role.id,
+          user_id: role.user_id,
+          name: profile?.full_name || user?.user_metadata?.full_name || user?.email || "Admin",
+          email: profile?.email || user?.email || "sem e-mail",
+          created_at: role.created_at,
+          is_current_user: role.user_id === userId,
+        };
+      }),
+    };
+  });
+
+export const grantSuperAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => grantSuperAdminSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertSuperAdminAccess(supabase, userId);
+
+    const email = data.email.trim().toLowerCase();
+    const usersResult = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (usersResult.error) throw new Error(usersResult.error.message);
+
+    const user = usersResult.data.users.find(
+      (candidate) => candidate.email?.toLowerCase() === email,
+    );
+    if (!user) {
+      throw new Error(
+        "Esse e-mail ainda não tem conta. Peça para criar uma conta antes de promover.",
+      );
+    }
+
+    const { data: existingRole, error: existingError } = await supabaseAdmin
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("role", "super_admin")
+      .is("tenant_id", null)
+      .maybeSingle();
+    if (existingError) throw new Error(existingError.message);
+
+    if (!existingRole) {
+      const { error: roleError } = await supabaseAdmin.from("user_roles").insert({
+        user_id: user.id,
+        tenant_id: null,
+        role: "super_admin",
+      });
+      if (roleError) throw new Error(roleError.message);
+    }
+
+    const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
+      id: user.id,
+      email,
+      full_name: user.user_metadata?.full_name || email,
+    });
+    if (profileError) throw new Error(profileError.message);
+
+    return { granted: true, user_id: user.id, email };
   });
 
 export const getAdminReadiness = createServerFn({ method: "GET" })

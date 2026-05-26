@@ -1,10 +1,24 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CreditCard, FileCheck2, Send, ShieldCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  CreditCard,
+  FileCheck2,
+  Send,
+  ShieldCheck,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
-import { getPatientDetail, invitePatientToPortal } from "@/lib/patients.functions";
+import {
+  createPatientDependent,
+  deletePatientDependent,
+  getPatientDetail,
+  invitePatientToPortal,
+} from "@/lib/patients.functions";
 
 export const Route = createFileRoute("/app/$tenant/patients/$patientId")({
   component: PatientDetailPage,
@@ -105,11 +119,29 @@ type Invitation = {
   created_at: string;
 };
 
+type Dependent = {
+  id: string;
+  full_name: string;
+  cpf: string | null;
+  birth_date: string | null;
+  relationship: string | null;
+  status: "active" | "inactive";
+  created_at: string;
+};
+
 function PatientDetailPage() {
   const { tenant, patientId } = Route.useParams();
   const queryClient = useQueryClient();
   const fetchDetail = useServerFn(getPatientDetail);
   const invite = useServerFn(invitePatientToPortal);
+  const createDependent = useServerFn(createPatientDependent);
+  const removeDependent = useServerFn(deletePatientDependent);
+  const [dependentForm, setDependentForm] = useState({
+    full_name: "",
+    cpf: "",
+    birth_date: "",
+    relationship: "",
+  });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["patient-detail", tenant, patientId],
@@ -132,6 +164,37 @@ function PatientDetailPage() {
     onError: (err) => toast.error((err as Error).message),
   });
 
+  const dependentMutation = useMutation({
+    mutationFn: () =>
+      createDependent({
+        data: {
+          tenant,
+          id: patientId,
+          full_name: dependentForm.full_name,
+          cpf: dependentForm.cpf || undefined,
+          birth_date: dependentForm.birth_date || undefined,
+          relationship: dependentForm.relationship || undefined,
+          status: "active",
+        },
+      }),
+    onSuccess: async () => {
+      toast.success("Dependente adicionado.");
+      setDependentForm({ full_name: "", cpf: "", birth_date: "", relationship: "" });
+      await queryClient.invalidateQueries({ queryKey: ["patient-detail", tenant, patientId] });
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+
+  const deleteDependentMutation = useMutation({
+    mutationFn: (dependentId: string) =>
+      removeDependent({ data: { tenant, patient_id: patientId, dependent_id: dependentId } }),
+    onSuccess: async () => {
+      toast.success("Dependente removido.");
+      await queryClient.invalidateQueries({ queryKey: ["patient-detail", tenant, patientId] });
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+
   const patient = data?.patient as PatientDetail | undefined;
   const subscriptions = (data?.subscriptions ?? []) as Subscription[];
   const payments = (data?.payments ?? []) as Payment[];
@@ -139,6 +202,7 @@ function PatientDetailPage() {
   const validations = (data?.validations ?? []) as Validation[];
   const acceptances = (data?.acceptances ?? []) as Acceptance[];
   const invitations = (data?.invitations ?? []) as Invitation[];
+  const dependents = (data?.dependents ?? []) as Dependent[];
   const card = patient?.benefit_cards?.[0];
   const subscription = subscriptions[0];
 
@@ -199,6 +263,11 @@ function PatientDetailPage() {
               value={formatCurrency(data?.totals.savings)}
               delta={`${data?.totals.executions ?? 0} atendimento(s)`}
             />
+            <StatCard
+              label="Dependentes"
+              value={String(data?.totals.dependents ?? 0)}
+              delta="vinculados ao titular"
+            />
           </div>
 
           <div className="mt-6 grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
@@ -222,6 +291,88 @@ function PatientDetailPage() {
                     ["Última atualização", formatDateTime(patient.updated_at)],
                   ]}
                 />
+              </Card>
+
+              <Card className="p-5">
+                <SectionTitle icon={UserPlus} title="Dependentes" />
+                <form
+                  className="mt-4 grid gap-3 sm:grid-cols-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    dependentMutation.mutate();
+                  }}
+                >
+                  <input
+                    value={dependentForm.full_name}
+                    onChange={(event) =>
+                      setDependentForm({ ...dependentForm, full_name: event.target.value })
+                    }
+                    placeholder="Nome completo"
+                    className="rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground shadow-soft outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                    required
+                  />
+                  <input
+                    value={dependentForm.relationship}
+                    onChange={(event) =>
+                      setDependentForm({ ...dependentForm, relationship: event.target.value })
+                    }
+                    placeholder="Parentesco"
+                    className="rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground shadow-soft outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  />
+                  <input
+                    value={dependentForm.cpf}
+                    onChange={(event) =>
+                      setDependentForm({ ...dependentForm, cpf: event.target.value })
+                    }
+                    placeholder="CPF"
+                    className="rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground shadow-soft outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  />
+                  <input
+                    type="date"
+                    value={dependentForm.birth_date}
+                    onChange={(event) =>
+                      setDependentForm({ ...dependentForm, birth_date: event.target.value })
+                    }
+                    className="rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground shadow-soft outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  />
+                  <button
+                    type="submit"
+                    disabled={dependentMutation.isPending}
+                    className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60 sm:col-span-2"
+                  >
+                    {dependentMutation.isPending ? "Adicionando..." : "Adicionar dependente"}
+                  </button>
+                </form>
+                {dependents.length === 0 ? (
+                  <EmptyBlock text="Nenhum dependente cadastrado." />
+                ) : (
+                  <div className="mt-5 divide-y divide-border">
+                    {dependents.map((dependent) => (
+                      <div
+                        key={dependent.id}
+                        className="flex flex-col gap-3 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div>
+                          <div className="font-medium text-foreground">{dependent.full_name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {[dependent.relationship, formatCpf(dependent.cpf)]
+                              .filter(Boolean)
+                              .join(" · ") || "Dados complementares não informados"}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => deleteDependentMutation.mutate(dependent.id)}
+                          disabled={deleteDependentMutation.isPending}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Remover
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </Card>
 
               <Card className="p-5">

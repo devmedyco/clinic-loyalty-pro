@@ -39,6 +39,7 @@ type TenantFormState = {
   split_fixed_fee: number;
   split_percentage: number;
   patient_subscription_suggestion: number;
+  dependent_extra_amount: number;
   asaas_account_id: string;
   asaas_wallet_id: string;
   asaas_api_key_ref: string;
@@ -103,6 +104,7 @@ function TenantSettingsPage() {
       split_fixed_fee: Number(data.tenant.split_fixed_fee ?? 2.9),
       split_percentage: Number(data.tenant.split_percentage ?? 7.9),
       patient_subscription_suggestion: Number(data.tenant.patient_subscription_suggestion ?? 39.9),
+      dependent_extra_amount: Number(data.tenant.dependent_extra_amount ?? 0),
       asaas_account_id: data.tenant.asaas_account_id ?? "",
       asaas_wallet_id: data.tenant.asaas_wallet_id ?? "",
       asaas_api_key_ref: data.tenant.asaas_api_key_ref ?? "",
@@ -454,6 +456,19 @@ function TenantSettingsPage() {
                     setForm({
                       ...form,
                       patient_subscription_suggestion: Number(event.target.value),
+                    })
+                  }
+                />
+                <Field
+                  label="Valor extra por dependente"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.dependent_extra_amount}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      dependent_extra_amount: Number(event.target.value),
                     })
                   }
                 />

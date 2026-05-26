@@ -303,7 +303,7 @@ async function ensurePatientSubscriptions(supabase: SupabaseClient, tenantId: st
       tenant_id: tenantId,
       patient_id: patient.id,
       plan: "benefits",
-      status: patient.status === "delinquent" ? "past_due" : "active",
+      status: "past_due",
       next_due_date: nextDueDate(),
     })),
   );
@@ -374,7 +374,7 @@ async function ensurePatientSubscription(
       tenant_id: tenantId,
       patient_id: patientId,
       plan: "benefits",
-      status: "active",
+      status: "past_due",
       next_due_date: nextDueDate(),
     })
     .select("id, status, next_due_date")

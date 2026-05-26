@@ -19,10 +19,12 @@ function PatientSubscriptionPage() {
     enabled: session.isAuthenticated && Boolean(session.userId),
   });
 
+  const hasPaidPayment = (data?.payments ?? []).some((payment) => payment.status === "paid");
   const active =
     Boolean(data?.card?.active) &&
     (!data?.card?.expires_at || new Date(data.card.expires_at).getTime() > Date.now()) &&
-    ["active", "trial"].includes(data?.subscription?.status ?? data?.patient?.status ?? "");
+    data?.subscription?.status === "active" &&
+    hasPaidPayment;
 
   return (
     <>
@@ -62,7 +64,7 @@ function PatientSubscriptionPage() {
                     : "Sem vencimento"
                 }
               />
-              <Info label="Status do cartão" value={data.card?.active ? "Ativo" : "Inativo"} />
+              <Info label="Status do cartão" value={active ? "Liberado" : "Aguardando pagamento"} />
             </div>
           </Card>
           <Card className="overflow-hidden md:col-span-3">

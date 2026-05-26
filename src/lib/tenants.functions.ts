@@ -50,6 +50,7 @@ const createTenantSchema = z.object({
   split_fixed_fee: z.coerce.number().min(0).optional(),
   split_percentage: z.coerce.number().min(0).max(100).optional(),
   patient_subscription_suggestion: z.coerce.number().min(0).optional(),
+  dependent_extra_amount: z.coerce.number().min(0).optional(),
   legal_name: optionalText(180),
   responsible_name: optionalText(160),
   responsible_role: optionalText(120),
@@ -101,6 +102,7 @@ const updateTenantSchema = z.object({
   split_fixed_fee: z.coerce.number().min(0).optional(),
   split_percentage: z.coerce.number().min(0).max(100).optional(),
   patient_subscription_suggestion: z.coerce.number().min(0).optional(),
+  dependent_extra_amount: z.coerce.number().min(0).optional(),
   asaas_account_id: optionalText(120),
   asaas_wallet_id: optionalText(120),
   asaas_api_key_ref: optionalText(120),
@@ -196,6 +198,7 @@ export const createTenant = createServerFn({ method: "POST" })
         split_percentage: data.split_percentage ?? DEFAULT_SPLIT_PERCENTAGE,
         patient_subscription_suggestion:
           data.patient_subscription_suggestion ?? DEFAULT_PATIENT_SUBSCRIPTION,
+        dependent_extra_amount: data.dependent_extra_amount ?? 0,
         commercial_model: "base_fixed_plus_split",
         owner_id: ownerId,
       })
@@ -297,7 +300,7 @@ export const createTenantAsaasSubaccount = createServerFn({ method: "POST" })
       })
       .eq("id", currentTenant.id)
       .select(
-        "id, slug, name, legal_name, responsible_name, responsible_role, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
+        "id, slug, name, legal_name, responsible_name, responsible_role, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, dependent_extra_amount, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
       )
       .single();
 
@@ -440,7 +443,7 @@ export const getTenantBySlug = createServerFn({ method: "GET" })
     const { data: tenant, error } = await supabase
       .from("tenants")
       .select(
-        "id, slug, name, legal_name, responsible_name, responsible_role, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
+        "id, slug, name, legal_name, responsible_name, responsible_role, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, dependent_extra_amount, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
       )
       .eq("slug", data.slug)
       .maybeSingle();
@@ -479,6 +482,7 @@ export const updateTenantSettings = createServerFn({ method: "POST" })
         split_percentage: data.split_percentage ?? DEFAULT_SPLIT_PERCENTAGE,
         patient_subscription_suggestion:
           data.patient_subscription_suggestion ?? DEFAULT_PATIENT_SUBSCRIPTION,
+        dependent_extra_amount: data.dependent_extra_amount ?? 0,
         commercial_model: "base_fixed_plus_split",
         asaas_account_id: data.asaas_account_id,
         asaas_wallet_id: data.asaas_wallet_id,
@@ -488,7 +492,7 @@ export const updateTenantSettings = createServerFn({ method: "POST" })
       })
       .eq("id", data.id)
       .select(
-        "id, slug, name, legal_name, responsible_name, responsible_role, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
+        "id, slug, name, legal_name, responsible_name, responsible_role, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, dependent_extra_amount, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
       )
       .single();
 

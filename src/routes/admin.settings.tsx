@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
 import {
   DEFAULT_MONTHLY_FEE,
@@ -10,6 +12,7 @@ import {
   calculateClinicNetRecurring,
 } from "@/lib/commercial-model";
 import { getAdminSettingsStatus } from "@/lib/admin-reports.functions";
+import { grantSuperAdmin, listSuperAdmins } from "@/lib/admin-reports.functions";
 
 export const Route = createFileRoute("/admin/settings")({
   component: AdminSettingsPage,
@@ -17,9 +20,14 @@ export const Route = createFileRoute("/admin/settings")({
 
 function AdminSettingsPage() {
   const fetchStatus = useServerFn(getAdminSettingsStatus);
+  const fetchSuperAdmins = useServerFn(listSuperAdmins);
   const { data, isLoading } = useQuery({
     queryKey: ["admin-settings-status"],
     queryFn: () => fetchStatus(),
+  });
+  const { data: adminData, isLoading: adminsLoading } = useQuery({
+    queryKey: ["super-admins"],
+    queryFn: () => fetchSuperAdmins(),
   });
   const example = calculateClinicNetRecurring({ patients: 100 });
 
@@ -134,6 +142,41 @@ function AdminSettingsPage() {
           </p>
         </Card>
         <Card className="p-6 lg:col-span-2">
+          <h2 className="font-display text-xl text-foreground">Super administradores</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Pessoas com acesso total ao painel global da Medyco.
+          </p>
+          <SuperAdminForm />
+          <div className="mt-5 overflow-hidden rounded-xl border border-border">
+            {adminsLoading ? (
+              <div className="px-4 py-6 text-sm text-muted-foreground">
+                Carregando administradores...
+              </div>
+            ) : (adminData?.admins ?? []).length === 0 ? (
+              <div className="px-4 py-6 text-sm text-muted-foreground">
+                Nenhum super admin encontrado.
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {adminData?.admins.map((admin) => (
+                  <div
+                    key={admin.id}
+                    className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <div className="font-medium text-foreground">{admin.name}</div>
+                      <div className="text-xs text-muted-foreground">{admin.email}</div>
+                    </div>
+                    <span className="rounded-md bg-brand-soft px-2 py-0.5 text-xs text-brand">
+                      {admin.is_current_user ? "você" : "acesso global"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
+        <Card className="p-6 lg:col-span-2">
           <h2 className="font-display text-xl text-foreground">Checklist Asaas sandbox</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Comece pelo sandbox. Depois que cobrança, webhook e split estiverem validados, repetimos
@@ -183,6 +226,49 @@ function AdminSettingsPage() {
         </Card>
       </div>
     </>
+  );
+}
+
+function SuperAdminForm() {
+  const queryClient = useQueryClient();
+  const promote = useServerFn(grantSuperAdmin);
+  const [email, setEmail] = useState("");
+  const mutation = useMutation({
+    mutationFn: () => promote({ data: { email } }),
+    onSuccess: () => {
+      toast.success("Super admin adicionado.");
+      setEmail("");
+      queryClient.invalidateQueries({ queryKey: ["super-admins"] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Não foi possível adicionar.");
+    },
+  });
+
+  return (
+    <form
+      className="mt-5 flex flex-col gap-3 sm:flex-row"
+      onSubmit={(event) => {
+        event.preventDefault();
+        mutation.mutate();
+      }}
+    >
+      <input
+        type="email"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+        placeholder="email@socio.com.br"
+        className="min-w-0 flex-1 rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground shadow-soft outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+        required
+      />
+      <button
+        type="submit"
+        disabled={mutation.isPending}
+        className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {mutation.isPending ? "Adicionando..." : "Adicionar super admin"}
+      </button>
+    </form>
   );
 }
 

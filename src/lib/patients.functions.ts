@@ -56,6 +56,19 @@ const getPatientSchema = tenantSlugSchema.extend({
 
 const invitePatientSchema = getPatientSchema;
 
+const patientDependentSchema = getPatientSchema.extend({
+  full_name: z.string().trim().min(2).max(160),
+  cpf: cpfSchema,
+  birth_date: optionalText(10),
+  relationship: optionalText(80),
+  status: z.enum(["active", "inactive"]).default("active"),
+});
+
+const deletePatientDependentSchema = tenantSlugSchema.extend({
+  patient_id: z.string().uuid(),
+  dependent_id: z.string().uuid(),
+});
+
 const acceptPatientInvitationSchema = z.object({
   token: z.string().min(16).max(200),
 });
@@ -161,6 +174,7 @@ export const getPatientDetail = createServerFn({ method: "GET" })
       acceptancesResult,
       invitationsResult,
       validationsResult,
+      dependentsResult,
     ] = await Promise.all([
       supabase
         .from("subscriptions")
@@ -211,6 +225,12 @@ export const getPatientDetail = createServerFn({ method: "GET" })
             .order("validated_at", { ascending: false })
             .limit(20)
         : Promise.resolve({ data: [], error: null }),
+      supabase
+        .from("patient_dependents")
+        .select("id, full_name, cpf, birth_date, relationship, status, created_at, updated_at")
+        .eq("tenant_id", tenant.id)
+        .eq("patient_id", patient.id)
+        .order("created_at", { ascending: false }),
     ]);
 
     if (subscriptionsResult.error) throw new Error(subscriptionsResult.error.message);
@@ -219,6 +239,7 @@ export const getPatientDetail = createServerFn({ method: "GET" })
     if (acceptancesResult.error) throw new Error(acceptancesResult.error.message);
     if (invitationsResult.error) throw new Error(invitationsResult.error.message);
     if (validationsResult.error) throw new Error(validationsResult.error.message);
+    if (dependentsResult.error) throw new Error(dependentsResult.error.message);
 
     return {
       tenant,
@@ -229,6 +250,7 @@ export const getPatientDetail = createServerFn({ method: "GET" })
       acceptances: acceptancesResult.data ?? [],
       invitations: invitationsResult.data ?? [],
       validations: validationsResult.data ?? [],
+      dependents: dependentsResult.data ?? [],
       totals: {
         paid: sumPaid(paymentsResult.data ?? []),
         pending: (paymentsResult.data ?? []).filter((payment) => payment.status === "pending")
@@ -236,8 +258,64 @@ export const getPatientDetail = createServerFn({ method: "GET" })
         savings: sumNumeric(executionsResult.data ?? [], "discount_amount"),
         executions: executionsResult.data?.length ?? 0,
         validations: validationsResult.data?.length ?? 0,
+        dependents: dependentsResult.data?.length ?? 0,
       },
     };
+  });
+
+export const createPatientDependent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => patientDependentSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const tenant = await resolveTenant(supabase, data.tenant);
+
+    const { data: patient, error: patientError } = await supabase
+      .from("patients")
+      .select("id")
+      .eq("tenant_id", tenant.id)
+      .eq("id", data.id)
+      .maybeSingle();
+    if (patientError) throw new Error(patientError.message);
+    if (!patient) throw new Error("Titular não encontrado.");
+
+    const { data: dependent, error } = await supabase
+      .from("patient_dependents")
+      .insert({
+        tenant_id: tenant.id,
+        patient_id: patient.id,
+        full_name: data.full_name,
+        cpf: data.cpf,
+        birth_date: data.birth_date,
+        relationship: data.relationship,
+        status: data.status,
+      })
+      .select("id, full_name, cpf, birth_date, relationship, status, created_at, updated_at")
+      .single();
+    if (error) throw new Error(error.message);
+
+    await syncPendingPatientPaymentAmount(supabase, tenant, patient.id);
+
+    return { tenant, dependent };
+  });
+
+export const deletePatientDependent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => deletePatientDependentSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const tenant = await resolveTenant(supabase, data.tenant);
+    const { error } = await supabase
+      .from("patient_dependents")
+      .delete()
+      .eq("tenant_id", tenant.id)
+      .eq("patient_id", data.patient_id)
+      .eq("id", data.dependent_id);
+    if (error) throw new Error(error.message);
+
+    await syncPendingPatientPaymentAmount(supabase, tenant, data.patient_id);
+
+    return { tenant, deleted: true };
   });
 
 export const createPatient = createServerFn({ method: "POST" })
@@ -293,7 +371,7 @@ export const createPatient = createServerFn({ method: "POST" })
       tenant_id: tenant.id,
       patient_id: patient.id,
       plan: "benefits",
-      status: data.status === "delinquent" ? "past_due" : "active",
+      status: "past_due",
       next_due_date: today(),
     });
 
@@ -599,7 +677,7 @@ export const importPatients = createServerFn({ method: "POST" })
             tenant_id: tenant.id,
             patient_id: patient.id,
             plan: "benefits",
-            status: input.status === "delinquent" ? "past_due" : "active",
+            status: "past_due",
             next_due_date: today(),
           }),
         ]);
@@ -623,7 +701,9 @@ export const importPatients = createServerFn({ method: "POST" })
 async function resolveTenant(supabase: SupabaseClient, slug: string) {
   const { data, error } = await supabase
     .from("tenants")
-    .select("id, slug, name, brand_color, plan, status, patient_subscription_suggestion")
+    .select(
+      "id, slug, name, brand_color, plan, status, patient_subscription_suggestion, dependent_extra_amount",
+    )
     .eq("slug", slug)
     .maybeSingle();
 
@@ -634,10 +714,14 @@ async function resolveTenant(supabase: SupabaseClient, slug: string) {
 
 async function createInitialPendingPayment(
   supabase: SupabaseClient,
-  tenant: { id: string; patient_subscription_suggestion?: number | string | null },
+  tenant: {
+    id: string;
+    patient_subscription_suggestion?: number | string | null;
+    dependent_extra_amount?: number | string | null;
+  },
   patientId: string,
 ) {
-  const amount = Number(tenant.patient_subscription_suggestion ?? 39.9);
+  const amount = await calculatePatientSubscriptionAmount(supabase, tenant, patientId);
   if (!Number.isFinite(amount) || amount <= 0) return;
 
   const { data: subscription, error: subscriptionError } = await supabase
@@ -671,6 +755,64 @@ async function createInitialPendingPayment(
     notes: "Primeira cobrança gerada automaticamente no cadastro do paciente.",
   });
   if (error) throw new Error(error.message);
+}
+
+async function syncPendingPatientPaymentAmount(
+  supabase: SupabaseClient,
+  tenant: {
+    id: string;
+    patient_subscription_suggestion?: number | string | null;
+    dependent_extra_amount?: number | string | null;
+  },
+  patientId: string,
+) {
+  const amount = await calculatePatientSubscriptionAmount(supabase, tenant, patientId);
+  const { data: subscription, error: subscriptionError } = await supabase
+    .from("subscriptions")
+    .select("id")
+    .eq("tenant_id", tenant.id)
+    .eq("patient_id", patientId)
+    .maybeSingle();
+  if (subscriptionError) throw new Error(subscriptionError.message);
+  if (!subscription) return;
+
+  const { error } = await supabase
+    .from("payments")
+    .update({
+      amount,
+      notes: "Cobrança pendente recalculada com dependentes do titular.",
+    })
+    .eq("tenant_id", tenant.id)
+    .eq("patient_id", patientId)
+    .eq("subscription_id", subscription.id)
+    .eq("status", "pending")
+    .is("asaas_payment_id", null);
+  if (error) throw new Error(error.message);
+}
+
+async function calculatePatientSubscriptionAmount(
+  supabase: SupabaseClient,
+  tenant: {
+    id: string;
+    patient_subscription_suggestion?: number | string | null;
+    dependent_extra_amount?: number | string | null;
+  },
+  patientId: string,
+) {
+  const baseAmount = Number(tenant.patient_subscription_suggestion ?? 39.9);
+  const dependentAmount = Number(tenant.dependent_extra_amount ?? 0);
+  if (!Number.isFinite(baseAmount) || baseAmount <= 0) return 0;
+  if (!Number.isFinite(dependentAmount) || dependentAmount <= 0) return baseAmount;
+
+  const { count, error } = await supabase
+    .from("patient_dependents")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenant.id)
+    .eq("patient_id", patientId)
+    .eq("status", "active");
+  if (error) throw new Error(error.message);
+
+  return baseAmount + Number(count ?? 0) * dependentAmount;
 }
 
 async function expireOldPatientInvitation(

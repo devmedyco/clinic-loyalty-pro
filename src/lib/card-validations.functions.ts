@@ -70,10 +70,13 @@ export const validateCard = createServerFn({ method: "POST" })
     }
 
     const patient = Array.isArray(card.patients) ? card.patients[0] : card.patients;
+    const billingDenialReason = patient
+      ? await getBillingDenialReason(supabase, tenant.id, patient.id)
+      : "Assinatura do paciente não encontrada";
     const legalDenialReason = patient?.user_id
       ? await getLegalDenialReason(supabase, patient.id, patient.user_id, tenant.id)
       : "Paciente ainda não assinou o termo de uso do cartão";
-    const denialReason = getDenialReason(card, patient) ?? legalDenialReason;
+    const denialReason = getDenialReason(card, patient) ?? billingDenialReason ?? legalDenialReason;
     const outcome = denialReason ? "denied" : "approved";
 
     const { data: validation, error: validationError } = await recordValidation(supabase, {
@@ -156,6 +159,43 @@ async function getLegalDenialReason(
   const requiredDocuments = selectRequiredDocuments(documents as LegalDocument[], tenantId);
   const hasPending = requiredDocuments.some((document) => !accepted.has(document.id));
   return hasPending ? "Paciente ainda não assinou o termo de uso do cartão" : null;
+}
+
+async function getBillingDenialReason(
+  supabase: SupabaseClient,
+  tenantId: string,
+  patientId: string,
+) {
+  const { data: subscription, error: subscriptionError } = await supabase
+    .from("subscriptions")
+    .select("id, status, next_due_date")
+    .eq("tenant_id", tenantId)
+    .eq("patient_id", patientId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (subscriptionError) throw new Error(subscriptionError.message);
+  if (!subscription) return "Assinatura do paciente ainda não foi criada";
+  if (subscription.status !== "active") return "Assinatura do paciente ainda não está paga";
+  if (subscription.next_due_date && subscription.next_due_date < today()) {
+    return "Assinatura do paciente está vencida";
+  }
+
+  const { data: paidPayment, error: paymentError } = await supabase
+    .from("payments")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("patient_id", patientId)
+    .eq("subscription_id", subscription.id)
+    .eq("status", "paid")
+    .limit(1)
+    .maybeSingle();
+  if (paymentError) throw new Error(paymentError.message);
+  return paidPayment ? null : "Primeiro pagamento do paciente ainda não foi confirmado";
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function deniedResult(reason: string) {
