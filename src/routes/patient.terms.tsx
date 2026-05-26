@@ -25,6 +25,7 @@ function PatientTermsPage() {
       toast.success("Termo aceito com sucesso");
       await queryClient.invalidateQueries({ queryKey: ["patient-legal-status"] });
       await queryClient.invalidateQueries({ queryKey: ["patient-portal"] });
+      await queryClient.invalidateQueries({ queryKey: ["patient-portal-shell"] });
       await queryClient.invalidateQueries({ queryKey: ["patient-subscription"] });
     },
     onError: (err) => toast.error((err as Error).message),

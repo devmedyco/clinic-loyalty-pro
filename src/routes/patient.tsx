@@ -1,4 +1,4 @@
-import { Outlet, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Outlet, createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
@@ -14,6 +14,7 @@ export const Route = createFileRoute("/patient")({
 
 function PatientLayout() {
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const session = useRequireSession();
   const fetchAccess = useServerFn(getMyAccess);
   const fetchPortal = useServerFn(getPatientPortal);
@@ -22,7 +23,7 @@ function PatientLayout() {
     queryFn: () => fetchAccess(),
     enabled: session.isAuthenticated && Boolean(session.userId),
   });
-  const { data: portal } = useQuery({
+  const { data: portal, isLoading: portalLoading } = useQuery({
     queryKey: ["patient-portal-shell", session.userId],
     queryFn: () => fetchPortal(),
     enabled: session.isAuthenticated && Boolean(session.userId),
@@ -34,12 +35,21 @@ function PatientLayout() {
     if (route !== "/patient") navigate({ to: route as never });
   }, [data, navigate, portal?.patient]);
 
-  if (session.isLoading) {
+  useEffect(() => {
+    if (!portal?.patient || !portal.legal || portal.legal.accepted) return;
+    if (pathname !== "/patient/terms") navigate({ to: "/patient/terms" });
+  }, [navigate, pathname, portal?.legal, portal?.patient]);
+
+  if (session.isLoading || portalLoading) {
     return <div className="p-8 text-sm text-muted-foreground">Verificando sessão...</div>;
   }
 
   if (data && !portal?.patient && getPostLoginRoute(data) !== "/patient") {
     return <div className="p-8 text-sm text-muted-foreground">Redirecionando...</div>;
+  }
+
+  if (portal?.patient && portal.legal && !portal.legal.accepted && pathname !== "/patient/terms") {
+    return <div className="p-8 text-sm text-muted-foreground">Abrindo termos de uso...</div>;
   }
 
   return (
