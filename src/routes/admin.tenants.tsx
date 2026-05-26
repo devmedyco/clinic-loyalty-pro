@@ -77,6 +77,7 @@ function TenantsPage() {
               <thead className="bg-surface text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-5 py-3">Nome</th>
+                  <th className="px-5 py-3">Responsável</th>
                   <th className="px-5 py-3">Slug</th>
                   <th className="px-5 py-3">Mensalidade</th>
                   <th className="px-5 py-3">Taxa paciente</th>
@@ -89,6 +90,12 @@ function TenantsPage() {
                 {tenants.map((t) => (
                   <tr key={t.id} className="border-t border-border">
                     <td className="px-5 py-4 font-medium text-foreground">{t.name}</td>
+                    <td className="px-5 py-4 text-muted-foreground">
+                      <div className="font-medium text-foreground">
+                        {t.responsible_name || "Não informado"}
+                      </div>
+                      <div className="text-xs">{t.responsible_role || "Cargo não informado"}</div>
+                    </td>
                     <td className="px-5 py-4 text-muted-foreground">/{t.slug}</td>
                     <td className="px-5 py-4 text-muted-foreground">
                       {formatCurrency(t.monthly_fee)}
@@ -238,6 +245,8 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
   const create = useServerFn(createTenant);
   const [name, setName] = useState("");
   const [legalName, setLegalName] = useState("");
+  const [responsibleName, setResponsibleName] = useState("");
+  const [responsibleRole, setResponsibleRole] = useState("");
   const [cnpj, setCnpj] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -266,6 +275,8 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
         data: {
           name,
           legal_name: legalName,
+          responsible_name: responsibleName,
+          responsible_role: responsibleRole,
           cnpj,
           email,
           phone,
@@ -367,6 +378,20 @@ function NewTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated
             label="Razão social"
             value={legalName}
             onChange={(e) => setLegalName(e.target.value)}
+          />
+          <Field
+            label="Nome do responsável"
+            value={responsibleName}
+            onChange={(e) => setResponsibleName(e.target.value)}
+            placeholder="Nome de quem assina pela clínica"
+            required
+          />
+          <Field
+            label="Cargo do responsável"
+            value={responsibleRole}
+            onChange={(e) => setResponsibleRole(e.target.value)}
+            placeholder="Ex.: Sócio administrador"
+            required
           />
           <Field
             label="Slug (URL)"

@@ -21,6 +21,8 @@ type TenantFormState = {
   id: string;
   name: string;
   legal_name: string;
+  responsible_name: string;
+  responsible_role: string;
   logo_url: string;
   brand_color: string;
   email: string;
@@ -83,6 +85,8 @@ function TenantSettingsPage() {
       id: data.tenant.id,
       name: data.tenant.name,
       legal_name: data.tenant.legal_name ?? "",
+      responsible_name: data.tenant.responsible_name ?? "",
+      responsible_role: data.tenant.responsible_role ?? "",
       logo_url: data.tenant.logo_url ?? "",
       brand_color: data.tenant.brand_color ?? "#0ea5e9",
       email: data.tenant.email ?? "",
@@ -179,6 +183,24 @@ function TenantSettingsPage() {
                   label="Razão social"
                   value={form.legal_name}
                   onChange={(event) => setForm({ ...form, legal_name: event.target.value })}
+                />
+                <div className="border-t border-border pt-4 sm:col-span-2">
+                  <h3 className="text-sm font-medium text-foreground">Responsável legal</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Dados usados em contrato, cobrança e cadastro financeiro da clínica.
+                  </p>
+                </div>
+                <Field
+                  label="Nome do responsável"
+                  value={form.responsible_name}
+                  onChange={(event) => setForm({ ...form, responsible_name: event.target.value })}
+                  placeholder="Nome de quem assina pela clínica"
+                />
+                <Field
+                  label="Cargo do responsável"
+                  value={form.responsible_role}
+                  onChange={(event) => setForm({ ...form, responsible_role: event.target.value })}
+                  placeholder="Ex.: Sócio administrador"
                 />
                 <Field
                   label="E-mail"
@@ -550,6 +572,12 @@ function TenantSettingsPage() {
                   {initials(form.name)}
                 </div>
                 <div className="mt-4 font-display text-2xl text-foreground">{form.name}</div>
+                <div className="mt-1 text-sm text-foreground">
+                  {form.responsible_name || "Responsável não informado"}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {form.responsible_role || "Cargo não informado"}
+                </div>
                 <div className="mt-1 text-sm text-muted-foreground">
                   {form.email || "E-mail não informado"}
                 </div>

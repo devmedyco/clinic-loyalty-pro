@@ -21,7 +21,7 @@ export const listMyTenants = createServerFn({ method: "GET" })
     const { data, error } = await supabase
       .from("tenants")
       .select(
-        "id, slug, name, brand_color, plan, status, monthly_fee, split_fixed_fee, split_percentage, commercial_model, asaas_onboarding_status, asaas_wallet_id, asaas_api_key_ref, created_at",
+        "id, slug, name, responsible_name, responsible_role, brand_color, plan, status, monthly_fee, split_fixed_fee, split_percentage, commercial_model, asaas_onboarding_status, asaas_wallet_id, asaas_api_key_ref, created_at",
       )
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
@@ -51,6 +51,8 @@ const createTenantSchema = z.object({
   split_percentage: z.coerce.number().min(0).max(100).optional(),
   patient_subscription_suggestion: z.coerce.number().min(0).optional(),
   legal_name: optionalText(180),
+  responsible_name: optionalText(160),
+  responsible_role: optionalText(120),
   cnpj: optionalText(20),
   email: optionalText(160).pipe(z.string().email("E-mail inválido").optional()),
   phone: optionalText(40),
@@ -67,6 +69,8 @@ const updateTenantSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(2).max(120),
   legal_name: optionalText(180),
+  responsible_name: optionalText(160),
+  responsible_role: optionalText(120),
   logo_url: z
     .preprocess(
       (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
@@ -173,6 +177,8 @@ export const createTenant = createServerFn({ method: "POST" })
         name: data.name,
         slug: data.slug,
         legal_name: data.legal_name,
+        responsible_name: data.responsible_name,
+        responsible_role: data.responsible_role,
         cnpj: data.cnpj?.replace(/\D/g, ""),
         email: data.email,
         phone: data.phone,
@@ -291,7 +297,7 @@ export const createTenantAsaasSubaccount = createServerFn({ method: "POST" })
       })
       .eq("id", currentTenant.id)
       .select(
-        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
+        "id, slug, name, legal_name, responsible_name, responsible_role, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
       )
       .single();
 
@@ -434,7 +440,7 @@ export const getTenantBySlug = createServerFn({ method: "GET" })
     const { data: tenant, error } = await supabase
       .from("tenants")
       .select(
-        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
+        "id, slug, name, legal_name, responsible_name, responsible_role, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
       )
       .eq("slug", data.slug)
       .maybeSingle();
@@ -453,6 +459,8 @@ export const updateTenantSettings = createServerFn({ method: "POST" })
       .update({
         name: data.name,
         legal_name: data.legal_name,
+        responsible_name: data.responsible_name,
+        responsible_role: data.responsible_role,
         logo_url: data.logo_url,
         brand_color: data.brand_color,
         email: data.email,
@@ -480,7 +488,7 @@ export const updateTenantSettings = createServerFn({ method: "POST" })
       })
       .eq("id", data.id)
       .select(
-        "id, slug, name, legal_name, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
+        "id, slug, name, legal_name, responsible_name, responsible_role, logo_url, brand_color, email, phone, cnpj, zip_code, street, number, complement, neighborhood, city, state, settings, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, commercial_model, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled, owner_id",
       )
       .single();
 
