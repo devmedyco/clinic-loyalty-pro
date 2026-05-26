@@ -242,7 +242,7 @@ export const createPatient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => createPatientSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const tenant = await resolveTenant(supabase, data.tenant);
 
     const { data: patient, error: patientError } = await supabase
@@ -302,7 +302,20 @@ export const createPatient = createServerFn({ method: "POST" })
 
     await createInitialPendingPayment(supabase, tenant, patient.id);
 
-    return { tenant, patient: { ...patient, benefit_cards: [card] } };
+    const invitation = patient.email
+      ? await createPatientInvitation({
+          supabase,
+          tenant,
+          patient: {
+            id: patient.id,
+            email: patient.email,
+            full_name: patient.full_name,
+          },
+          invitedBy: userId,
+        })
+      : null;
+
+    return { tenant, patient: { ...patient, benefit_cards: [card] }, invitation };
   });
 
 export const updatePatient = createServerFn({ method: "POST" })
@@ -375,30 +388,14 @@ export const invitePatientToPortal = createServerFn({ method: "POST" })
     if (!patient.email) throw new Error("Informe o e-mail do paciente antes de enviar convite.");
     if (patient.user_id) throw new Error("Este paciente já possui acesso ao portal.");
 
-    await expireOldPatientInvitation(supabase, tenant.id, patient.id);
-
-    const { data: invitation, error } = await supabaseAdmin
-      .from("patient_invitations")
-      .insert({
-        tenant_id: tenant.id,
-        patient_id: patient.id,
-        email: patient.email.toLowerCase(),
-        invited_by: userId,
-      })
-      .select("id, token, email, status, expires_at")
-      .single();
-    if (error) throw new Error(error.message);
-
-    const inviteUrl = buildPatientInviteUrl(invitation.token);
-    const template = patientInviteEmail({
-      tenantName: tenant.name,
-      patientName: patient.full_name,
-      inviteUrl,
-      expiresAt: invitation.expires_at,
+    const invitation = await createPatientInvitation({
+      supabase,
+      tenant,
+      patient,
+      invitedBy: userId,
     });
-    const emailResult = await sendEmail({ to: invitation.email, ...template });
 
-    return { tenant, invitation, inviteUrl, emailResult };
+    return { tenant, ...invitation };
   });
 
 export const acceptPatientInvitation = createServerFn({ method: "POST" })
@@ -686,6 +683,45 @@ async function expireOldPatientInvitation(
     .eq("patient_id", patientId)
     .eq("status", "pending");
   if (error) throw new Error(error.message);
+}
+
+async function createPatientInvitation({
+  supabase,
+  tenant,
+  patient,
+  invitedBy,
+}: {
+  supabase: SupabaseClient;
+  tenant: { id: string; name: string };
+  patient: { id: string; full_name: string; email: string | null };
+  invitedBy: string;
+}) {
+  if (!patient.email) throw new Error("Informe o e-mail do paciente antes de enviar convite.");
+
+  await expireOldPatientInvitation(supabase, tenant.id, patient.id);
+
+  const { data: invitation, error } = await supabaseAdmin
+    .from("patient_invitations")
+    .insert({
+      tenant_id: tenant.id,
+      patient_id: patient.id,
+      email: patient.email.toLowerCase(),
+      invited_by: invitedBy,
+    })
+    .select("id, token, email, status, expires_at")
+    .single();
+  if (error) throw new Error(error.message);
+
+  const inviteUrl = buildPatientInviteUrl(invitation.token);
+  const template = patientInviteEmail({
+    tenantName: tenant.name,
+    patientName: patient.full_name,
+    inviteUrl,
+    expiresAt: invitation.expires_at,
+  });
+  const emailResult = await sendEmail({ to: invitation.email, ...template });
+
+  return { invitation, inviteUrl, emailResult };
 }
 
 function buildPatientInviteUrl(token: string) {

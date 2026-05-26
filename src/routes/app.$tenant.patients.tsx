@@ -109,8 +109,18 @@ function PatientsPage() {
       }
       return create({ data: { tenant, ...value } });
     },
-    onSuccess: async () => {
-      toast.success(form?.id ? "Paciente atualizado" : "Paciente criado com cartão digital");
+    onSuccess: async (result) => {
+      if (form?.id) {
+        toast.success("Paciente atualizado");
+      } else if (result.invitation?.emailResult.sent) {
+        toast.success("Paciente criado e convite enviado por e-mail");
+      } else if (result.invitation) {
+        toast.warning(
+          "Paciente criado, mas o e-mail do convite não foi enviado. Verifique Resend.",
+        );
+      } else {
+        toast.success("Paciente criado com cartão digital");
+      }
       setForm(null);
       await queryClient.invalidateQueries({ queryKey: ["patients", tenant] });
     },
