@@ -106,18 +106,11 @@ export const getPatientNetwork = createServerFn({ method: "GET" })
       userId: string;
     };
 
-    await repairPatientLinkFromInvitation(userId, user.email);
-
-    const { data: patient, error: patientError } = await supabase
-      .from("patients")
-      .select("id, tenant_id, tenants(id, name, slug, email, phone)")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
+    const { patient, error: patientError } = await getOrRepairPatientLink(supabase, userId, user);
     if (patientError) throw new Error(patientError.message);
-    if (!patient) return { tenant: null, services: [], providers: [] };
+    if (!patient) {
+      return { tenant: null, services: [], providers: [], currentUserEmail: user.email };
+    }
 
     const tenant = Array.isArray(patient.tenants) ? patient.tenants[0] : patient.tenants;
     const { data: services, error: servicesError } = await supabase
@@ -138,7 +131,12 @@ export const getPatientNetwork = createServerFn({ method: "GET" })
 
     if (servicesError) throw new Error(servicesError.message);
     if (providersError) throw new Error(providersError.message);
-    return { tenant, services: services ?? [], providers: providers ?? [] };
+    return {
+      tenant,
+      services: services ?? [],
+      providers: providers ?? [],
+      currentUserEmail: user.email,
+    };
   });
 
 export const updatePatientPortalProfile = createServerFn({ method: "POST" })
@@ -187,6 +185,8 @@ type PatientPortalRow = {
         slug: string;
         logo_url: string | null;
         brand_color: string | null;
+        email?: string | null;
+        phone?: string | null;
       }
     | Array<{
         id: string;
@@ -194,6 +194,8 @@ type PatientPortalRow = {
         slug: string;
         logo_url: string | null;
         brand_color: string | null;
+        email?: string | null;
+        phone?: string | null;
       }>
     | null;
   benefit_cards:
@@ -236,7 +238,7 @@ function fetchPatientPortalRow(supabase: SupabaseClient, userId: string) {
   return supabase
     .from("patients")
     .select(
-      "id, tenant_id, full_name, cpf, email, phone, status, created_at, tenants(id, name, slug, logo_url, brand_color), benefit_cards(id, card_number, qr_token, active, expires_at, created_at), subscriptions(id, plan, status, next_due_date)",
+      "id, tenant_id, full_name, cpf, email, phone, status, created_at, tenants(id, name, slug, logo_url, brand_color, email, phone), benefit_cards(id, card_number, qr_token, active, expires_at, created_at), subscriptions(id, plan, status, next_due_date)",
     )
     .eq("user_id", userId)
     .order("created_at", { ascending: false })

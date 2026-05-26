@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
 import { supabase } from "@/integrations/supabase-ext/client";
+import { useRequireSession } from "@/hooks/use-auth-session";
 import { getPatientPortal, updatePatientPortalProfile } from "@/lib/patient-portal.functions";
 
 export const Route = createFileRoute("/patient/profile")({
@@ -15,9 +16,11 @@ function PatientProfilePage() {
   const queryClient = useQueryClient();
   const fetchPortal = useServerFn(getPatientPortal);
   const updateProfile = useServerFn(updatePatientPortalProfile);
+  const session = useRequireSession();
   const { data, isLoading, error } = useQuery({
-    queryKey: ["patient-profile"],
+    queryKey: ["patient-profile", session.userId],
     queryFn: () => fetchPortal(),
+    enabled: session.isAuthenticated && Boolean(session.userId),
   });
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");

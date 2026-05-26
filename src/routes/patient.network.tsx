@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { Card, PageHeader } from "@/components/portal/Shell";
+import { useRequireSession } from "@/hooks/use-auth-session";
 import { getPatientNetwork } from "@/lib/patient-portal.functions";
 
 export const Route = createFileRoute("/patient/network")({
@@ -10,9 +11,11 @@ export const Route = createFileRoute("/patient/network")({
 
 function PatientNetworkPage() {
   const fetchNetwork = useServerFn(getPatientNetwork);
+  const session = useRequireSession();
   const { data, isLoading, error } = useQuery({
-    queryKey: ["patient-network"],
+    queryKey: ["patient-network", session.userId],
     queryFn: () => fetchNetwork(),
+    enabled: session.isAuthenticated && Boolean(session.userId),
   });
 
   return (
@@ -24,7 +27,8 @@ function PatientNetworkPage() {
         <Card className="p-6 text-sm text-destructive">{(error as Error).message}</Card>
       ) : !data?.tenant ? (
         <Card className="p-8 text-sm text-muted-foreground">
-          Seu cadastro de paciente ainda não foi vinculado a uma clínica.
+          Seu cadastro de paciente ainda não foi vinculado a uma clínica
+          {data?.currentUserEmail ? ` para o e-mail ${data.currentUserEmail}` : ""}.
         </Card>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">

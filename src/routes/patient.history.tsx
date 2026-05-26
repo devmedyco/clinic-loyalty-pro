@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { Card, PageHeader } from "@/components/portal/Shell";
+import { useRequireSession } from "@/hooks/use-auth-session";
 import { getPatientPortal } from "@/lib/patient-portal.functions";
 
 export const Route = createFileRoute("/patient/history")({
@@ -19,9 +20,11 @@ type Execution = {
 
 function HistoryPage() {
   const fetchPortal = useServerFn(getPatientPortal);
+  const session = useRequireSession();
   const { data, isLoading, error } = useQuery({
-    queryKey: ["patient-portal-history"],
+    queryKey: ["patient-portal-history", session.userId],
     queryFn: () => fetchPortal(),
+    enabled: session.isAuthenticated && Boolean(session.userId),
   });
   const executions = (data?.executions ?? []) as Execution[];
 

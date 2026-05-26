@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
+import { useRequireSession } from "@/hooks/use-auth-session";
 import { getPatientPortal } from "@/lib/patient-portal.functions";
 
 export const Route = createFileRoute("/patient/")({
@@ -13,9 +14,11 @@ export const Route = createFileRoute("/patient/")({
 
 function PatientCard() {
   const fetchPortal = useServerFn(getPatientPortal);
+  const session = useRequireSession();
   const { data, isLoading, error } = useQuery({
-    queryKey: ["patient-portal"],
+    queryKey: ["patient-portal", session.userId],
     queryFn: () => fetchPortal(),
+    enabled: session.isAuthenticated && Boolean(session.userId),
   });
 
   if (isLoading) {

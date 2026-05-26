@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
+import { useRequireSession } from "@/hooks/use-auth-session";
 import { getPatientPortal } from "@/lib/patient-portal.functions";
 
 export const Route = createFileRoute("/patient/subscription")({
@@ -11,9 +12,11 @@ export const Route = createFileRoute("/patient/subscription")({
 
 function PatientSubscriptionPage() {
   const fetchPortal = useServerFn(getPatientPortal);
+  const session = useRequireSession();
   const { data, isLoading, error } = useQuery({
-    queryKey: ["patient-subscription"],
+    queryKey: ["patient-subscription", session.userId],
     queryFn: () => fetchPortal(),
+    enabled: session.isAuthenticated && Boolean(session.userId),
   });
 
   const active =

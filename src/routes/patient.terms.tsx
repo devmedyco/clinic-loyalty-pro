@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
+import { useRequireSession } from "@/hooks/use-auth-session";
 import { acceptLegalDocument, getPatientLegalStatus } from "@/lib/legal.functions";
 
 export const Route = createFileRoute("/patient/terms")({
@@ -14,9 +15,11 @@ function PatientTermsPage() {
   const queryClient = useQueryClient();
   const fetchStatus = useServerFn(getPatientLegalStatus);
   const acceptDocument = useServerFn(acceptLegalDocument);
+  const session = useRequireSession();
   const { data, isLoading, error } = useQuery({
-    queryKey: ["patient-legal-status"],
+    queryKey: ["patient-legal-status", session.userId],
     queryFn: () => fetchStatus(),
+    enabled: session.isAuthenticated && Boolean(session.userId),
   });
 
   const mutation = useMutation({
