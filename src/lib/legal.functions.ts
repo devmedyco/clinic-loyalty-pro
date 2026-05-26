@@ -223,7 +223,7 @@ export async function getRequiredLegalStatus(
   };
 }
 
-function selectRequiredDocuments(documents: LegalDocument[], tenantId: string) {
+export function selectRequiredDocuments(documents: LegalDocument[], tenantId: string) {
   const byType = new Map<string, LegalDocument>();
   for (const document of documents) {
     const existing = byType.get(document.type);

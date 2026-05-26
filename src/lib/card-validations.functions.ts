@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import { selectRequiredDocuments, type LegalDocument } from "@/lib/legal.functions";
 
 const tenantSlugSchema = z.object({
   tenant: z.string().min(1).max(60),
@@ -152,28 +153,9 @@ async function getLegalDenialReason(
   if (acceptancesError) throw new Error(acceptancesError.message);
 
   const accepted = new Set((acceptances ?? []).map((item) => item.document_id));
-  const requiredDocuments = selectRequiredDocuments(
-    documents as Array<{ id: string; tenant_id: string | null; type: string }>,
-    tenantId,
-  );
+  const requiredDocuments = selectRequiredDocuments(documents as LegalDocument[], tenantId);
   const hasPending = requiredDocuments.some((document) => !accepted.has(document.id));
   return hasPending ? "Paciente ainda não assinou o termo de uso do cartão" : null;
-}
-
-function selectRequiredDocuments<T extends { tenant_id: string | null; type: string }>(
-  documents: T[],
-  tenantId: string,
-) {
-  const byType = new Map<string, T>();
-  for (const document of documents) {
-    const existing = byType.get(document.type);
-    const documentIsTenant = document.tenant_id === tenantId;
-    const existingIsTenant = existing?.tenant_id === tenantId;
-    if (!existing || (documentIsTenant && !existingIsTenant)) {
-      byType.set(document.type, document);
-    }
-  }
-  return Array.from(byType.values());
 }
 
 function deniedResult(reason: string) {
