@@ -1,11 +1,12 @@
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { useMutation } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
 import { lookupCnpj, normalizeSlug } from "@/lib/brasil-data";
-import { listMyTenants, createTenant } from "@/lib/tenants.functions";
+import { listMyTenants, createTenant, deleteTenant } from "@/lib/tenants.functions";
 
 export const Route = createFileRoute("/admin/tenants")({
   component: TenantsPage,
@@ -19,6 +20,7 @@ function TenantsPage() {
     queryFn: () => fetchTenants(),
   });
   const [open, setOpen] = useState(false);
+  const [tenantToDelete, setTenantToDelete] = useState<TenantRow | null>(null);
 
   const tenants = data?.tenants ?? [];
 
@@ -42,6 +44,18 @@ function TenantsPage() {
           onClose={() => setOpen(false)}
           onCreated={() => {
             setOpen(false);
+            refetch();
+            router.invalidate();
+          }}
+        />
+      )}
+
+      {tenantToDelete && (
+        <DeleteTenantModal
+          tenant={tenantToDelete}
+          onClose={() => setTenantToDelete(null)}
+          onDeleted={() => {
+            setTenantToDelete(null);
             refetch();
             router.invalidate();
           }}
@@ -125,6 +139,13 @@ function TenantsPage() {
                         >
                           Configurar
                         </Link>
+                        <button
+                          type="button"
+                          onClick={() => setTenantToDelete(t)}
+                          className="rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10"
+                        >
+                          Excluir
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -135,6 +156,81 @@ function TenantsPage() {
         )}
       </Card>
     </>
+  );
+}
+
+type TenantRow = NonNullable<Awaited<ReturnType<typeof listMyTenants>>["tenants"]>[number];
+
+function DeleteTenantModal({
+  tenant,
+  onClose,
+  onDeleted,
+}: {
+  tenant: TenantRow;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const removeTenant = useServerFn(deleteTenant);
+  const [confirmation, setConfirmation] = useState("");
+  const mutation = useMutation({
+    mutationFn: () => removeTenant({ data: { id: tenant.id, confirm_slug: confirmation.trim() } }),
+    onSuccess: () => {
+      toast.success("Clínica excluída.");
+      onDeleted();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Não foi possível excluir a clínica.");
+    },
+  });
+  const canDelete = confirmation.trim() === tenant.slug;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-xl border border-border bg-surface-elevated p-6 shadow-elegant"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 className="font-display text-xl text-foreground">Excluir clínica</h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Isso remove a clínica <strong className="text-foreground">{tenant.name}</strong> e os
+          dados operacionais vinculados a ela. Use apenas para limpar cadastros de teste.
+        </p>
+        <div className="mt-5 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+          Antes de excluir uma clínica real, cancele cobranças ativas e confira se não há operação
+          em produção vinculada.
+        </div>
+        <label className="mt-5 block">
+          <span className="text-xs font-medium text-foreground">
+            Digite <strong>{tenant.slug}</strong> para confirmar
+          </span>
+          <input
+            value={confirmation}
+            onChange={(event) => setConfirmation(event.target.value)}
+            className="mt-1.5 block w-full rounded-lg border border-input bg-surface-elevated px-3 py-2.5 text-sm text-foreground shadow-soft outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+          />
+        </label>
+        <div className="mt-6 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-lg border border-border px-4 py-2 text-sm hover:bg-surface"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={!canDelete || mutation.isPending}
+            onClick={() => mutation.mutate()}
+            className="flex-1 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-60"
+          >
+            {mutation.isPending ? "Excluindo..." : "Excluir clínica"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

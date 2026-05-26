@@ -113,6 +113,11 @@ const updateTenantSchema = z.object({
   state: optionalText(2),
 });
 
+const deleteTenantSchema = z.object({
+  id: z.string().uuid(),
+  confirm_slug: z.string().min(2).max(60),
+});
+
 const createTenantAsaasSubaccountSchema = z.object({
   tenant_id: z.string().uuid(),
   name: z.string().min(2).max(120),
@@ -204,6 +209,38 @@ export const createTenant = createServerFn({ method: "POST" })
       : null;
 
     return { tenant, clinicInvite };
+  });
+
+export const deleteTenant = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => deleteTenantSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const isSuperAdmin = await checkSuperAdmin(supabase, userId);
+    if (!isSuperAdmin) throw new Error("Apenas o admin global pode excluir uma clínica.");
+
+    const { data: tenant, error: tenantError } = await supabaseAdmin
+      .from("tenants")
+      .select("id, name, slug, asaas_saas_subscription_id, saas_billing_status")
+      .eq("id", data.id)
+      .maybeSingle();
+
+    if (tenantError) throw new Error(tenantError.message);
+    if (!tenant) throw new Error("Clínica não encontrada.");
+    if (tenant.slug !== data.confirm_slug) {
+      throw new Error("Digite exatamente o slug da clínica para confirmar a exclusão.");
+    }
+    if (
+      tenant.asaas_saas_subscription_id &&
+      !["canceled", "failed"].includes(tenant.saas_billing_status ?? "")
+    ) {
+      throw new Error("Cancele a mensalidade SaaS da clínica antes de excluir.");
+    }
+
+    const { error } = await supabaseAdmin.from("tenants").delete().eq("id", tenant.id);
+    if (error) throw new Error(error.message);
+
+    return { deleted: true, tenant };
   });
 
 export const createTenantAsaasSubaccount = createServerFn({ method: "POST" })
