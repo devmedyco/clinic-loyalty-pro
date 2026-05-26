@@ -1,7 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink } from "lucide-react";
+import {
+  CalendarClock,
+  CheckCircle2,
+  Copy,
+  CreditCard,
+  ExternalLink,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
 import { useRequireSession } from "@/hooks/use-auth-session";
 import { getPatientPortal } from "@/lib/patient-portal.functions";
@@ -17,6 +25,7 @@ function PatientSubscriptionPage() {
     queryKey: ["patient-subscription", session.userId],
     queryFn: () => fetchPortal(),
     enabled: session.isAuthenticated && Boolean(session.userId),
+    refetchOnMount: "always",
   });
 
   const hasPaidPayment = (data?.payments ?? []).some((payment) => payment.status === "paid");
@@ -25,6 +34,9 @@ function PatientSubscriptionPage() {
     (!data?.card?.expires_at || new Date(data.card.expires_at).getTime() > Date.now()) &&
     data?.subscription?.status === "active" &&
     hasPaidPayment;
+  const pendingPayments = (data?.payments ?? []).filter((payment) => payment.status === "pending");
+  const nextPayment = pendingPayments[0];
+  const invoiceUrl = nextPayment?.asaas_invoice_url || nextPayment?.asaas_bank_slip_url;
 
   return (
     <>
@@ -53,8 +65,43 @@ function PatientSubscriptionPage() {
             tone="success"
           />
           <Card className="p-6 md:col-span-3">
-            <h2 className="font-display text-xl text-foreground">Cobrança recorrente</h2>
-            <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h2 className="font-display text-xl text-foreground">Cobrança recorrente</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  A liberação do cartão acontece automaticamente depois da confirmação do pagamento.
+                </p>
+              </div>
+              {invoiceUrl && (
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={invoiceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    Pagar agora
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(invoiceUrl)}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-input px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-accent"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copiar link
+                  </button>
+                </div>
+              )}
+            </div>
+            {!active && (
+              <div className="mt-5 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-foreground">
+                {invoiceUrl
+                  ? "Existe uma cobrança pendente. Após o pagamento, o cartão é liberado pelo webhook do Asaas."
+                  : "A cobrança ainda não tem link de pagamento. Fale com a clínica para gerar a cobrança."}
+              </div>
+            )}
+            <div className="mt-5 grid gap-3 text-sm md:grid-cols-4">
               <Info label="Plano" value={data.subscription?.plan ?? "benefits"} />
               <Info
                 label="Próximo vencimento"
@@ -65,6 +112,24 @@ function PatientSubscriptionPage() {
                 }
               />
               <Info label="Status do cartão" value={active ? "Liberado" : "Aguardando pagamento"} />
+              <Info label="Dependentes" value={String(data.totals.dependents ?? 0)} />
+            </div>
+          </Card>
+          <Card className="p-6 md:col-span-3">
+            <h2 className="font-display text-xl text-foreground">Seu benefício inclui</h2>
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
+              <Benefit
+                icon={CreditCard}
+                title="Cartão digital"
+                text="QR Code e número do cartão."
+              />
+              <Benefit
+                icon={ShieldCheck}
+                title="Validação segura"
+                text="Autorização na recepção."
+              />
+              <Benefit icon={CalendarClock} title="Histórico" text="Pagamentos e atendimentos." />
+              <Benefit icon={Users} title="Dependentes" text="Quando a clínica habilitar." />
             </div>
           </Card>
           <Card className="overflow-hidden md:col-span-3">
@@ -102,7 +167,15 @@ function PatientSubscriptionPage() {
                         </a>
                       )}
                     </div>
-                    <span className="rounded-md bg-brand-soft px-2 py-0.5 text-xs text-brand">
+                    <span
+                      className={`rounded-md px-2 py-0.5 text-xs ${
+                        payment.status === "paid"
+                          ? "bg-success/15 text-success"
+                          : payment.status === "pending"
+                            ? "bg-warning/15 text-warning"
+                            : "bg-muted text-muted-foreground"
+                      }`}
+                    >
                       {paymentLabel(payment.status)}
                     </span>
                   </div>
@@ -116,6 +189,24 @@ function PatientSubscriptionPage() {
   );
 }
 
+function Benefit({
+  icon: Icon,
+  title,
+  text,
+}: {
+  icon: typeof CheckCircle2;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-4">
+      <Icon className="h-5 w-5 text-brand" />
+      <div className="mt-3 text-sm font-medium text-foreground">{title}</div>
+      <div className="mt-1 text-xs leading-5 text-muted-foreground">{text}</div>
+    </div>
+  );
+}
+
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
@@ -125,7 +216,7 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatCurrency(value: number) {
+function formatCurrency(value: number | string) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",

@@ -492,10 +492,10 @@ export const acceptPatientInvitation = createServerFn({ method: "POST" })
       .from("patient_invitations")
       .select("id, tenant_id, patient_id, email, status, expires_at, tenants(id, slug, name)")
       .eq("token", data.token)
-      .eq("status", "pending")
+      .in("status", ["pending", "accepted"])
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!invitation) throw new Error("Convite não encontrado ou já utilizado.");
+    if (!invitation) throw new Error("Convite não encontrado.");
     if (new Date(invitation.expires_at).getTime() < Date.now()) {
       throw new Error("Este convite expirou.");
     }
@@ -510,14 +510,7 @@ export const acceptPatientInvitation = createServerFn({ method: "POST" })
       .eq("id", invitation.patient_id);
     if (patientError) throw new Error(patientError.message);
 
-    const { error: roleError } = await supabaseAdmin.from("user_roles").insert({
-      user_id: userId,
-      tenant_id: invitation.tenant_id,
-      role: "patient",
-    });
-    if (roleError && !roleError.message.includes("duplicate key")) {
-      throw new Error(roleError.message);
-    }
+    await ensurePatientRole(userId, invitation.tenant_id);
 
     const { error: updateError } = await supabaseAdmin
       .from("patient_invitations")
@@ -541,14 +534,14 @@ export const completePatientInvitation = createServerFn({ method: "POST" })
     const { data: invitation, error } = await supabaseAdmin
       .from("patient_invitations")
       .select(
-        "id, tenant_id, patient_id, email, status, expires_at, patients(full_name), tenants(id, slug, name)",
+        "id, tenant_id, patient_id, email, status, expires_at, accepted_by, patients(full_name), tenants(id, slug, name)",
       )
       .eq("token", data.token)
-      .eq("status", "pending")
+      .in("status", ["pending", "accepted"])
       .maybeSingle();
 
     if (error) throw new Error(error.message);
-    if (!invitation) throw new Error("Convite não encontrado ou já utilizado.");
+    if (!invitation) throw new Error("Convite não encontrado.");
     if (new Date(invitation.expires_at).getTime() < Date.now()) {
       throw new Error("Este convite expirou. Solicite um novo convite à clínica.");
     }
@@ -557,24 +550,12 @@ export const completePatientInvitation = createServerFn({ method: "POST" })
     const tenant = singleRelation(invitation.tenants);
     const patientName = patient?.full_name ?? invitation.email;
 
-    const { data: createdUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    const userId = await createOrUpdatePatientUser({
       email: invitation.email,
       password: data.password,
-      email_confirm: true,
-      user_metadata: { full_name: patientName },
+      fullName: patientName,
+      existingUserId: invitation.accepted_by,
     });
-
-    if (createError) {
-      const message = createError.message.toLowerCase();
-      if (message.includes("already") || message.includes("registered")) {
-        throw new Error(
-          "Este e-mail já possui acesso. Entre com sua senha para liberar o cartão deste convite.",
-        );
-      }
-      throw new Error(createError.message);
-    }
-
-    const userId = createdUser.user?.id;
     if (!userId) throw new Error("Não foi possível criar o acesso do paciente.");
 
     const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
@@ -591,14 +572,7 @@ export const completePatientInvitation = createServerFn({ method: "POST" })
       .eq("id", invitation.patient_id);
     if (patientError) throw new Error(patientError.message);
 
-    const { error: roleError } = await supabaseAdmin.from("user_roles").insert({
-      user_id: userId,
-      tenant_id: invitation.tenant_id,
-      role: "patient",
-    });
-    if (roleError && !roleError.message.includes("duplicate key")) {
-      throw new Error(roleError.message);
-    }
+    await ensurePatientRole(userId, invitation.tenant_id);
 
     const { error: updateError } = await supabaseAdmin
       .from("patient_invitations")
@@ -697,6 +671,77 @@ export const importPatients = createServerFn({ method: "POST" })
 
     return { tenant, created, skipped };
   });
+
+async function createOrUpdatePatientUser({
+  email,
+  password,
+  fullName,
+  existingUserId,
+}: {
+  email: string;
+  password: string;
+  fullName: string;
+  existingUserId?: string | null;
+}) {
+  if (existingUserId) {
+    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(existingUserId, {
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: fullName },
+    });
+    if (error) throw new Error(error.message);
+    return data.user?.id ?? existingUserId;
+  }
+
+  const { data: createdUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: fullName },
+  });
+
+  if (!createError) return createdUser.user?.id;
+
+  const message = createError.message.toLowerCase();
+  if (!message.includes("already") && !message.includes("registered")) {
+    throw new Error(createError.message);
+  }
+
+  const existingUser = await findAuthUserByEmail(email);
+  if (!existingUser?.id) {
+    throw new Error("Este e-mail já possui acesso, mas não foi possível localizar o usuário.");
+  }
+
+  const { data, error } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+    password,
+    email_confirm: true,
+    user_metadata: {
+      ...(existingUser.user_metadata ?? {}),
+      full_name: existingUser.user_metadata?.full_name ?? fullName,
+    },
+  });
+  if (error) throw new Error(error.message);
+  return data.user?.id ?? existingUser.id;
+}
+
+async function findAuthUserByEmail(email: string) {
+  const normalizedEmail = email.toLowerCase();
+  const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (error) throw new Error(error.message);
+  return data.users.find((user) => user.email?.toLowerCase() === normalizedEmail) ?? null;
+}
+
+async function ensurePatientRole(userId: string, tenantId: string) {
+  const { error } = await supabaseAdmin.from("user_roles").upsert(
+    {
+      user_id: userId,
+      tenant_id: tenantId,
+      role: "patient",
+    },
+    { onConflict: "user_id,role,tenant_id" },
+  );
+  if (error) throw new Error(error.message);
+}
 
 async function resolveTenant(supabase: SupabaseClient, slug: string) {
   const { data, error } = await supabase

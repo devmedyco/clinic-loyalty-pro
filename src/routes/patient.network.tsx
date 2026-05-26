@@ -16,6 +16,7 @@ function PatientNetworkPage() {
     queryKey: ["patient-network", session.userId],
     queryFn: () => fetchNetwork(),
     enabled: session.isAuthenticated && Boolean(session.userId),
+    refetchOnMount: "always",
   });
 
   return (

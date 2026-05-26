@@ -20,11 +20,15 @@ function PatientInvitePage() {
   const [confirmation, setConfirmation] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     supabase.auth.getSession().then(({ data }) => {
-      if (active) setAuthenticated(Boolean(data.session));
+      if (active) {
+        setAuthenticated(Boolean(data.session));
+        setSessionEmail(data.session?.user.email ?? null);
+      }
     });
     return () => {
       active = false;
@@ -76,19 +80,20 @@ function PatientInvitePage() {
 
         {authenticated ? (
           <div className="mt-6 space-y-4">
+            <div className="rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted-foreground">
+              Este navegador já está logado
+              {sessionEmail ? (
+                <>
+                  {" "}
+                  como <strong className="text-foreground">{sessionEmail}</strong>
+                </>
+              ) : null}
+              . Se esse é o mesmo e-mail do convite, libere o cartão. Se não for, saia desta conta e
+              defina a senha do paciente convidado.
+            </div>
             {acceptExistingMutation.error && (
               <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {(acceptExistingMutation.error as Error).message}
-                <button
-                  type="button"
-                  onClick={() => {
-                    queryClient.clear();
-                    supabase.auth.signOut().then(() => setAuthenticated(false));
-                  }}
-                  className="mt-3 block rounded-md border border-destructive/30 px-3 py-1.5 text-xs font-medium"
-                >
-                  Sair e criar senha com outro e-mail
-                </button>
               </div>
             )}
             <button
@@ -98,6 +103,19 @@ function PatientInvitePage() {
             >
               <CheckCircle2 className="h-4 w-4" />
               {acceptExistingMutation.isPending ? "Liberando..." : "Liberar cartão nesta conta"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                queryClient.clear();
+                supabase.auth.signOut().then(() => {
+                  setAuthenticated(false);
+                  setSessionEmail(null);
+                });
+              }}
+              className="inline-flex w-full items-center justify-center rounded-lg border border-input px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-accent"
+            >
+              Sair desta conta e criar senha
             </button>
           </div>
         ) : (

@@ -36,7 +36,7 @@ export const getPatientPortal = createServerFn({ method: "GET" })
       };
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("id, full_name, email, avatar_url")
       .eq("id", userId)
@@ -52,26 +52,36 @@ export const getPatientPortal = createServerFn({ method: "GET" })
       : patient.subscriptions;
     const legal = await getRequiredLegalStatus(supabase, patient.id, userId, patient.tenant_id);
 
-    const [{ data: executions, error: executionsError }, { data: payments, error: paymentsError }] =
-      await Promise.all([
-        supabase
-          .from("service_executions")
-          .select("id, original_amount, discount_amount, final_amount, created_at, services(name)")
-          .eq("patient_id", patient.id)
-          .order("created_at", { ascending: false })
-          .limit(50),
-        supabase
-          .from("payments")
-          .select(
-            "id, amount, payment_method, status, paid_at, due_date, asaas_invoice_url, asaas_bank_slip_url, created_at",
-          )
-          .eq("patient_id", patient.id)
-          .order("created_at", { ascending: false })
-          .limit(20),
-      ]);
+    const [
+      { data: executions, error: executionsError },
+      { data: payments, error: paymentsError },
+      { data: dependents, error: dependentsError },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("service_executions")
+        .select("id, original_amount, discount_amount, final_amount, created_at, services(name)")
+        .eq("patient_id", patient.id)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabaseAdmin
+        .from("payments")
+        .select(
+          "id, amount, payment_method, status, paid_at, due_date, asaas_invoice_url, asaas_bank_slip_url, created_at",
+        )
+        .eq("patient_id", patient.id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      supabaseAdmin
+        .from("patient_dependents")
+        .select("id, full_name, cpf, birth_date, relationship, status, created_at")
+        .eq("tenant_id", patient.tenant_id)
+        .eq("patient_id", patient.id)
+        .order("created_at", { ascending: false }),
+    ]);
 
     if (executionsError) throw new Error(executionsError.message);
     if (paymentsError) throw new Error(paymentsError.message);
+    if (dependentsError) throw new Error(dependentsError.message);
 
     return {
       patient,
@@ -82,6 +92,7 @@ export const getPatientPortal = createServerFn({ method: "GET" })
       legal,
       payments: payments ?? [],
       executions: executions ?? [],
+      dependents: dependents ?? [],
       totals: {
         savings: (executions ?? []).reduce(
           (total, execution) => total + Number(execution.discount_amount || 0),
@@ -93,6 +104,7 @@ export const getPatientPortal = createServerFn({ method: "GET" })
           0,
         ),
         executions: executions?.length ?? 0,
+        dependents: dependents?.length ?? 0,
       },
     };
   });
@@ -113,14 +125,14 @@ export const getPatientNetwork = createServerFn({ method: "GET" })
     }
 
     const tenant = Array.isArray(patient.tenants) ? patient.tenants[0] : patient.tenants;
-    const { data: services, error: servicesError } = await supabase
+    const { data: services, error: servicesError } = await supabaseAdmin
       .from("services")
       .select("id, name, description, original_price, discount_percentage, final_price")
       .eq("tenant_id", patient.tenant_id)
       .eq("active", true)
       .order("name", { ascending: true });
 
-    const { data: providers, error: providersError } = await supabase
+    const { data: providers, error: providersError } = await supabaseAdmin
       .from("providers")
       .select(
         "id, name, specialty, email, phone, address, city, state, notes, provider_services(service_id, services(id, name, description, original_price, discount_percentage, final_price))",
@@ -222,20 +234,26 @@ type PatientPortalRow = {
     | null;
 };
 
-async function getOrRepairPatientLink(supabase: SupabaseClient, userId: string, user: User) {
-  const firstLookup = await fetchPatientPortalRow(supabase, userId);
+async function getOrRepairPatientLink(_supabase: SupabaseClient, userId: string, user: User) {
+  const firstLookup = await fetchPatientPortalRow(userId);
   if (firstLookup.data || firstLookup.error) {
     return { patient: firstLookup.data as PatientPortalRow | null, error: firstLookup.error };
   }
 
   await repairPatientLinkFromInvitation(userId, user.email);
-  const secondLookup = await fetchPatientPortalRow(supabase, userId);
+  const secondLookup = await fetchPatientPortalRow(userId);
+  if (secondLookup.data || secondLookup.error) {
+    return { patient: secondLookup.data as PatientPortalRow | null, error: secondLookup.error };
+  }
 
-  return { patient: secondLookup.data as PatientPortalRow | null, error: secondLookup.error };
+  await repairPatientLinkFromPatientEmail(userId, user.email);
+  const thirdLookup = await fetchPatientPortalRow(userId);
+
+  return { patient: thirdLookup.data as PatientPortalRow | null, error: thirdLookup.error };
 }
 
-function fetchPatientPortalRow(supabase: SupabaseClient, userId: string) {
-  return supabase
+function fetchPatientPortalRow(userId: string) {
+  return supabaseAdmin
     .from("patients")
     .select(
       "id, tenant_id, full_name, cpf, email, phone, status, created_at, tenants(id, name, slug, logo_url, brand_color, email, phone), benefit_cards(id, card_number, qr_token, active, expires_at, created_at), subscriptions(id, plan, status, next_due_date)",
@@ -244,6 +262,42 @@ function fetchPatientPortalRow(supabase: SupabaseClient, userId: string) {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+}
+
+async function repairPatientLinkFromPatientEmail(userId: string, email?: string | null) {
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (!normalizedEmail) return;
+
+  const { data: patients, error } = await supabaseAdmin
+    .from("patients")
+    .select("id, tenant_id, user_id, email, created_at")
+    .ilike("email", normalizedEmail)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  if (error) throw new Error(error.message);
+
+  const patient = (patients ?? []).find((item) => !item.user_id || item.user_id === userId);
+  if (!patient) return;
+
+  if (!patient.user_id) {
+    const { error: patientError } = await supabaseAdmin
+      .from("patients")
+      .update({ user_id: userId })
+      .eq("tenant_id", patient.tenant_id)
+      .eq("id", patient.id)
+      .is("user_id", null);
+    if (patientError) throw new Error(patientError.message);
+  }
+
+  const { error: roleError } = await supabaseAdmin.from("user_roles").upsert(
+    {
+      user_id: userId,
+      tenant_id: patient.tenant_id,
+      role: "patient",
+    },
+    { onConflict: "user_id,role,tenant_id" },
+  );
+  if (roleError) throw new Error(roleError.message);
 }
 
 async function repairPatientLinkFromInvitation(userId: string, email?: string | null) {
