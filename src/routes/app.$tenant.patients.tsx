@@ -45,6 +45,10 @@ type Patient = {
     id: string;
     email: string;
     status: string;
+    email_status?: string | null;
+    email_error?: string | null;
+    email_sent_at?: string | null;
+    email_last_attempt_at?: string | null;
     expires_at: string;
     created_at: string;
   }>;
@@ -117,6 +121,7 @@ function PatientsPage() {
       } else if (result.invitation) {
         toast.warning(
           "Paciente criado, mas o e-mail do convite não foi enviado. Verifique Resend.",
+          { description: result.invitation.email_error ?? describeEmailResult(result.emailResult) },
         );
       } else {
         toast.success("Paciente criado com cartão digital");
@@ -139,11 +144,13 @@ function PatientsPage() {
   const inviteMutation = useMutation({
     mutationFn: (id: string) => invite({ data: { tenant, id } }),
     onSuccess: async (result) => {
-      toast.success(
-        result.emailResult.sent
-          ? "Convite enviado para o paciente"
-          : "Convite criado, mas o e-mail não foi enviado. Verifique Resend.",
-      );
+      if (result.emailResult.sent) {
+        toast.success("Convite enviado para o paciente");
+      } else {
+        toast.warning("Convite criado, mas o e-mail não foi enviado.", {
+          description: result.invitation.email_error ?? describeEmailResult(result.emailResult),
+        });
+      }
       await queryClient.invalidateQueries({ queryKey: ["patients", tenant] });
     },
     onError: (err) => toast.error((err as Error).message),
@@ -680,6 +687,14 @@ function Field({
 
 function lastInvitation(patient: Patient) {
   return patient.patient_invitations?.[0];
+}
+
+function describeEmailResult(result: { sent: boolean; reason?: string; error?: string }) {
+  if (result.sent) return "Resend confirmou o envio.";
+  if (result.reason === "missing_resend_api_key") {
+    return "RESEND_API_KEY não está disponível no ambiente publicado.";
+  }
+  return result.error || "Resend recusou o envio sem detalhar o motivo.";
 }
 
 function parsePatientsCsv(value: string): PatientFormState[] {

@@ -12,25 +12,34 @@ type SendEmailResult =
 const RESEND_API_URL = "https://api.resend.com/emails";
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM || "Medyco <no-reply@medyco.com.br>";
+  const apiKey = getEnv("RESEND_API_KEY");
+  const from = getEnv("EMAIL_FROM") || "Medyco <no-reply@medyco.com.br>";
 
   if (!apiKey) return { sent: false, reason: "missing_resend_api_key" };
 
-  const response = await fetch(RESEND_API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: input.to,
-      subject: input.subject,
-      html: input.html,
-      text: input.text,
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(RESEND_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: input.to,
+        subject: input.subject,
+        html: input.html,
+        text: input.text,
+      }),
+    });
+  } catch (error) {
+    return {
+      sent: false,
+      reason: "resend_error",
+      error: error instanceof Error ? error.message : "Falha de conexão com Resend",
+    };
+  }
 
   const payload = (await response.json().catch(() => null)) as {
     id?: string;
@@ -47,4 +56,10 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   }
 
   return { sent: true, providerId: payload?.id };
+}
+
+function getEnv(name: string) {
+  return (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[
+    name
+  ];
 }

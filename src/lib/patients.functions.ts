@@ -97,7 +97,7 @@ export const listPatients = createServerFn({ method: "GET" })
     let query = supabase
       .from("patients")
       .select(
-        "id, tenant_id, user_id, full_name, email, phone, cpf, birth_date, zip_code, street, number, complement, neighborhood, city, state, status, created_at, updated_at, benefit_cards(id, card_number, qr_token, active, expires_at, created_at), patient_invitations(id, email, status, expires_at, created_at)",
+        "id, tenant_id, user_id, full_name, email, phone, cpf, birth_date, zip_code, street, number, complement, neighborhood, city, state, status, created_at, updated_at, benefit_cards(id, card_number, qr_token, active, expires_at, created_at), patient_invitations(id, email, status, expires_at, created_at, email_status, email_error, email_provider_id, email_sent_at, email_last_attempt_at)",
       )
       .eq("tenant_id", tenant.id)
       .order("created_at", { ascending: false });
@@ -194,7 +194,9 @@ export const getPatientDetail = createServerFn({ method: "GET" })
         .order("accepted_at", { ascending: false }),
       supabase
         .from("patient_invitations")
-        .select("id, email, status, expires_at, accepted_at, created_at")
+        .select(
+          "id, email, status, expires_at, accepted_at, created_at, email_status, email_error, email_provider_id, email_sent_at, email_last_attempt_at",
+        )
         .eq("tenant_id", tenant.id)
         .eq("patient_id", patient.id)
         .order("created_at", { ascending: false }),
@@ -720,8 +722,44 @@ async function createPatientInvitation({
     expiresAt: invitation.expires_at,
   });
   const emailResult = await sendEmail({ to: invitation.email, ...template });
+  const emailDelivery = emailDeliveryFields(emailResult);
 
-  return { invitation, inviteUrl, emailResult };
+  const { error: deliveryError } = await supabaseAdmin
+    .from("patient_invitations")
+    .update(emailDelivery)
+    .eq("id", invitation.id);
+  if (deliveryError) throw new Error(deliveryError.message);
+
+  return { invitation: { ...invitation, ...emailDelivery }, inviteUrl, emailResult };
+}
+
+function emailDeliveryFields(emailResult: Awaited<ReturnType<typeof sendEmail>>) {
+  const attemptedAt = new Date().toISOString();
+  if (emailResult.sent) {
+    return {
+      email_status: "sent",
+      email_provider_id: emailResult.providerId ?? null,
+      email_error: null,
+      email_sent_at: attemptedAt,
+      email_last_attempt_at: attemptedAt,
+    };
+  }
+
+  return {
+    email_status: "failed",
+    email_provider_id: null,
+    email_error: emailFailureMessage(emailResult),
+    email_sent_at: null,
+    email_last_attempt_at: attemptedAt,
+  };
+}
+
+function emailFailureMessage(emailResult: Awaited<ReturnType<typeof sendEmail>>) {
+  if (emailResult.sent) return null;
+  if (emailResult.reason === "missing_resend_api_key") {
+    return "RESEND_API_KEY não está disponível no ambiente publicado.";
+  }
+  return emailResult.error || "Resend recusou o envio sem detalhar o motivo.";
 }
 
 function buildPatientInviteUrl(token: string) {

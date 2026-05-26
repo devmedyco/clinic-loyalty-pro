@@ -96,6 +96,10 @@ type Invitation = {
   id: string;
   email: string;
   status: string;
+  email_status: string | null;
+  email_error: string | null;
+  email_sent_at: string | null;
+  email_last_attempt_at: string | null;
   expires_at: string;
   accepted_at: string | null;
   created_at: string;
@@ -115,11 +119,13 @@ function PatientDetailPage() {
   const inviteMutation = useMutation({
     mutationFn: () => invite({ data: { tenant, id: patientId } }),
     onSuccess: async (result) => {
-      toast.success(
-        result.emailResult.sent
-          ? "Convite enviado para o paciente"
-          : "Convite criado, mas o e-mail não foi enviado. Verifique Resend.",
-      );
+      if (result.emailResult.sent) {
+        toast.success("Convite enviado para o paciente");
+      } else {
+        toast.warning("Convite criado, mas o e-mail não foi enviado.", {
+          description: result.invitation.email_error ?? describeEmailResult(result.emailResult),
+        });
+      }
       await queryClient.invalidateQueries({ queryKey: ["patient-detail", tenant, patientId] });
       await queryClient.invalidateQueries({ queryKey: ["patients", tenant] });
     },
@@ -272,7 +278,13 @@ function PatientDetailPage() {
                     items={invitations.map((invitation) => ({
                       id: invitation.id,
                       title: invitation.email,
-                      subtitle: statusLabel(invitation.status),
+                      subtitle: [
+                        statusLabel(invitation.status),
+                        emailStatusLabel(invitation.email_status),
+                        invitation.email_error,
+                      ]
+                        .filter(Boolean)
+                        .join(" · "),
                       right: invitation.accepted_at
                         ? `Aceito ${formatDateTime(invitation.accepted_at)}`
                         : `Expira ${formatDate(invitation.expires_at)}`,
@@ -488,6 +500,21 @@ function StatusBadge({ status }: { status: string }) {
 
 function singleRelation<T>(value: T | T[] | null | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function describeEmailResult(result: { sent: boolean; reason?: string; error?: string }) {
+  if (result.sent) return "Resend confirmou o envio.";
+  if (result.reason === "missing_resend_api_key") {
+    return "RESEND_API_KEY não está disponível no ambiente publicado.";
+  }
+  return result.error || "Resend recusou o envio sem detalhar o motivo.";
+}
+
+function emailStatusLabel(status?: string | null) {
+  if (status === "sent") return "E-mail enviado";
+  if (status === "failed") return "E-mail falhou";
+  if (status === "not_attempted") return "E-mail não tentado";
+  return null;
 }
 
 function statusLabel(status: string) {
