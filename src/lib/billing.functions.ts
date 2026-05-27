@@ -54,6 +54,7 @@ export const getTenantBilling = createServerFn({ method: "GET" })
     const tenant = await resolveTenant(supabase, data.tenant);
     await ensurePatientSubscriptions(supabase, tenant.id);
     await syncOverduePayments(supabase, tenant.id);
+    await ensurePendingPatientPayments(supabase, tenant);
 
     const [subscriptions, payments] = await Promise.all([
       supabase
@@ -350,6 +351,114 @@ async function ensurePatientSubscriptions(supabase: SupabaseClient, tenantId: st
   if (error) throw new Error(error.message);
 }
 
+async function ensurePendingPatientPayments(supabase: SupabaseClient, tenant: TenantBillingConfig) {
+  const todayValue = today();
+  const [
+    { data: subscriptions, error: subscriptionsError },
+    { data: payments, error: paymentsError },
+  ] = await Promise.all([
+    supabase
+      .from("subscriptions")
+      .select("id, tenant_id, patient_id, status, next_due_date, patients(status)")
+      .eq("tenant_id", tenant.id),
+    supabase
+      .from("payments")
+      .select("subscription_id, status")
+      .eq("tenant_id", tenant.id)
+      .in("status", ["pending", "paid"]),
+  ]);
+
+  if (subscriptionsError) throw new Error(subscriptionsError.message);
+  if (paymentsError) throw new Error(paymentsError.message);
+  if (!subscriptions?.length) return;
+
+  const pendingSubscriptions = new Set(
+    (payments ?? [])
+      .filter((payment) => payment.status === "pending")
+      .map((payment) => payment.subscription_id)
+      .filter(Boolean),
+  );
+
+  const dueSubscriptions = subscriptions.filter((subscription) => {
+    if (pendingSubscriptions.has(subscription.id)) return false;
+    if (["canceled", "paused"].includes(subscription.status)) return false;
+    const patient = Array.isArray(subscription.patients)
+      ? subscription.patients[0]
+      : subscription.patients;
+    if (patient?.status === "inactive") return false;
+    if (subscription.status === "active" && subscription.next_due_date) {
+      return subscription.next_due_date <= todayValue;
+    }
+    return true;
+  });
+
+  if (dueSubscriptions.length === 0) return;
+
+  const dependentCounts = await countActiveDependentsByPatient(
+    supabase,
+    tenant.id,
+    dueSubscriptions.map((subscription) => subscription.patient_id),
+  );
+  const rows = dueSubscriptions
+    .map((subscription) => {
+      const amount = calculateSubscriptionAmount(
+        tenant,
+        dependentCounts.get(subscription.patient_id) ?? 0,
+      );
+      if (!Number.isFinite(amount) || amount <= 0) return null;
+      return {
+        tenant_id: tenant.id,
+        patient_id: subscription.patient_id,
+        subscription_id: subscription.id,
+        amount,
+        payment_method: "manual",
+        status: "pending",
+        due_date:
+          subscription.next_due_date && subscription.next_due_date <= todayValue
+            ? subscription.next_due_date
+            : todayValue,
+        notes: "Cobrança pendente gerada automaticamente pelo ciclo financeiro Medyco.",
+      };
+    })
+    .filter(Boolean);
+
+  if (rows.length === 0) return;
+
+  const { error } = await supabase.from("payments").insert(rows);
+  if (error) throw new Error(error.message);
+}
+
+async function countActiveDependentsByPatient(
+  supabase: SupabaseClient,
+  tenantId: string,
+  patientIds: string[],
+) {
+  const counts = new Map<string, number>();
+  if (patientIds.length === 0) return counts;
+
+  const { data, error } = await supabase
+    .from("patient_dependents")
+    .select("patient_id")
+    .eq("tenant_id", tenantId)
+    .in("patient_id", patientIds)
+    .eq("status", "active");
+  if (error) throw new Error(error.message);
+
+  for (const dependent of data ?? []) {
+    counts.set(dependent.patient_id, (counts.get(dependent.patient_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function calculateSubscriptionAmount(tenant: TenantBillingConfig, dependentCount: number) {
+  const baseAmount = Number(tenant.patient_subscription_suggestion ?? 39.9);
+  const dependentAmount = Number(tenant.dependent_extra_amount ?? 0);
+  if (!Number.isFinite(baseAmount) || baseAmount <= 0) return 0;
+  const extras =
+    Number.isFinite(dependentAmount) && dependentAmount > 0 ? dependentCount * dependentAmount : 0;
+  return roundMoney(baseAmount + extras);
+}
+
 async function syncOverduePayments(supabase: SupabaseClient, tenantId: string) {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
@@ -469,7 +578,7 @@ async function resolveTenant(supabase: SupabaseClient, slug: string) {
   const { data, error } = await supabase
     .from("tenants")
     .select(
-      "id, slug, name, brand_color, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled",
+      "id, slug, name, brand_color, plan, status, monthly_fee, split_fixed_fee, split_percentage, patient_subscription_suggestion, dependent_extra_amount, asaas_account_id, asaas_wallet_id, asaas_api_key_ref, asaas_onboarding_status, asaas_split_enabled",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -520,6 +629,7 @@ type TenantBillingConfig = {
   split_fixed_fee?: number | string | null;
   split_percentage?: number | string | null;
   patient_subscription_suggestion?: number | string | null;
+  dependent_extra_amount?: number | string | null;
   asaas_account_id?: string | null;
   asaas_wallet_id?: string | null;
   asaas_api_key_ref?: string | null;
@@ -567,6 +677,10 @@ function nextDueDate() {
   const date = new Date();
   date.setDate(date.getDate() + 30);
   return date.toISOString().slice(0, 10);
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function onlyDigits(value?: string | null) {
