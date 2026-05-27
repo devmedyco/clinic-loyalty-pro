@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { Building2, Mail, MapPin, Phone, Search } from "lucide-react";
+import { Building2, Mail, MapPin, Phone, RefreshCw, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Card, PageHeader } from "@/components/portal/Shell";
 import { useRequireSession } from "@/hooks/use-auth-session";
@@ -15,7 +15,7 @@ function PatientNetworkPage() {
   const fetchNetwork = useServerFn(getPatientNetwork);
   const session = useRequireSession();
   const [search, setSearch] = useState("");
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["patient-network", session.userId],
     queryFn: () => fetchNetwork(),
     enabled: session.isAuthenticated && Boolean(session.userId),
@@ -58,9 +58,24 @@ function PatientNetworkPage() {
       ) : error ? (
         <Card className="p-6 text-sm text-destructive">{(error as Error).message}</Card>
       ) : !data?.tenant ? (
-        <Card className="p-8 text-sm text-muted-foreground">
-          Seu cadastro de paciente ainda não foi vinculado a uma clínica
-          {data?.currentUserEmail ? ` para o e-mail ${data.currentUserEmail}` : ""}.
+        <Card className="p-8">
+          <div className="max-w-2xl">
+            <h2 className="text-sm font-medium text-foreground">Cadastro ainda sem vínculo</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Não encontramos uma clínica vinculada ao seu acesso
+              {data?.currentUserEmail ? ` (${data.currentUserEmail})` : ""}. Se você acabou de criar
+              a senha pelo convite, tente atualizar. Se continuar assim, confirme se entrou com o
+              mesmo e-mail que recebeu da clínica.
+            </p>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="mt-5 inline-flex items-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
+            >
+              <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+              {isFetching ? "Atualizando..." : "Tentar atualizar vínculo"}
+            </button>
+          </div>
         </Card>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">

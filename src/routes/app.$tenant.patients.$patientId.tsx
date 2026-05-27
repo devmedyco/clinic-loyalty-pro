@@ -14,6 +14,17 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   createPatientDependent,
   deletePatientDependent,
   getPatientDetail,
@@ -360,15 +371,36 @@ function PatientDetailPage() {
                               .join(" · ") || "Dados complementares não informados"}
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => deleteDependentMutation.mutate(dependent.id)}
-                          disabled={deleteDependentMutation.isPending}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Remover
-                        </button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button
+                              type="button"
+                              disabled={deleteDependentMutation.isPending}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Remover
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="border-border bg-surface-elevated">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remover dependente?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Isso remove {dependent.full_name} do cartão do titular. O valor da
+                                próxima cobrança pendente será recalculado sem esse dependente.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteDependentMutation.mutate(dependent.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Remover dependente
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     ))}
                   </div>
