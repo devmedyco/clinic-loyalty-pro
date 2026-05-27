@@ -116,6 +116,38 @@ function PatientSubscriptionPage() {
             </div>
           </Card>
           <Card className="p-6 md:col-span-3">
+            <h2 className="font-display text-xl text-foreground">Próximo passo</h2>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <Step
+                done={Boolean(data.legal?.accepted)}
+                title="Termo de uso"
+                text={
+                  data.legal?.accepted
+                    ? "Aceite registrado."
+                    : "Aceite o termo para liberar a análise do cartão."
+                }
+              />
+              <Step
+                done={hasPaidPayment}
+                title="Primeiro pagamento"
+                text={
+                  hasPaidPayment
+                    ? "Pagamento confirmado."
+                    : "Pague a cobrança pendente ou fale com a clínica."
+                }
+              />
+              <Step
+                done={active}
+                title="Cartão liberado"
+                text={
+                  active
+                    ? "Seu QR Code já pode ser validado."
+                    : "A liberação acontece após termo aceito e pagamento confirmado."
+                }
+              />
+            </div>
+          </Card>
+          <Card className="p-6 md:col-span-3">
             <h2 className="font-display text-xl text-foreground">Seu benefício inclui</h2>
             <div className="mt-4 grid gap-3 md:grid-cols-4">
               <Benefit
@@ -130,6 +162,32 @@ function PatientSubscriptionPage() {
               />
               <Benefit icon={CalendarClock} title="Histórico" text="Pagamentos e atendimentos." />
               <Benefit icon={Users} title="Dependentes" text="Quando a clínica habilitar." />
+            </div>
+          </Card>
+          <Card className="overflow-hidden md:col-span-3">
+            <div className="border-b border-border px-5 py-4">
+              <h2 className="font-display text-xl text-foreground">Titular e dependentes</h2>
+            </div>
+            <div className="divide-y divide-border">
+              <PersonRow
+                name={data.patient.full_name}
+                detail={data.patient.email ?? data.patient.phone ?? "Titular do cartão"}
+                status="Titular"
+              />
+              {(data.dependents ?? []).length === 0 ? (
+                <div className="px-5 py-6 text-sm text-muted-foreground">
+                  Nenhum dependente vinculado ao seu cartão.
+                </div>
+              ) : (
+                data.dependents.map((dependent) => (
+                  <PersonRow
+                    key={dependent.id}
+                    name={dependent.full_name}
+                    detail={dependent.relationship ?? "Dependente"}
+                    status={dependent.status === "active" ? "Ativo" : "Inativo"}
+                  />
+                ))
+              )}
             </div>
           </Card>
           <Card className="overflow-hidden md:col-span-3">
@@ -186,6 +244,36 @@ function PatientSubscriptionPage() {
         </div>
       )}
     </>
+  );
+}
+
+function Step({ done, title, text }: { done: boolean; title: string; text: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-4">
+      <div className="flex items-center gap-2">
+        <span
+          className={`flex h-6 w-6 items-center justify-center rounded-full ${
+            done ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
+          }`}
+        >
+          <CheckCircle2 className="h-3.5 w-3.5" />
+        </span>
+        <div className="text-sm font-medium text-foreground">{title}</div>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-muted-foreground">{text}</p>
+    </div>
+  );
+}
+
+function PersonRow({ name, detail, status }: { name: string; detail: string; status: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-5 py-4 text-sm">
+      <div>
+        <div className="font-medium text-foreground">{name}</div>
+        <div className="text-xs text-muted-foreground">{detail}</div>
+      </div>
+      <span className="rounded-md bg-brand-soft px-2 py-0.5 text-xs text-brand">{status}</span>
+    </div>
   );
 }
 

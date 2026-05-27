@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
+import { Building2, Mail, MapPin, Phone, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Card, PageHeader } from "@/components/portal/Shell";
 import { useRequireSession } from "@/hooks/use-auth-session";
 import { getPatientNetwork } from "@/lib/patient-portal.functions";
@@ -12,16 +14,45 @@ export const Route = createFileRoute("/patient/network")({
 function PatientNetworkPage() {
   const fetchNetwork = useServerFn(getPatientNetwork);
   const session = useRequireSession();
+  const [search, setSearch] = useState("");
   const { data, isLoading, error } = useQuery({
     queryKey: ["patient-network", session.userId],
     queryFn: () => fetchNetwork(),
     enabled: session.isAuthenticated && Boolean(session.userId),
     refetchOnMount: "always",
   });
+  const providers = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const rows = data?.providers ?? [];
+    if (!term) return rows;
+    return rows.filter((provider) =>
+      [
+        provider.name,
+        provider.specialty,
+        provider.city,
+        provider.state,
+        provider.address,
+        providerServices(provider)
+          .map((service) => service.name)
+          .join(" "),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [data?.providers, search]);
 
   return (
     <>
-      <PageHeader title="Rede credenciada" subtitle="Serviços disponíveis no seu programa." />
+      <PageHeader
+        title="Rede credenciada"
+        subtitle={
+          data?.tenant
+            ? `Credenciados e serviços publicados por ${data.tenant.name}.`
+            : "Serviços disponíveis no seu programa."
+        }
+      />
       {isLoading ? (
         <Card className="p-6 text-sm text-muted-foreground">Carregando rede...</Card>
       ) : error ? (
@@ -39,30 +70,64 @@ function PatientNetworkPage() {
               <div>{data.tenant.email || "E-mail não informado"}</div>
               <div>{data.tenant.phone || "Telefone não informado"}</div>
             </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <MiniStat label="Credenciados" value={String(data.providers?.length ?? 0)} />
+              <MiniStat label="Serviços" value={String(data.services?.length ?? 0)} />
+            </div>
             <div className="mt-6 rounded-xl border border-border bg-surface p-4 text-sm text-muted-foreground">
-              A rede abaixo mostra os credenciados e serviços publicados pela clínica para o seu
-              programa.
+              A rede abaixo mostra somente credenciados ativos vinculados ao seu programa atual.
+              Caso tenha sido atendido por outra clínica, confirme se entrou com o e-mail correto do
+              convite.
             </div>
           </Card>
           <Card className="overflow-hidden">
+            <div className="border-b border-border px-5 py-4">
+              <label className="flex items-center gap-2 rounded-xl border border-input bg-surface-elevated px-3 py-2 text-sm">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Buscar por nome, especialidade, cidade ou serviço..."
+                  className="w-full bg-transparent outline-none placeholder:text-muted-foreground"
+                />
+              </label>
+            </div>
             {(data.providers ?? []).length === 0 ? (
               <div className="px-5 py-10 text-sm text-muted-foreground">
-                Nenhum credenciado ativo publicado pela clínica ainda.
+                {data.tenant.name} ainda não publicou credenciados ativos para pacientes. Assim que
+                a clínica cadastrar e deixar a rede ativa, ela aparece aqui automaticamente.
+              </div>
+            ) : providers.length === 0 ? (
+              <div className="px-5 py-10 text-sm text-muted-foreground">
+                Nenhum credenciado encontrado para a busca atual.
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {data.providers.map((provider) => (
+                {providers.map((provider) => (
                   <div key={provider.id} className="px-5 py-5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <div className="font-medium text-foreground">{provider.name}</div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {provider.specialty || "Especialidade não informada"}
+                      <div className="flex gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
+                          <Building2 className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <div className="font-medium text-foreground">{provider.name}</div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {provider.specialty || "Especialidade não informada"}
+                          </div>
                         </div>
                       </div>
-                      <div className="text-xs text-muted-foreground sm:text-right">
-                        <div>{[provider.city, provider.state].filter(Boolean).join(" · ")}</div>
-                        <div>{provider.phone || provider.email || "Contato pela clínica"}</div>
+                      <div className="space-y-1 text-xs text-muted-foreground sm:text-right">
+                        <ContactLine icon={MapPin}>
+                          {[provider.city, provider.state].filter(Boolean).join(" · ") ||
+                            "Local não informado"}
+                        </ContactLine>
+                        <ContactLine icon={Phone}>
+                          {provider.phone || "Telefone pela clínica"}
+                        </ContactLine>
+                        <ContactLine icon={Mail}>
+                          {provider.email || "E-mail pela clínica"}
+                        </ContactLine>
                       </div>
                     </div>
                     <div className="mt-3 text-xs text-muted-foreground">
@@ -105,6 +170,24 @@ function PatientNetworkPage() {
         </div>
       )}
     </>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 font-display text-2xl text-foreground">{value}</div>
+    </div>
+  );
+}
+
+function ContactLine({ icon: Icon, children }: { icon: typeof MapPin; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-1.5 sm:justify-end">
+      <Icon className="h-3.5 w-3.5" />
+      <span>{children}</span>
+    </div>
   );
 }
 

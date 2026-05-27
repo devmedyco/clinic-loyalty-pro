@@ -189,6 +189,25 @@ export const createAsaasCharge = createServerFn({ method: "POST" })
       throw new Error("Informe e-mail ou telefone no cadastro do paciente antes de cobrar.");
     }
 
+    const { data: existingCharge, error: existingChargeError } = await supabase
+      .from("payments")
+      .select(
+        "id, amount, payment_method, status, due_date, asaas_payment_id, asaas_invoice_url, created_at",
+      )
+      .eq("tenant_id", tenant.id)
+      .eq("patient_id", subscription.patient_id)
+      .eq("subscription_id", subscription.id)
+      .eq("status", "pending")
+      .not("asaas_payment_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingChargeError) throw new Error(existingChargeError.message);
+    if (existingCharge) {
+      return { tenant, payment: existingCharge, invoiceUrl: existingCharge.asaas_invoice_url };
+    }
+
     const customerId =
       patient.asaas_customer_id ||
       (await createAndStoreAsaasCustomer(supabase, tenant, {
@@ -213,31 +232,52 @@ export const createAsaasCharge = createServerFn({ method: "POST" })
       apiKey: asaasCredential.apiKey,
     });
     const firstSplit = charge.split?.[0];
+    const paymentPayload = {
+      tenant_id: tenant.id,
+      patient_id: subscription.patient_id,
+      subscription_id: subscription.id,
+      amount: data.amount,
+      payment_method: data.billing_type.toLowerCase(),
+      status: "pending",
+      due_date: data.due_date,
+      asaas_payment_id: charge.id,
+      asaas_invoice_url: charge.invoiceUrl,
+      asaas_bank_slip_url: charge.bankSlipUrl,
+      asaas_pix_payload: charge.pixQrCode ?? charge.payload,
+      asaas_split_wallet_id: firstSplit?.walletId ?? split?.[0]?.walletId,
+      asaas_split_fixed_fee: firstSplit?.fixedValue ?? split?.[0]?.fixedValue,
+      asaas_split_percentage: firstSplit?.percentualValue ?? split?.[0]?.percentualValue,
+      asaas_split_status: firstSplit?.status ?? (split?.length ? "requested" : "not_applied"),
+      asaas_net_value: charge.netValue,
+      asaas_split_value: firstSplit?.totalValue,
+      notes: split?.length
+        ? "Cobrança criada via Asaas com taxa fixa e percentual Medyco solicitados."
+        : "Cobrança criada via Asaas sem split automático. Configure subconta da clínica e wallet Medyco.",
+    };
 
-    const { data: payment, error } = await supabase
+    const { data: reusablePayment, error: reusableError } = await supabase
       .from("payments")
-      .insert({
-        tenant_id: tenant.id,
-        patient_id: subscription.patient_id,
-        subscription_id: subscription.id,
-        amount: data.amount,
-        payment_method: data.billing_type.toLowerCase(),
-        status: "pending",
-        due_date: data.due_date,
-        asaas_payment_id: charge.id,
-        asaas_invoice_url: charge.invoiceUrl,
-        asaas_bank_slip_url: charge.bankSlipUrl,
-        asaas_pix_payload: charge.pixQrCode ?? charge.payload,
-        asaas_split_wallet_id: firstSplit?.walletId ?? split?.[0]?.walletId,
-        asaas_split_fixed_fee: firstSplit?.fixedValue ?? split?.[0]?.fixedValue,
-        asaas_split_percentage: firstSplit?.percentualValue ?? split?.[0]?.percentualValue,
-        asaas_split_status: firstSplit?.status ?? (split?.length ? "requested" : "not_applied"),
-        asaas_net_value: charge.netValue,
-        asaas_split_value: firstSplit?.totalValue,
-        notes: split?.length
-          ? "Cobrança criada via Asaas com taxa fixa e percentual Medyco solicitados."
-          : "Cobrança criada via Asaas sem split automático. Configure subconta da clínica e wallet Medyco.",
-      })
+      .select("id")
+      .eq("tenant_id", tenant.id)
+      .eq("patient_id", subscription.patient_id)
+      .eq("subscription_id", subscription.id)
+      .eq("status", "pending")
+      .is("asaas_payment_id", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (reusableError) throw new Error(reusableError.message);
+
+    const paymentQuery = reusablePayment
+      ? supabase
+          .from("payments")
+          .update(paymentPayload)
+          .eq("tenant_id", tenant.id)
+          .eq("id", reusablePayment.id)
+      : supabase.from("payments").insert(paymentPayload);
+
+    const { data: payment, error } = await paymentQuery
       .select(
         "id, amount, payment_method, status, due_date, asaas_payment_id, asaas_invoice_url, created_at",
       )

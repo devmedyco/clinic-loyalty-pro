@@ -35,6 +35,7 @@ type Subscription = {
 
 type Payment = {
   id: string;
+  subscription_id?: string | null;
   amount: number | string;
   payment_method: string;
   status: string;
@@ -165,7 +166,11 @@ function BillingPage() {
           asaasMode={data?.asaasMode ?? "not_configured"}
           splitFixedFee={Number(data?.tenant?.split_fixed_fee ?? 2.9)}
           splitPercentage={Number(data?.tenant?.split_percentage ?? 7.9)}
-          suggestedAmount={Number(data?.tenant?.patient_subscription_suggestion ?? 39.9)}
+          suggestedAmount={suggestedPaymentAmount(
+            paymentFor,
+            payments,
+            Number(data?.tenant?.patient_subscription_suggestion ?? 39.9),
+          )}
           asaasLoading={asaasMutation.isPending}
           onClose={() => setPaymentFor(null)}
           onSubmit={(input) => paymentMutation.mutate(input)}
@@ -407,10 +412,7 @@ function PaymentModal({
   const [dueDate, setDueDate] = useState(defaultDueDate(subscription.next_due_date));
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div
         className="w-full max-w-lg rounded-xl border border-border bg-surface-elevated p-6 shadow-elegant"
         onClick={(event) => event.stopPropagation()}
@@ -677,6 +679,16 @@ function downloadPaymentsCsv(payments: Payment[]) {
     ]),
   ];
   downloadCsv("pagamentos-medyco.csv", rows);
+}
+
+function suggestedPaymentAmount(subscription: Subscription, payments: Payment[], fallback: number) {
+  const pending = payments.find(
+    (payment) =>
+      payment.subscription_id === subscription.id &&
+      payment.status === "pending" &&
+      !payment.asaas_invoice_url,
+  );
+  return Number(pending?.amount ?? fallback);
 }
 
 function downloadCsv(filename: string, rows: string[][]) {

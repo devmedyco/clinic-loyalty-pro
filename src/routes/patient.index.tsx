@@ -19,6 +19,7 @@ function PatientCard() {
     queryKey: ["patient-portal", session.userId],
     queryFn: () => fetchPortal(),
     enabled: session.isAuthenticated && Boolean(session.userId),
+    refetchOnMount: "always",
   });
 
   if (isLoading) {

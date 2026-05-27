@@ -27,6 +27,7 @@ function PatientLayout() {
     queryKey: ["patient-portal-shell", session.userId],
     queryFn: () => fetchPortal(),
     enabled: session.isAuthenticated && Boolean(session.userId),
+    refetchOnMount: "always",
   });
 
   useEffect(() => {
