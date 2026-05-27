@@ -66,7 +66,7 @@ function ExecutionsPage() {
     onError: (err) => toast.error((err as Error).message),
   });
 
-  const executions = (data?.executions ?? []) as Execution[];
+  const executions = (data?.executions ?? []) as unknown as Execution[];
   const patients = (data?.patients ?? []) as PatientOption[];
   const services = (data?.services ?? []) as ServiceOption[];
 

@@ -83,7 +83,7 @@ function ValidatePage() {
     onError: (err) => toast.error((err as Error).message),
   });
 
-  const validations = (data?.validations ?? []) as RecentValidation[];
+  const validations = (data?.validations ?? []) as unknown as RecentValidation[];
   const handleQrDetected = useCallback(
     (value: string) => {
       setToken(value);
@@ -115,7 +115,7 @@ function ValidatePage() {
                 className="mt-6 rounded-2xl bg-white/10 p-4 ring-1 ring-white/20"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  mutation.mutate();
+                  mutation.mutate({});
                 }}
               >
                 <label className="block">

@@ -799,7 +799,7 @@ async function ensurePendingPatientPayments(supabase: SupabaseClient, tenant: Te
         notes: "Cobrança pendente gerada automaticamente pelo ciclo financeiro Medyco.",
       };
     })
-    .filter(Boolean);
+    .filter((row): row is NonNullable<typeof row> => row !== null);
 
   if (rows.length === 0) return;
 

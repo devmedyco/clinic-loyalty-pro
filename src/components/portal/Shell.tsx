@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { LogOut, Moon, Sun } from "lucide-react";
+import { LifeBuoy, LogOut, Moon, Sun } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { supabase } from "@/integrations/supabase-ext/client";
 import { useEffect, useState } from "react";
@@ -129,13 +129,13 @@ export function PortalShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur">
-          <div className="flex min-w-0 items-center gap-3 lg:hidden">
+        <header className="sticky top-0 z-10 flex min-h-16 items-center justify-between gap-2 border-b border-border bg-background/80 px-3 py-2 backdrop-blur sm:px-6 lg:h-16">
+          <div className="flex min-w-0 flex-1 items-center gap-2 lg:hidden">
             <Logo />
             <select
               value={currentHref}
               onChange={(event) => navigate({ to: event.target.value as never })}
-              className="max-w-[44vw] rounded-lg border border-input bg-surface-elevated px-2 py-2 text-xs text-foreground outline-none"
+              className="min-w-0 max-w-[52vw] rounded-lg border border-input bg-surface-elevated px-2 py-2 text-xs text-foreground outline-none sm:max-w-[44vw]"
             >
               {resolvedItems.map((item) => (
                 <option key={item.href} value={item.href}>
@@ -155,23 +155,27 @@ export function PortalShell({
           <div className="flex items-center gap-2">
             <button
               onClick={toggleTheme}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-surface-elevated px-3 py-2 text-xs text-muted-foreground transition hover:bg-accent"
+              aria-label={darkMode ? "Ativar tema claro" : "Ativar tema escuro"}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input bg-surface-elevated px-2 text-xs text-muted-foreground transition hover:bg-accent sm:px-3"
             >
               {darkMode ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-              {darkMode ? "Claro" : "Escuro"}
+              <span className="hidden sm:inline">{darkMode ? "Claro" : "Escuro"}</span>
             </button>
             <Link
               to="/contato"
-              className="rounded-lg border border-input bg-surface-elevated px-3 py-2 text-xs text-muted-foreground transition hover:bg-accent"
+              aria-label="Suporte"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input bg-surface-elevated px-2 text-xs text-muted-foreground transition hover:bg-accent sm:px-3"
             >
-              Suporte
+              <LifeBuoy className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Suporte</span>
             </Link>
             <button
               onClick={onLogout}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-muted-foreground transition hover:bg-accent"
+              aria-label="Sair"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-xs text-muted-foreground transition hover:bg-accent sm:px-3"
             >
               <LogOut className="h-3.5 w-3.5" />
-              Sair
+              <span className="hidden sm:inline">Sair</span>
             </button>
           </div>
         </header>
@@ -238,19 +242,20 @@ export function StatCard({
   label: string;
   value: string;
   delta?: string;
-  tone?: "default" | "success" | "muted";
+  tone?: "default" | "success" | "warning" | "muted";
 }) {
+  const deltaTone =
+    tone === "success"
+      ? "text-success"
+      : tone === "warning"
+        ? "text-warning"
+        : "text-muted-foreground";
+
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
       <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="mt-2 font-display text-3xl text-foreground">{value}</div>
-      {delta && (
-        <div
-          className={`mt-1 text-xs ${tone === "success" ? "text-success" : "text-muted-foreground"}`}
-        >
-          {delta}
-        </div>
-      )}
+      {delta && <div className={`mt-1 text-xs ${deltaTone}`}>{delta}</div>}
     </div>
   );
 }

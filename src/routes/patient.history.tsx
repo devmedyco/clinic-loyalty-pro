@@ -26,7 +26,7 @@ function HistoryPage() {
     queryFn: () => fetchPortal(),
     enabled: session.isAuthenticated && Boolean(session.userId),
   });
-  const executions = (data?.executions ?? []) as Execution[];
+  const executions = (data?.executions ?? []) as unknown as Execution[];
 
   return (
     <>

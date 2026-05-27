@@ -66,8 +66,8 @@ function TenantContractsPage() {
 
   const activeDocument = data?.activeTenantDocument as LegalDocument | null | undefined;
   const platformDocument = data?.activePlatformDocument as LegalDocument | null | undefined;
-  const documents = (data?.documents ?? []) as LegalDocument[];
-  const acceptances = (data?.acceptances ?? []) as Acceptance[];
+  const documents = (data?.documents ?? []) as unknown as LegalDocument[];
+  const acceptances = (data?.acceptances ?? []) as unknown as Acceptance[];
   const tenantDocuments = documents.filter((document) => document.tenant_id);
 
   return (

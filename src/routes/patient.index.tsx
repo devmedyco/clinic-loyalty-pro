@@ -41,11 +41,12 @@ function PatientCard() {
     );
   }
 
+  const card = data.card;
   const hasPaidPayment = (data.payments ?? []).some((payment) => payment.status === "paid");
   const subscriptionPaid = data.subscription?.status === "active" && hasPaidPayment;
   const active =
-    data.card.active &&
-    (!data.card.expires_at || new Date(data.card.expires_at).getTime() > Date.now()) &&
+    card.active &&
+    (!card.expires_at || new Date(card.expires_at).getTime() > Date.now()) &&
     data.legal?.accepted &&
     subscriptionPaid;
 
@@ -84,8 +85,8 @@ function PatientCard() {
         <div className="lg:col-span-2">
           <DigitalBenefitCard
             patientName={data.patient.full_name}
-            cardNumber={data.card.card_number}
-            qrToken={data.card.qr_token}
+            cardNumber={card.card_number}
+            qrToken={card.qr_token}
             tenantName={data.tenant?.name}
             tenantLogoUrl={data.tenant?.logo_url}
             tenantBrandColor={data.tenant?.brand_color}
@@ -93,13 +94,13 @@ function PatientCard() {
           />
           <div className="mt-6 flex flex-wrap gap-3">
             <button
-              onClick={() => navigator.clipboard?.writeText(data.card.qr_token)}
+              onClick={() => navigator.clipboard?.writeText(card.qr_token)}
               className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
             >
               Copiar token
             </button>
             <button
-              onClick={() => navigator.clipboard?.writeText(data.card.card_number)}
+              onClick={() => navigator.clipboard?.writeText(card.card_number)}
               className="rounded-lg border border-input bg-surface-elevated px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-accent"
             >
               Copiar número
@@ -125,8 +126,8 @@ function PatientCard() {
               {active ? "Ativo" : "Inativo"}
             </div>
             <div className="text-xs text-muted-foreground">
-              {data.card.expires_at
-                ? `expira em ${formatDate(data.card.expires_at)}`
+              {card.expires_at
+                ? `expira em ${formatDate(card.expires_at)}`
                 : "sem expiração definida"}
             </div>
           </Card>

@@ -59,6 +59,10 @@ export const getClinicDashboard = createServerFn({ method: "GET" })
       patients,
       activePatients,
       delinquentPatients,
+      linkedPatients,
+      services,
+      providers,
+      pendingPayments,
       validationsToday,
       validations30,
       executions30,
@@ -69,6 +73,18 @@ export const getClinicDashboard = createServerFn({ method: "GET" })
       ),
       countRows(supabase, "patients", (query) =>
         query.eq("tenant_id", tenant.id).eq("status", "delinquent"),
+      ),
+      countRows(supabase, "patients", (query) =>
+        query.eq("tenant_id", tenant.id).not("user_id", "is", null),
+      ),
+      countRows(supabase, "services", (query) =>
+        query.eq("tenant_id", tenant.id).eq("active", true),
+      ),
+      countRows(supabase, "providers", (query) =>
+        query.eq("tenant_id", tenant.id).eq("active", true),
+      ),
+      countRows(supabase, "payments", (query) =>
+        query.eq("tenant_id", tenant.id).eq("status", "pending"),
       ),
       countRows(supabase, "card_validations", (query) =>
         query.eq("tenant_id", tenant.id).gte("validated_at", today),
@@ -91,6 +107,10 @@ export const getClinicDashboard = createServerFn({ method: "GET" })
         patients: patients.count,
         activePatients: activePatients.count,
         delinquentPatients: delinquentPatients.count,
+        linkedPatients: linkedPatients.count,
+        activeServices: services.count,
+        activeProviders: providers.count,
+        pendingPayments: pendingPayments.count,
         validationsToday: validationsToday.count,
         validations30d: validations30.count,
         revenue30d: sumAmounts(executions30.data ?? [], "final_amount"),
@@ -115,7 +135,9 @@ async function countRows(
 async function resolveTenant(supabase: SupabaseClient, slug: string) {
   const { data, error } = await supabase
     .from("tenants")
-    .select("id, slug, name, brand_color, plan, status")
+    .select(
+      "id, slug, name, brand_color, plan, status, cnpj, email, responsible_name, asaas_onboarding_status, asaas_api_key_ref, asaas_wallet_id",
+    )
     .eq("slug", slug)
     .maybeSingle();
 

@@ -568,12 +568,18 @@ function DetailSkeleton() {
     <div className="space-y-5">
       <div className="grid gap-4 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <Card key={index} className="h-28 animate-pulse bg-muted/60" />
+          <Card key={index} className="h-28 animate-pulse bg-muted/60">
+            <span className="sr-only">Carregando</span>
+          </Card>
         ))}
       </div>
       <div className="grid gap-5 xl:grid-cols-2">
-        <Card className="h-80 animate-pulse bg-muted/60" />
-        <Card className="h-80 animate-pulse bg-muted/60" />
+        <Card className="h-80 animate-pulse bg-muted/60">
+          <span className="sr-only">Carregando</span>
+        </Card>
+        <Card className="h-80 animate-pulse bg-muted/60">
+          <span className="sr-only">Carregando</span>
+        </Card>
       </div>
     </div>
   );

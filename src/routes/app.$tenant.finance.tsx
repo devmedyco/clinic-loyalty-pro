@@ -26,7 +26,7 @@ function FinancePage() {
   });
 
   const totals = data?.totals;
-  const recentExecutions = (data?.recentExecutions ?? []) as RecentExecution[];
+  const recentExecutions = (data?.recentExecutions ?? []) as unknown as RecentExecution[];
 
   return (
     <>

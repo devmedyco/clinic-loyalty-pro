@@ -126,14 +126,24 @@ function PatientsPage() {
       return create({ data: { tenant, ...value } });
     },
     onSuccess: async (result) => {
+      const createdResult = result as {
+        invitation?: {
+          emailResult?: { sent?: boolean };
+          email_error?: string | null;
+        } | null;
+      };
       if (form?.id) {
         toast.success("Paciente atualizado");
-      } else if (result.invitation?.emailResult.sent) {
+      } else if (createdResult.invitation?.emailResult?.sent) {
         toast.success("Paciente criado e convite enviado por e-mail");
-      } else if (result.invitation) {
+      } else if (createdResult.invitation) {
         toast.warning(
           "Paciente criado, mas o e-mail do convite não foi enviado. Verifique Resend.",
-          { description: result.invitation.email_error ?? describeEmailResult(result.emailResult) },
+          {
+            description:
+              createdResult.invitation.email_error ??
+              describeEmailResult(createdResult.invitation.emailResult),
+          },
         );
       } else {
         toast.success("Paciente criado com cartão digital");
@@ -742,7 +752,8 @@ function lastInvitation(patient: Patient) {
   return patient.patient_invitations?.[0];
 }
 
-function describeEmailResult(result: { sent: boolean; reason?: string; error?: string }) {
+function describeEmailResult(result?: { sent?: boolean; reason?: string; error?: string }) {
+  if (!result) return "O envio não retornou detalhes.";
   if (result.sent) return "Resend confirmou o envio.";
   if (result.reason === "missing_resend_api_key") {
     return "RESEND_API_KEY não está disponível no ambiente publicado.";

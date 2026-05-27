@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, FileText } from "lucide-react";
@@ -12,6 +12,7 @@ export const Route = createFileRoute("/patient/terms")({
 });
 
 function PatientTermsPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fetchStatus = useServerFn(getPatientLegalStatus);
   const acceptDocument = useServerFn(acceptLegalDocument);
@@ -30,6 +31,9 @@ function PatientTermsPage() {
       await queryClient.invalidateQueries({ queryKey: ["patient-portal"] });
       await queryClient.invalidateQueries({ queryKey: ["patient-portal-shell"] });
       await queryClient.invalidateQueries({ queryKey: ["patient-subscription"] });
+      if ((data?.pending ?? []).length <= 1) {
+        navigate({ to: "/patient/subscription" });
+      }
     },
     onError: (err) => toast.error((err as Error).message),
   });
@@ -39,6 +43,16 @@ function PatientTermsPage() {
       <PageHeader
         title="Termos e aceite"
         subtitle="Documentos necessários para uso do cartão de benefícios."
+        action={
+          data?.patient && data.pending.length === 0 ? (
+            <Link
+              to="/patient/subscription"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+            >
+              Ver assinatura
+            </Link>
+          ) : undefined
+        }
       />
 
       {isLoading ? (
@@ -51,7 +65,16 @@ function PatientTermsPage() {
         </Card>
       ) : (data.documents ?? []).length === 0 ? (
         <Card className="p-8 text-sm text-muted-foreground">
-          Nenhum termo obrigatório publicado no momento.
+          Nenhum termo obrigatório publicado no momento. Você já pode acompanhar sua assinatura e
+          pagamentos.
+          <div className="mt-4">
+            <Link
+              to="/patient/subscription"
+              className="inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+            >
+              Ver assinatura
+            </Link>
+          </div>
         </Card>
       ) : (
         <div className="space-y-5">

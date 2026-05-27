@@ -1,7 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Building2, CheckCircle2, LogOut, ShieldCheck } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  CheckCircle2,
+  CreditCard,
+  LogOut,
+  Mail,
+  ShieldCheck,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Logo } from "@/components/brand/Logo";
@@ -117,15 +125,29 @@ function OnboardingPage() {
             </p>
             <div className="mt-8 grid gap-3 text-sm text-foreground">
               {[
-                "Depois você completa os dados legais da clínica",
-                "Em seguida ativa cobrança, rede credenciada e pacientes",
-                "O painel já nasce separado do portal do paciente",
+                "Você cria o espaço da clínica e cai direto no checklist operacional",
+                "Depois completa CNPJ, responsável, Asaas, rede e pacientes",
+                "Paciente só entra por convite e não vê painel administrativo",
               ].map((item) => (
                 <div key={item} className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-success" />
                   {item}
                 </div>
               ))}
+            </div>
+            <div className="mt-6 rounded-2xl border border-border bg-card p-4 text-sm shadow-soft">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
+                  <Mail className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="font-medium text-foreground">Sou paciente e recebi convite</div>
+                  <p className="mt-1 text-muted-foreground">
+                    Use o botão do e-mail da clínica. O convite já sabe seu nome, sua clínica e
+                    abrirá a tela certa para criar senha.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -134,6 +156,11 @@ function OnboardingPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               Preencha só o essencial agora. O restante fica guiado dentro de Configurações.
             </p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <SetupPill icon={Building2} label="1. Clínica" active />
+              <SetupPill icon={ShieldCheck} label="2. Operação" />
+              <SetupPill icon={CreditCard} label="3. Cobrança" />
+            </div>
 
             {busy ? (
               <div className="mt-8 text-sm text-muted-foreground">Verificando sua conta...</div>
@@ -211,6 +238,29 @@ function Step({ number, text }: { number: string; text: string }) {
         {number}
       </span>
       {text}
+    </div>
+  );
+}
+
+function SetupPill({
+  icon: Icon,
+  label,
+  active = false,
+}: {
+  icon: typeof Building2;
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
+        active
+          ? "border-brand/30 bg-brand-soft text-brand"
+          : "border-border bg-surface text-muted-foreground"
+      }`}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {label}
     </div>
   );
 }

@@ -189,8 +189,8 @@ function BillingPage() {
     onError: (err) => toast.error((err as Error).message),
   });
 
-  const subscriptions = (data?.subscriptions ?? []) as Subscription[];
-  const payments = (data?.payments ?? []) as Payment[];
+  const subscriptions = (data?.subscriptions ?? []) as unknown as Subscription[];
+  const payments = (data?.payments ?? []) as unknown as Payment[];
 
   return (
     <>
