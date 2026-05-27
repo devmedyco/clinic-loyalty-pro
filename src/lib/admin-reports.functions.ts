@@ -299,37 +299,50 @@ export const getAdminAudit = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     await assertSuperAdminAccess(supabase, userId);
 
-    const [validations, executions, invitations, tenants, webhooks] = await Promise.all([
-      supabase
-        .from("card_validations")
-        .select("id, outcome, reason, validated_at, tenants(name, slug)")
-        .order("validated_at", { ascending: false })
-        .limit(12),
-      supabase
-        .from("service_executions")
-        .select("id, final_amount, created_at, tenants(name, slug), patients(full_name)")
-        .order("created_at", { ascending: false })
-        .limit(12),
-      supabase
-        .from("staff_invitations")
-        .select("id, email, role, status, created_at, tenants(name, slug)")
-        .order("created_at", { ascending: false })
-        .limit(12),
-      supabase
-        .from("tenants")
-        .select("id, name, slug, status, created_at")
-        .order("created_at", { ascending: false })
-        .limit(12),
-      supabase
-        .from("asaas_webhook_events")
-        .select(
-          "id, event, asaas_payment_id, processed_status, processed_result, error_message, processed_at",
-        )
-        .order("processed_at", { ascending: false })
-        .limit(12),
-    ]);
+    const [validations, executions, invitations, tenants, webhooks, operationalEvents] =
+      await Promise.all([
+        supabase
+          .from("card_validations")
+          .select("id, outcome, reason, validated_at, tenants(name, slug)")
+          .order("validated_at", { ascending: false })
+          .limit(12),
+        supabase
+          .from("service_executions")
+          .select("id, final_amount, created_at, tenants(name, slug), patients(full_name)")
+          .order("created_at", { ascending: false })
+          .limit(12),
+        supabase
+          .from("staff_invitations")
+          .select("id, email, role, status, created_at, tenants(name, slug)")
+          .order("created_at", { ascending: false })
+          .limit(12),
+        supabase
+          .from("tenants")
+          .select("id, name, slug, status, created_at")
+          .order("created_at", { ascending: false })
+          .limit(12),
+        supabase
+          .from("asaas_webhook_events")
+          .select(
+            "id, event, asaas_payment_id, processed_status, processed_result, error_message, processed_at",
+          )
+          .order("processed_at", { ascending: false })
+          .limit(12),
+        supabase
+          .from("operational_events")
+          .select("id, level, scope, event_type, title, detail, created_at, tenants(name, slug)")
+          .order("created_at", { ascending: false })
+          .limit(20),
+      ]);
 
-    for (const result of [validations, executions, invitations, tenants, webhooks]) {
+    for (const result of [
+      validations,
+      executions,
+      invitations,
+      tenants,
+      webhooks,
+      operationalEvents,
+    ]) {
       if (result.error) throw new Error(result.error.message);
     }
 
@@ -381,6 +394,14 @@ export const getAdminAudit = createServerFn({ method: "GET" })
             .join(" • "),
           tenant: "Medyco",
           created_at: item.processed_at,
+        })),
+        ...(operationalEvents.data ?? []).map((item) => ({
+          id: `operational-${item.id}`,
+          type: operationalEventTypeLabel(item.scope, item.level),
+          title: item.title,
+          detail: [item.event_type, item.detail].filter(Boolean).join(" • "),
+          tenant: tenantLabel(item.tenants),
+          created_at: item.created_at,
         })),
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     };
@@ -514,6 +535,7 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
       acceptances,
       validations,
       webhooks,
+      operationalEvents,
     ] = await Promise.all([
       supabase
         .from("tenants")
@@ -534,6 +556,11 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
         .select("id, processed_status, processed_result, error_message, processed_at")
         .order("processed_at", { ascending: false })
         .limit(20),
+      supabase
+        .from("operational_events")
+        .select("id, level, scope, event_type, title, detail, created_at, tenants(name, slug)")
+        .order("created_at", { ascending: false })
+        .limit(20),
     ]);
 
     for (const result of [
@@ -548,6 +575,7 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
       acceptances,
       validations,
       webhooks,
+      operationalEvents,
     ]) {
       if (result.error) throw new Error(result.error.message);
     }
@@ -563,6 +591,7 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
     const acceptanceRows = acceptances.data ?? [];
     const validationRows = validations.data ?? [];
     const webhookRows = webhooks.data ?? [];
+    const operationalRows = operationalEvents.data ?? [];
     const patientsByTenant = groupRowsBy(patientRows, "tenant_id");
     const paymentsByTenant = groupRowsBy(paymentRows, "tenant_id");
     const providersByTenant = groupRowsBy(providerRows, "tenant_id");
@@ -635,6 +664,8 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
         webhookEvents: webhookRows.length,
         failedWebhooks: webhookRows.filter((event) => event.processed_status === "failed").length,
         ignoredWebhooks: webhookRows.filter((event) => event.processed_status === "ignored").length,
+        operationalErrors: operationalRows.filter((event) => event.level === "error").length,
+        operationalWarnings: operationalRows.filter((event) => event.level === "warning").length,
       },
       webhook: {
         lastEventAt: webhookRows[0]?.processed_at ?? null,
@@ -643,6 +674,17 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
         recentFailures: webhookRows
           .filter((event) => event.processed_status === "failed")
           .slice(0, 5),
+      },
+      monitoring: {
+        recentEvents: operationalRows.slice(0, 8).map((event) => ({
+          id: event.id,
+          level: event.level,
+          scope: event.scope,
+          title: event.title,
+          detail: event.detail,
+          tenant: tenantLabel(event.tenants),
+          created_at: event.created_at,
+        })),
       },
       legal: {
         patientTerms: activeLegalTypes.has("patient_terms"),
@@ -772,6 +814,18 @@ function webhookTitle(status?: string | null) {
   if (status === "ignored") return "Evento ignorado";
   if (status === "failed") return "Evento com falha";
   return "Evento recebido";
+}
+
+function operationalEventTypeLabel(scope?: string | null, level?: string | null) {
+  const scopeLabel: Record<string, string> = {
+    platform: "Operação",
+    tenant: "Clínica",
+    billing: "Financeiro",
+    auth: "Acesso",
+    support: "Suporte",
+  };
+  const prefix = level === "error" ? "Erro" : level === "warning" ? "Alerta" : "Evento";
+  return `${prefix} ${scopeLabel[scope ?? "platform"] ?? "Operação"}`;
 }
 
 function formatCurrency(value: number | string) {

@@ -513,7 +513,7 @@ export const getPatientInvitationPreview = createServerFn({ method: "GET" })
       patientName: patient?.full_name ?? "Paciente",
       alreadyLinked: Boolean(patient?.user_id),
       tenant,
-      email: maskEmail(invitation.email),
+      email: invitation.email,
     };
   });
 
@@ -998,14 +998,6 @@ function emailFailureMessage(emailResult: Awaited<ReturnType<typeof sendEmail>>)
     return "RESEND_API_KEY não está disponível no ambiente publicado.";
   }
   return emailResult.error || "Resend recusou o envio sem detalhar o motivo.";
-}
-
-function maskEmail(email: string) {
-  const [name, domain] = email.split("@");
-  if (!name || !domain) return email;
-  const visibleStart = name.slice(0, 2);
-  const visibleEnd = name.length > 4 ? name.slice(-1) : "";
-  return `${visibleStart}${"*".repeat(Math.max(3, name.length - 3))}${visibleEnd}@${domain}`;
 }
 
 function buildPatientInviteUrl(token: string) {

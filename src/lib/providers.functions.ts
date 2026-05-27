@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
+import { assertTenantAdmin } from "@/lib/tenant-auth.server";
 
 const tenantSlugSchema = z.object({
   tenant: z.string().min(1).max(60),
@@ -64,8 +65,9 @@ export const saveProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => providerSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const tenant = await resolveTenant(supabase, data.tenant);
+    await assertTenantAdmin(supabase, userId, tenant.id);
 
     const payload = {
       tenant_id: tenant.id,
@@ -117,8 +119,9 @@ export const deleteProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => deleteProviderSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const tenant = await resolveTenant(supabase, data.tenant);
+    await assertTenantAdmin(supabase, userId, tenant.id);
     const { error } = await supabase
       .from("providers")
       .delete()

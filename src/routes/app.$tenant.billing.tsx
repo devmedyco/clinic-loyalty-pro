@@ -1,14 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CreditCard, Download, ExternalLink, Mail, Plus, Send } from "lucide-react";
+import {
+  Ban,
+  CreditCard,
+  Download,
+  ExternalLink,
+  Mail,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Send,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
 import {
+  cancelPatientPayment,
   createAsaasCharge,
   createManualPayment,
   getTenantBilling,
+  reconcilePatientPayment,
+  refundPatientPayment,
+  renewPatientSubscription,
   sendPaymentReminder,
   updateSubscriptionStatus,
 } from "@/lib/billing.functions";
@@ -59,6 +73,10 @@ function BillingPage() {
   const createCharge = useServerFn(createAsaasCharge);
   const sendReminder = useServerFn(sendPaymentReminder);
   const updateSubscription = useServerFn(updateSubscriptionStatus);
+  const cancelPayment = useServerFn(cancelPatientPayment);
+  const refundPayment = useServerFn(refundPatientPayment);
+  const reconcilePayment = useServerFn(reconcilePatientPayment);
+  const renewSubscription = useServerFn(renewPatientSubscription);
   const [paymentFor, setPaymentFor] = useState<Subscription | null>(null);
 
   const { data, isLoading, error } = useQuery({
@@ -125,6 +143,48 @@ function BillingPage() {
           ? "E-mail de cobrança enviado"
           : "Lembrete criado, mas o e-mail não foi enviado. Verifique Resend.",
       );
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+
+  const paymentActionMutation = useMutation({
+    mutationFn: (input: {
+      action: "cancel" | "refund" | "reconcile";
+      payment_id: string;
+      reason?: string;
+    }) => {
+      if (input.action === "cancel") {
+        return cancelPayment({
+          data: { tenant, payment_id: input.payment_id, reason: input.reason },
+        });
+      }
+      if (input.action === "refund") {
+        return refundPayment({
+          data: { tenant, payment_id: input.payment_id, reason: input.reason },
+        });
+      }
+      return reconcilePayment({ data: { tenant, payment_id: input.payment_id } });
+    },
+    onSuccess: async (_, variables) => {
+      const labels = {
+        cancel: "Cobrança cancelada",
+        refund: "Reembolso solicitado",
+        reconcile: "Pagamento conciliado",
+      };
+      toast.success(labels[variables.action]);
+      await queryClient.invalidateQueries({ queryKey: ["tenant-billing", tenant] });
+      await queryClient.invalidateQueries({ queryKey: ["patients", tenant] });
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+
+  const renewalMutation = useMutation({
+    mutationFn: (subscription_id: string) =>
+      renewSubscription({ data: { tenant, subscription_id } }),
+    onSuccess: async () => {
+      toast.success("Renovação gerada");
+      await queryClient.invalidateQueries({ queryKey: ["tenant-billing", tenant] });
+      await queryClient.invalidateQueries({ queryKey: ["patients", tenant] });
     },
     onError: (err) => toast.error((err as Error).message),
   });
@@ -256,13 +316,21 @@ function BillingPage() {
                         <StatusBadge status={subscription.status} />
                       </td>
                       <td className="px-5 py-4">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex flex-wrap justify-end gap-2">
                           <button
                             onClick={() => setPaymentFor(subscription)}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent"
                           >
                             <CreditCard className="h-3.5 w-3.5" />
                             Pagar
+                          </button>
+                          <button
+                            disabled={renewalMutation.isPending}
+                            onClick={() => renewalMutation.mutate(subscription.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent disabled:opacity-60"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Renovar
                           </button>
                           <select
                             value={subscription.status}
@@ -342,16 +410,67 @@ function BillingPage() {
                           Líquido Asaas: {formatCurrency(payment.asaas_net_value)}
                         </div>
                       )}
-                      {payment.status !== "paid" && (
-                        <button
-                          disabled={reminderMutation.isPending}
-                          onClick={() => reminderMutation.mutate(payment.id)}
-                          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-foreground hover:text-brand disabled:opacity-60"
-                        >
-                          <Mail className="h-3 w-3" />
-                          Enviar cobrança
-                        </button>
-                      )}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {payment.status !== "paid" && payment.status !== "canceled" && (
+                          <button
+                            disabled={reminderMutation.isPending}
+                            onClick={() => reminderMutation.mutate(payment.id)}
+                            className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs font-medium text-foreground hover:bg-accent disabled:opacity-60"
+                          >
+                            <Mail className="h-3 w-3" />
+                            Cobrar
+                          </button>
+                        )}
+                        {payment.asaas_invoice_url && (
+                          <button
+                            disabled={paymentActionMutation.isPending}
+                            onClick={() =>
+                              paymentActionMutation.mutate({
+                                action: "reconcile",
+                                payment_id: payment.id,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs font-medium text-foreground hover:bg-accent disabled:opacity-60"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            Conciliar
+                          </button>
+                        )}
+                        {payment.status === "pending" && (
+                          <button
+                            disabled={paymentActionMutation.isPending}
+                            onClick={() => {
+                              if (confirm("Cancelar esta cobrança pendente?")) {
+                                paymentActionMutation.mutate({
+                                  action: "cancel",
+                                  payment_id: payment.id,
+                                });
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md border border-destructive/30 px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-60"
+                          >
+                            <Ban className="h-3 w-3" />
+                            Cancelar
+                          </button>
+                        )}
+                        {payment.status === "paid" && payment.asaas_invoice_url && (
+                          <button
+                            disabled={paymentActionMutation.isPending}
+                            onClick={() => {
+                              if (confirm("Solicitar reembolso desta cobrança paga no Asaas?")) {
+                                paymentActionMutation.mutate({
+                                  action: "refund",
+                                  payment_id: payment.id,
+                                });
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md border border-warning/30 px-2 py-1 text-xs font-medium text-warning hover:bg-warning/10 disabled:opacity-60"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                            Reembolsar
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="text-right">
                       <div className="font-medium text-foreground">

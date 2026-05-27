@@ -5,6 +5,8 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
 import { termAcceptedEmail } from "@/lib/email-templates";
 import { sendEmail } from "@/lib/email.server";
+import { recordOperationalEvent } from "@/lib/operational-events.server";
+import { assertTenantAdmin } from "@/lib/tenant-auth.server";
 
 const acceptDocumentSchema = z.object({
   document_id: z.string().uuid(),
@@ -151,8 +153,9 @@ export const publishTenantLegalDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => publishTenantDocumentSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const tenant = await resolveTenant(supabase, data.tenant);
+    await assertTenantAdmin(supabase, userId, tenant.id);
 
     const { error: deactivateError } = await supabase
       .from("legal_documents")
@@ -179,6 +182,15 @@ export const publishTenantLegalDocument = createServerFn({ method: "POST" })
       .single();
 
     if (error) throw new Error(error.message);
+    await recordOperationalEvent({
+      tenantId: tenant.id,
+      actorUserId: userId,
+      scope: "tenant",
+      eventType: "legal.patient_terms_published",
+      title: "Termo do paciente publicado",
+      detail: `${data.title} • ${data.version}`,
+      metadata: { document_id: document.id },
+    });
     return { tenant, document };
   });
 

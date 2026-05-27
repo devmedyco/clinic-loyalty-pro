@@ -31,6 +31,11 @@ function PatientInvitePage() {
     queryKey: ["patient-invite-preview", token],
     queryFn: () => fetchPreview({ data: { token } }),
   });
+  const sessionMismatch =
+    authenticated &&
+    sessionEmail &&
+    preview?.email &&
+    sessionEmail.toLowerCase() !== preview.email.toLowerCase();
 
   useEffect(() => {
     let active = true;
@@ -84,8 +89,8 @@ function PatientInvitePage() {
           Ative seu cartão de benefícios
         </h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Seu cadastro já foi iniciado pela clínica. Agora falta criar sua senha, aceitar os termos
-          e acompanhar a cobrança da assinatura.
+          Seu cadastro já foi iniciado pela clínica. Esta tela é exclusiva para o e-mail convidado:
+          confira os dados abaixo, crie sua senha e siga para os termos.
         </p>
 
         <div className="mt-5 rounded-xl border border-border bg-surface p-4">
@@ -101,6 +106,12 @@ function PatientInvitePage() {
             </div>
           ) : (
             <div className="space-y-3">
+              {preview.alreadyLinked && (
+                <div className="rounded-lg border border-success/20 bg-success/10 px-3 py-2 text-sm text-success">
+                  Este convite já está vinculado a um acesso de paciente. Entre com o e-mail abaixo
+                  para continuar.
+                </div>
+              )}
               <div>
                 <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Programa
@@ -143,13 +154,19 @@ function PatientInvitePage() {
               . Use este caminho apenas se for o mesmo e-mail do convite. Caso contrário, saia e
               crie a senha correta do paciente.
             </div>
+            {sessionMismatch && (
+              <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+                A conta aberta é {sessionEmail}, mas este convite é para {preview.email}. Saia desta
+                conta para criar a senha do paciente correto.
+              </div>
+            )}
             {acceptExistingMutation.error && (
               <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {(acceptExistingMutation.error as Error).message}
               </div>
             )}
             <button
-              disabled={acceptExistingMutation.isPending}
+              disabled={acceptExistingMutation.isPending || Boolean(sessionMismatch)}
               onClick={() => acceptExistingMutation.mutate()}
               className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
             >

@@ -6,6 +6,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware
 import { supabaseAdmin } from "@/integrations/supabase-ext/client.server";
 import { staffInviteEmail } from "@/lib/email-templates";
 import { sendEmail } from "@/lib/email.server";
+import { assertTenantAdmin } from "@/lib/tenant-auth.server";
 
 const tenantSlugSchema = z.object({
   tenant: z.string().min(1).max(60),
@@ -77,6 +78,7 @@ export const createStaffInvitation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const tenant = await resolveTenant(supabase, data.tenant);
+    await assertTenantAdmin(supabase, userId, tenant.id);
     const email = data.email.toLowerCase();
 
     await expireOldInvitation(supabase, tenant.id, email);
@@ -123,8 +125,9 @@ export const revokeStaffInvitation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => revokeSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const tenant = await resolveTenant(supabase, data.tenant);
+    await assertTenantAdmin(supabase, userId, tenant.id);
 
     const { data: invitation, error } = await supabase
       .from("staff_invitations")

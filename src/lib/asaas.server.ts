@@ -153,6 +153,28 @@ export async function listAsaasSubscriptionPayments(subscriptionId: string, apiK
   });
 }
 
+export async function getAsaasPayment(paymentId: string, apiKey?: string) {
+  return asaasRequest<AsaasPayment>(`/payments/${paymentId}`, {
+    method: "GET",
+    apiKey,
+  });
+}
+
+export async function deleteAsaasPayment(paymentId: string, apiKey?: string) {
+  return asaasRequest<{ deleted?: boolean; id?: string }>(`/payments/${paymentId}`, {
+    method: "DELETE",
+    apiKey,
+  });
+}
+
+export async function refundAsaasPayment(paymentId: string, apiKey?: string) {
+  return asaasRequest<AsaasPayment>(`/payments/${paymentId}/refund`, {
+    method: "POST",
+    body: JSON.stringify({}),
+    apiKey,
+  });
+}
+
 export async function deleteAsaasSubscription(subscriptionId: string, apiKey?: string) {
   return asaasRequest<{ deleted?: boolean; id?: string }>(`/subscriptions/${subscriptionId}`, {
     method: "DELETE",

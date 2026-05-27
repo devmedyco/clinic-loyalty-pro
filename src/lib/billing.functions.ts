@@ -5,8 +5,11 @@ import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware
 import {
   createAsaasCustomer,
   createAsaasPayment,
+  deleteAsaasPayment,
+  getAsaasPayment,
   isAsaasConfigured,
   isAsaasMarketplaceConfigured,
+  refundAsaasPayment,
   type AsaasSplitInput,
 } from "@/lib/asaas.server";
 import {
@@ -16,6 +19,8 @@ import {
 } from "@/lib/commercial-model";
 import { paymentReminderEmail } from "@/lib/email-templates";
 import { sendEmail } from "@/lib/email.server";
+import { recordOperationalEvent } from "@/lib/operational-events.server";
+import { assertTenantAdmin } from "@/lib/tenant-auth.server";
 
 const tenantSlugSchema = z.object({
   tenant: z.string().min(1).max(60),
@@ -44,6 +49,15 @@ const createAsaasPaymentSchema = tenantSlugSchema.extend({
 
 const sendPaymentReminderSchema = tenantSlugSchema.extend({
   payment_id: z.string().uuid(),
+});
+
+const paymentActionSchema = sendPaymentReminderSchema.extend({
+  reason: z.string().trim().max(500).optional(),
+});
+
+const renewSubscriptionSchema = updateSubscriptionSchema.pick({
+  tenant: true,
+  subscription_id: true,
 });
 
 export const getTenantBilling = createServerFn({ method: "GET" })
@@ -102,8 +116,9 @@ export const createManualPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => createPaymentSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const tenant = await resolveTenant(supabase, data.tenant);
+    await assertTenantAdmin(supabase, userId, tenant.id);
     const subscription = await ensurePatientSubscription(supabase, tenant.id, data.patient_id);
     const paidAt = data.status === "paid" ? new Date().toISOString() : null;
 
@@ -137,6 +152,16 @@ export const createManualPayment = createServerFn({ method: "POST" })
       );
     }
 
+    await recordOperationalEvent({
+      tenantId: tenant.id,
+      actorUserId: userId,
+      scope: "billing",
+      eventType: "payment.manual_created",
+      title: "Pagamento manual registrado",
+      detail: `${formatCurrency(data.amount)} • ${data.status}`,
+      metadata: { payment_id: payment.id, patient_id: data.patient_id },
+    });
+
     return { tenant, payment };
   });
 
@@ -144,8 +169,9 @@ export const updateSubscriptionStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => updateSubscriptionSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const tenant = await resolveTenant(supabase, data.tenant);
+    await assertTenantAdmin(supabase, userId, tenant.id);
 
     const { data: subscription, error } = await supabase
       .from("subscriptions")
@@ -160,6 +186,15 @@ export const updateSubscriptionStatus = createServerFn({ method: "POST" })
 
     if (error) throw new Error(error.message);
     await syncPatientStatus(supabase, tenant.id, subscription.patient_id, data.status);
+    await recordOperationalEvent({
+      tenantId: tenant.id,
+      actorUserId: userId,
+      scope: "billing",
+      eventType: "subscription.status_updated",
+      title: "Status da assinatura alterado",
+      detail: `Novo status: ${data.status}`,
+      metadata: { subscription_id: subscription.id, patient_id: subscription.patient_id },
+    });
     return { tenant, subscription };
   });
 
@@ -167,8 +202,9 @@ export const createAsaasCharge = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => createAsaasPaymentSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const tenant = await resolveTenant(supabase, data.tenant);
+    await assertTenantAdmin(supabase, userId, tenant.id);
 
     const { data: subscription, error: subscriptionError } = await supabase
       .from("subscriptions")
@@ -286,6 +322,21 @@ export const createAsaasCharge = createServerFn({ method: "POST" })
 
     if (error) throw new Error(error.message);
 
+    await recordOperationalEvent({
+      tenantId: tenant.id,
+      actorUserId: userId,
+      scope: "billing",
+      eventType: "payment.asaas_created",
+      title: "Cobrança Asaas criada",
+      detail: `${formatCurrency(data.amount)} • vencimento ${data.due_date}`,
+      metadata: {
+        payment_id: payment.id,
+        subscription_id: subscription.id,
+        asaas_payment_id: charge.id,
+        split_requested: Boolean(split?.length),
+      },
+    });
+
     return { tenant, payment, invoiceUrl: charge.invoiceUrl };
   });
 
@@ -293,8 +344,9 @@ export const sendPaymentReminder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => sendPaymentReminderSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const tenant = await resolveTenant(supabase, data.tenant);
+    await assertTenantAdmin(supabase, userId, tenant.id);
 
     const { data: payment, error } = await supabase
       .from("payments")
@@ -319,8 +371,335 @@ export const sendPaymentReminder = createServerFn({ method: "POST" })
     });
     const emailResult = await sendEmail({ to: patient.email, ...template });
 
+    await recordOperationalEvent({
+      tenantId: tenant.id,
+      actorUserId: userId,
+      scope: "billing",
+      eventType: "payment.reminder_sent",
+      title: "Lembrete de cobrança enviado",
+      detail: `${patient.full_name} • ${formatCurrency(payment.amount)}`,
+      metadata: { payment_id: payment.id, sent: emailResult.sent },
+    });
+
     return { tenant, emailResult };
   });
+
+export const cancelPatientPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => paymentActionSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const tenant = await resolveTenant(supabase, data.tenant);
+    await assertTenantAdmin(supabase, userId, tenant.id);
+    const payment = await getTenantPayment(supabase, tenant.id, data.payment_id);
+
+    if (payment.status === "paid") {
+      throw new Error("Pagamento já pago. Use reembolso para estornar uma cobrança paga.");
+    }
+    if (payment.status === "canceled") {
+      return { tenant, payment };
+    }
+    if (payment.asaas_payment_id) {
+      const credential = getTenantAsaasCredential(tenant);
+      await deleteAsaasPayment(payment.asaas_payment_id, credential.apiKey);
+    }
+
+    const { data: updated, error } = await supabase
+      .from("payments")
+      .update({
+        status: "canceled",
+        notes: appendNote(payment.notes, data.reason || "Cobrança cancelada pela clínica."),
+      })
+      .eq("tenant_id", tenant.id)
+      .eq("id", payment.id)
+      .select(
+        "id, amount, payment_method, status, paid_at, due_date, asaas_payment_id, asaas_invoice_url, notes, created_at",
+      )
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    await markSubscriptionPastDueIfNoPaidPayments(
+      supabase,
+      tenant.id,
+      payment.patient_id,
+      payment.subscription_id,
+    );
+
+    await recordOperationalEvent({
+      tenantId: tenant.id,
+      actorUserId: userId,
+      scope: "billing",
+      level: "warning",
+      eventType: "payment.canceled",
+      title: "Cobrança cancelada",
+      detail: `${formatCurrency(payment.amount)} • ${data.reason || "sem motivo informado"}`,
+      metadata: { payment_id: payment.id, asaas_payment_id: payment.asaas_payment_id },
+    });
+
+    return { tenant, payment: updated };
+  });
+
+export const refundPatientPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => paymentActionSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const tenant = await resolveTenant(supabase, data.tenant);
+    await assertTenantAdmin(supabase, userId, tenant.id);
+    const payment = await getTenantPayment(supabase, tenant.id, data.payment_id);
+
+    if (payment.status !== "paid") {
+      throw new Error("Somente pagamentos marcados como pagos podem ser reembolsados.");
+    }
+    if (!payment.asaas_payment_id) {
+      throw new Error("Este pagamento não tem ID Asaas. Registre o estorno manual em observações.");
+    }
+
+    const credential = getTenantAsaasCredential(tenant);
+    const refunded = await refundAsaasPayment(payment.asaas_payment_id, credential.apiKey);
+
+    const { data: updated, error } = await supabase
+      .from("payments")
+      .update({
+        status: "refunded",
+        notes: appendNote(payment.notes, data.reason || "Pagamento reembolsado no Asaas."),
+        asaas_net_value: refunded.netValue ?? payment.asaas_net_value,
+      })
+      .eq("tenant_id", tenant.id)
+      .eq("id", payment.id)
+      .select(
+        "id, amount, payment_method, status, paid_at, due_date, asaas_payment_id, asaas_invoice_url, notes, created_at",
+      )
+      .single();
+
+    if (error) throw new Error(error.message);
+    await markSubscriptionPastDueIfNoPaidPayments(
+      supabase,
+      tenant.id,
+      payment.patient_id,
+      payment.subscription_id,
+    );
+
+    await recordOperationalEvent({
+      tenantId: tenant.id,
+      actorUserId: userId,
+      scope: "billing",
+      level: "warning",
+      eventType: "payment.refunded",
+      title: "Pagamento reembolsado",
+      detail: `${formatCurrency(payment.amount)} • ${data.reason || "sem motivo informado"}`,
+      metadata: { payment_id: payment.id, asaas_payment_id: payment.asaas_payment_id },
+    });
+
+    return { tenant, payment: updated };
+  });
+
+export const reconcilePatientPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => sendPaymentReminderSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const tenant = await resolveTenant(supabase, data.tenant);
+    await assertTenantAdmin(supabase, userId, tenant.id);
+    const payment = await getTenantPayment(supabase, tenant.id, data.payment_id);
+
+    if (!payment.asaas_payment_id) {
+      throw new Error("Este pagamento ainda não tem cobrança Asaas para conciliar.");
+    }
+
+    const credential = getTenantAsaasCredential(tenant);
+    const asaasPayment = await getAsaasPayment(payment.asaas_payment_id, credential.apiKey);
+    const mapped = mapAsaasPaymentStatus(asaasPayment.status);
+
+    const { data: updated, error } = await supabase
+      .from("payments")
+      .update({
+        status: mapped.status,
+        paid_at: mapped.status === "paid" ? new Date().toISOString() : payment.paid_at,
+        confirmed_at: mapped.status === "paid" ? new Date().toISOString() : payment.confirmed_at,
+        due_date: asaasPayment.dueDate ?? payment.due_date,
+        asaas_invoice_url: asaasPayment.invoiceUrl ?? payment.asaas_invoice_url,
+        asaas_bank_slip_url: asaasPayment.bankSlipUrl ?? payment.asaas_bank_slip_url,
+        asaas_net_value: asaasPayment.netValue ?? payment.asaas_net_value,
+        asaas_split_status: asaasPayment.split?.[0]?.status ?? payment.asaas_split_status,
+        asaas_split_value: asaasPayment.split?.[0]?.totalValue ?? payment.asaas_split_value,
+        notes: appendNote(
+          payment.notes,
+          `Conciliação Asaas: ${asaasPayment.status ?? "sem status"}.`,
+        ),
+      })
+      .eq("tenant_id", tenant.id)
+      .eq("id", payment.id)
+      .select(
+        "id, amount, payment_method, status, paid_at, due_date, asaas_payment_id, asaas_invoice_url, asaas_split_status, notes, created_at",
+      )
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    if (mapped.status === "paid") {
+      await syncSubscriptionStatus(
+        supabase,
+        tenant.id,
+        payment.patient_id,
+        payment.subscription_id,
+        "active",
+      );
+    }
+    if (mapped.status === "failed") {
+      await syncSubscriptionStatus(
+        supabase,
+        tenant.id,
+        payment.patient_id,
+        payment.subscription_id,
+        "past_due",
+      );
+    }
+
+    await recordOperationalEvent({
+      tenantId: tenant.id,
+      actorUserId: userId,
+      scope: "billing",
+      eventType: "payment.reconciled",
+      title: "Pagamento conciliado com Asaas",
+      detail: `${asaasPayment.status ?? "sem status"} → ${mapped.status}`,
+      metadata: { payment_id: payment.id, asaas_payment_id: payment.asaas_payment_id },
+    });
+
+    return { tenant, payment: updated };
+  });
+
+export const renewPatientSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => renewSubscriptionSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const tenant = await resolveTenant(supabase, data.tenant);
+    await assertTenantAdmin(supabase, userId, tenant.id);
+
+    const { data: subscription, error: subscriptionError } = await supabase
+      .from("subscriptions")
+      .select("id, patient_id, status, next_due_date")
+      .eq("tenant_id", tenant.id)
+      .eq("id", data.subscription_id)
+      .maybeSingle();
+    if (subscriptionError) throw new Error(subscriptionError.message);
+    if (!subscription) throw new Error("Assinatura não encontrada.");
+
+    const amount = calculateSubscriptionAmount(
+      tenant,
+      (await countActiveDependentsByPatient(supabase, tenant.id, [subscription.patient_id])).get(
+        subscription.patient_id,
+      ) ?? 0,
+    );
+    if (amount <= 0) throw new Error("Valor da assinatura não configurado.");
+
+    const { data: existingPending, error: existingError } = await supabase
+      .from("payments")
+      .select("id")
+      .eq("tenant_id", tenant.id)
+      .eq("subscription_id", subscription.id)
+      .eq("status", "pending")
+      .limit(1)
+      .maybeSingle();
+    if (existingError) throw new Error(existingError.message);
+    if (existingPending) {
+      throw new Error("Já existe uma cobrança pendente para esta assinatura.");
+    }
+
+    const dueDate = today();
+    const { data: payment, error: paymentError } = await supabase
+      .from("payments")
+      .insert({
+        tenant_id: tenant.id,
+        patient_id: subscription.patient_id,
+        subscription_id: subscription.id,
+        amount,
+        payment_method: "manual",
+        status: "pending",
+        due_date: dueDate,
+        notes: "Renovação manual gerada pela clínica.",
+      })
+      .select("id, amount, status, due_date, created_at")
+      .single();
+    if (paymentError) throw new Error(paymentError.message);
+
+    await syncSubscriptionStatus(
+      supabase,
+      tenant.id,
+      subscription.patient_id,
+      subscription.id,
+      "past_due",
+    );
+
+    await recordOperationalEvent({
+      tenantId: tenant.id,
+      actorUserId: userId,
+      scope: "billing",
+      eventType: "subscription.renewal_created",
+      title: "Renovação gerada",
+      detail: `${formatCurrency(amount)} • vencimento hoje`,
+      metadata: { subscription_id: subscription.id, payment_id: payment.id },
+    });
+
+    return { tenant, payment };
+  });
+
+async function getTenantPayment(supabase: SupabaseClient, tenantId: string, paymentId: string) {
+  const { data, error } = await supabase
+    .from("payments")
+    .select(
+      "id, tenant_id, patient_id, subscription_id, amount, payment_method, status, paid_at, due_date, confirmed_at, asaas_payment_id, asaas_invoice_url, asaas_bank_slip_url, asaas_net_value, asaas_split_value, asaas_split_status, notes, created_at",
+    )
+    .eq("tenant_id", tenantId)
+    .eq("id", paymentId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Pagamento não encontrado.");
+  if (!data.subscription_id) throw new Error("Pagamento sem assinatura vinculada.");
+  return data;
+}
+
+async function markSubscriptionPastDueIfNoPaidPayments(
+  supabase: SupabaseClient,
+  tenantId: string,
+  patientId: string,
+  subscriptionId: string,
+) {
+  const { count, error } = await supabase
+    .from("payments")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .eq("subscription_id", subscriptionId)
+    .eq("status", "paid");
+  if (error) throw new Error(error.message);
+  if ((count ?? 0) === 0) {
+    await syncSubscriptionStatus(supabase, tenantId, patientId, subscriptionId, "past_due");
+  }
+}
+
+function appendNote(current: string | null | undefined, note: string) {
+  const timestamp = new Date().toLocaleString("pt-BR");
+  return [current, `[${timestamp}] ${note}`].filter(Boolean).join("\n");
+}
+
+function mapAsaasPaymentStatus(status?: string) {
+  const normalized = status?.toUpperCase();
+  if (["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"].includes(normalized ?? "")) {
+    return { status: "paid" as const };
+  }
+  if (
+    ["OVERDUE", "REFUNDED", "CHARGEBACK_REQUESTED", "CHARGEBACK_DISPUTE"].includes(normalized ?? "")
+  ) {
+    return { status: "failed" as const };
+  }
+  if (["DELETED", "CANCELLED"].includes(normalized ?? "")) {
+    return { status: "canceled" as const };
+  }
+  return { status: "pending" as const };
+}
 
 async function ensurePatientSubscriptions(supabase: SupabaseClient, tenantId: string) {
   const { data: patients, error: patientsError } = await supabase
@@ -693,4 +1072,11 @@ function sumPaid(rows: Array<{ amount: number | string; status: string }>) {
     if (row.status !== "paid") return total;
     return total + Number(row.amount || 0);
   }, 0);
+}
+
+function formatCurrency(value: number | string) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value || 0));
 }

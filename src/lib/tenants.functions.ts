@@ -13,6 +13,8 @@ import {
 } from "@/lib/commercial-model";
 import { clinicOnboardingEmail } from "@/lib/email-templates";
 import { sendEmail } from "@/lib/email.server";
+import { recordOperationalEvent } from "@/lib/operational-events.server";
+import { assertTenantAdmin } from "@/lib/tenant-auth.server";
 
 export const listMyTenants = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -256,7 +258,7 @@ export const createTenantAsaasSubaccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => createTenantAsaasSubaccountSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const { data: currentTenant, error: tenantError } = await supabase
       .from("tenants")
       .select("id, slug, name")
@@ -265,6 +267,7 @@ export const createTenantAsaasSubaccount = createServerFn({ method: "POST" })
 
     if (tenantError) throw new Error(tenantError.message);
     if (!currentTenant) throw new Error("Clínica não encontrada ou sem acesso.");
+    await assertTenantAdmin(supabase, userId, currentTenant.id);
 
     const subaccount = await createAsaasSubaccount({
       name: data.name,
@@ -305,6 +308,16 @@ export const createTenantAsaasSubaccount = createServerFn({ method: "POST" })
       .single();
 
     if (error) throw new Error(error.message);
+
+    await recordOperationalEvent({
+      tenantId: currentTenant.id,
+      actorUserId: userId,
+      scope: "billing",
+      eventType: "tenant.asaas_subaccount_created",
+      title: "Subconta Asaas criada",
+      detail: `Wallet ${subaccount.walletId}`,
+      metadata: { asaas_account_id: subaccount.id, api_key_ref: apiKeyRef },
+    });
 
     return {
       tenant,
@@ -456,7 +469,8 @@ export const updateTenantSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => updateTenantSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    await assertTenantAdmin(supabase, userId, data.id);
     const { data: tenant, error } = await supabase
       .from("tenants")
       .update({
@@ -497,5 +511,14 @@ export const updateTenantSettings = createServerFn({ method: "POST" })
       .single();
 
     if (error) throw new Error(error.message);
+    await recordOperationalEvent({
+      tenantId: tenant.id,
+      actorUserId: userId,
+      scope: "tenant",
+      eventType: "tenant.settings_updated",
+      title: "Configurações da clínica atualizadas",
+      detail: tenant.name,
+      metadata: { status: tenant.status, asaas_onboarding_status: tenant.asaas_onboarding_status },
+    });
     return { tenant };
   });

@@ -66,6 +66,12 @@ function AdminReadinessPage() {
           delta={`${formatNumber(data?.totals.failedWebhooks)} falha(s) recentes`}
           tone={data?.totals.failedWebhooks ? "warning" : "success"}
         />
+        <StatCard
+          label="Alertas"
+          value={isLoading ? "..." : formatNumber(data?.totals.operationalWarnings)}
+          delta={`${formatNumber(data?.totals.operationalErrors)} erro(s) operacionais`}
+          tone={data?.totals.operationalErrors ? "warning" : "muted"}
+        />
       </div>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
@@ -169,6 +175,51 @@ function AdminReadinessPage() {
                   : "Sem falhas recentes"
               }
             />
+          </div>
+        )}
+      </Card>
+
+      <Card className="mt-5 overflow-hidden">
+        <div className="border-b border-border px-5 py-4">
+          <h2 className="font-display text-xl text-foreground">Monitor operacional</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Registra ações críticas, falhas financeiras e eventos de suporte em um só lugar.
+          </p>
+        </div>
+        {isLoading ? (
+          <div className="px-5 py-10 text-sm text-muted-foreground">Carregando eventos...</div>
+        ) : (data?.monitoring.recentEvents ?? []).length === 0 ? (
+          <div className="px-5 py-10 text-sm text-muted-foreground">
+            Nenhum evento operacional registrado ainda.
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {data?.monitoring.recentEvents.map((event) => (
+              <div
+                key={event.id}
+                className="flex flex-col gap-3 px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <div className="font-medium text-foreground">{event.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {[event.tenant, event.detail, formatDate(event.created_at)]
+                      .filter(Boolean)
+                      .join(" • ")}
+                  </div>
+                </div>
+                <span
+                  className={`w-fit rounded-md px-2 py-0.5 text-xs ${
+                    event.level === "error"
+                      ? "bg-destructive/15 text-destructive"
+                      : event.level === "warning"
+                        ? "bg-warning/15 text-warning"
+                        : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {event.scope}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </Card>
