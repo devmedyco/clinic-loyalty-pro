@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
 import { useRequireSession } from "@/hooks/use-auth-session";
@@ -158,11 +157,14 @@ function DigitalBenefitCard({
 
   useEffect(() => {
     let mounted = true;
-    QRCode.toDataURL(qrToken, {
-      margin: 1,
-      width: 220,
-      color: { dark: "#0f172a", light: "#ffffff" },
-    })
+    import("qrcode")
+      .then(({ default: QRCode }) =>
+        QRCode.toDataURL(qrToken, {
+          margin: 1,
+          width: 220,
+          color: { dark: "#0f172a", light: "#ffffff" },
+        }),
+      )
       .then((url) => {
         if (mounted) setQrCodeUrl(url);
       })

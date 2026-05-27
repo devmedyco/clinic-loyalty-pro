@@ -255,7 +255,9 @@ const AppTenantReportsRoute = AppTenantReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
   getParentRoute: () => AppTenantRoute,
-} as any)
+} as any).lazy(() =>
+  import('./routes/app.$tenant.reports.lazy').then((d) => d.Route),
+)
 const AppTenantProvidersRoute = AppTenantProvidersRouteImport.update({
   id: '/providers',
   path: '/providers',
