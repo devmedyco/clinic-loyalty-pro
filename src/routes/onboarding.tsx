@@ -109,17 +109,17 @@ function OnboardingPage() {
               Primeiro acesso
             </div>
             <h1 className="mt-6 font-display text-4xl tracking-tight text-foreground md:text-5xl">
-              Crie a primeira clínica para começar a operar.
+              Vamos criar o primeiro painel da clínica.
             </h1>
             <p className="mt-4 max-w-xl text-base text-muted-foreground">
-              Depois disso você entra direto no painel da clínica, com pacientes, cartões, validação
-              QR, serviços e assinaturas no mesmo ambiente.
+              Este passo é para quem administra uma clínica. Pacientes entram pelo convite recebido
+              no e-mail e não precisam criar uma clínica.
             </p>
             <div className="mt-8 grid gap-3 text-sm text-foreground">
               {[
-                "URL própria por slug",
-                "Acesso administrativo automático",
-                "Configuração de marca pronta para evoluir",
+                "Depois você completa os dados legais da clínica",
+                "Em seguida ativa cobrança, rede credenciada e pacientes",
+                "O painel já nasce separado do portal do paciente",
               ].map((item) => (
                 <div key={item} className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-success" />
@@ -132,7 +132,7 @@ function OnboardingPage() {
           <div className="rounded-2xl border border-border bg-card p-6 shadow-elegant">
             <h2 className="font-display text-2xl text-foreground">Dados da clínica</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Isso cria o primeiro espaço operacional da sua plataforma.
+              Preencha só o essencial agora. O restante fica guiado dentro de Configurações.
             </p>
 
             {busy ? (
@@ -179,6 +179,15 @@ function OnboardingPage() {
 
                 {error && <p className="text-sm text-destructive">{error}</p>}
 
+                <div className="rounded-xl border border-border bg-surface p-4 text-sm text-muted-foreground">
+                  <div className="font-medium text-foreground">Depois de criar</div>
+                  <div className="mt-2 grid gap-2">
+                    <Step number="1" text="Completar CNPJ, responsável e endereço" />
+                    <Step number="2" text="Configurar Asaas e gerar a mensalidade" />
+                    <Step number="3" text="Cadastrar rede, serviços e paciente teste" />
+                  </div>
+                </div>
+
                 <button
                   disabled={loading}
                   className="mt-2 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
@@ -192,6 +201,17 @@ function OnboardingPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+function Step({ number, text }: { number: string; text: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-soft text-xs font-medium text-brand">
+        {number}
+      </span>
+      {text}
+    </div>
   );
 }
 

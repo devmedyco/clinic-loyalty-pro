@@ -478,6 +478,45 @@ export const invitePatientToPortal = createServerFn({ method: "POST" })
     return { tenant, ...invitation };
   });
 
+export const getPatientInvitationPreview = createServerFn({ method: "GET" })
+  .inputValidator((input) => acceptPatientInvitationSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { data: invitation, error } = await supabaseAdmin
+      .from("patient_invitations")
+      .select(
+        "id, email, status, expires_at, patients(full_name, user_id), tenants(name, slug, logo_url, brand_color)",
+      )
+      .eq("token", data.token)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    if (!invitation) {
+      return {
+        found: false,
+        status: "missing",
+        expired: false,
+        patientName: null,
+        tenant: null,
+        email: null,
+      };
+    }
+
+    const patient = singleRelation(invitation.patients);
+    const tenant = singleRelation(invitation.tenants);
+    const expired = new Date(invitation.expires_at).getTime() < Date.now();
+
+    return {
+      found: true,
+      status: invitation.status,
+      expired,
+      expiresAt: invitation.expires_at,
+      patientName: patient?.full_name ?? "Paciente",
+      alreadyLinked: Boolean(patient?.user_id),
+      tenant,
+      email: maskEmail(invitation.email),
+    };
+  });
+
 export const acceptPatientInvitation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => acceptPatientInvitationSchema.parse(input))
@@ -490,7 +529,9 @@ export const acceptPatientInvitation = createServerFn({ method: "POST" })
 
     const { data: invitation, error } = await supabase
       .from("patient_invitations")
-      .select("id, tenant_id, patient_id, email, status, expires_at, tenants(id, slug, name)")
+      .select(
+        "id, tenant_id, patient_id, email, status, expires_at, patients(user_id), tenants(id, slug, name)",
+      )
       .eq("token", data.token)
       .in("status", ["pending", "accepted"])
       .maybeSingle();
@@ -503,11 +544,17 @@ export const acceptPatientInvitation = createServerFn({ method: "POST" })
       throw new Error("Entre com o mesmo e-mail que recebeu o convite.");
     }
 
+    const linkedPatient = singleRelation(invitation.patients);
+    if (linkedPatient?.user_id && linkedPatient.user_id !== userId) {
+      throw new Error("Este convite já foi vinculado a outra conta de paciente.");
+    }
+
     const { error: patientError } = await supabaseAdmin
       .from("patients")
       .update({ user_id: userId })
       .eq("tenant_id", invitation.tenant_id)
-      .eq("id", invitation.patient_id);
+      .eq("id", invitation.patient_id)
+      .or(`user_id.is.null,user_id.eq.${userId}`);
     if (patientError) throw new Error(patientError.message);
 
     await ensurePatientRole(userId, invitation.tenant_id);
@@ -534,7 +581,7 @@ export const completePatientInvitation = createServerFn({ method: "POST" })
     const { data: invitation, error } = await supabaseAdmin
       .from("patient_invitations")
       .select(
-        "id, tenant_id, patient_id, email, status, expires_at, accepted_by, patients(full_name), tenants(id, slug, name)",
+        "id, tenant_id, patient_id, email, status, expires_at, accepted_by, patients(full_name, user_id), tenants(id, slug, name)",
       )
       .eq("token", data.token)
       .in("status", ["pending", "accepted"])
@@ -557,6 +604,9 @@ export const completePatientInvitation = createServerFn({ method: "POST" })
       existingUserId: invitation.accepted_by,
     });
     if (!userId) throw new Error("Não foi possível criar o acesso do paciente.");
+    if (patient?.user_id && patient.user_id !== userId) {
+      throw new Error("Este convite já foi vinculado a outra conta de paciente.");
+    }
 
     const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
       id: userId,
@@ -569,7 +619,8 @@ export const completePatientInvitation = createServerFn({ method: "POST" })
       .from("patients")
       .update({ user_id: userId })
       .eq("tenant_id", invitation.tenant_id)
-      .eq("id", invitation.patient_id);
+      .eq("id", invitation.patient_id)
+      .or(`user_id.is.null,user_id.eq.${userId}`);
     if (patientError) throw new Error(patientError.message);
 
     await ensurePatientRole(userId, invitation.tenant_id);
@@ -947,6 +998,14 @@ function emailFailureMessage(emailResult: Awaited<ReturnType<typeof sendEmail>>)
     return "RESEND_API_KEY não está disponível no ambiente publicado.";
   }
   return emailResult.error || "Resend recusou o envio sem detalhar o motivo.";
+}
+
+function maskEmail(email: string) {
+  const [name, domain] = email.split("@");
+  if (!name || !domain) return email;
+  const visibleStart = name.slice(0, 2);
+  const visibleEnd = name.length > 4 ? name.slice(-1) : "";
+  return `${visibleStart}${"*".repeat(Math.max(3, name.length - 3))}${visibleEnd}@${domain}`;
 }
 
 function buildPatientInviteUrl(token: string) {

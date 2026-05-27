@@ -1,10 +1,14 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, CreditCard, LockKeyhole } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase-ext/client";
-import { acceptPatientInvitation, completePatientInvitation } from "@/lib/patients.functions";
+import {
+  acceptPatientInvitation,
+  completePatientInvitation,
+  getPatientInvitationPreview,
+} from "@/lib/patients.functions";
 
 export const Route = createFileRoute("/patient-invite/$token")({
   component: PatientInvitePage,
@@ -16,11 +20,17 @@ function PatientInvitePage() {
   const queryClient = useQueryClient();
   const completeInvite = useServerFn(completePatientInvitation);
   const acceptInvite = useServerFn(acceptPatientInvitation);
+  const fetchPreview = useServerFn(getPatientInvitationPreview);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+
+  const { data: preview, isLoading: previewLoading } = useQuery({
+    queryKey: ["patient-invite-preview", token],
+    queryFn: () => fetchPreview({ data: { token } }),
+  });
 
   useEffect(() => {
     let active = true;
@@ -71,25 +81,67 @@ function PatientInvitePage() {
           )}
         </div>
         <h1 className="mt-5 font-display text-3xl tracking-tight text-foreground">
-          Crie sua senha do cartão
+          Ative seu cartão de benefícios
         </h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Seu cadastro já foi criado pela clínica. Defina uma senha para acessar o cartão digital e
-          assinar os termos de uso.
+          Seu cadastro já foi iniciado pela clínica. Agora falta criar sua senha, aceitar os termos
+          e acompanhar a cobrança da assinatura.
         </p>
+
+        <div className="mt-5 rounded-xl border border-border bg-surface p-4">
+          {previewLoading ? (
+            <div className="text-sm text-muted-foreground">Carregando convite...</div>
+          ) : !preview?.found ? (
+            <div className="text-sm text-destructive">
+              Convite não encontrado. Peça para a clínica reenviar o acesso.
+            </div>
+          ) : preview.expired ? (
+            <div className="text-sm text-destructive">
+              Este convite expirou. Peça para a clínica reenviar o acesso do cartão.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Programa
+                </div>
+                <div className="mt-1 font-medium text-foreground">
+                  {preview.tenant?.name ?? "Clínica"}
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Info label="Paciente" value={preview.patientName ?? "Paciente"} />
+                <Info label="E-mail do convite" value={preview.email ?? "e-mail cadastrado"} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-5 grid gap-2 text-sm text-foreground">
+          {["Criar sua senha", "Aceitar o termo de uso", "Pagar a primeira cobrança"].map(
+            (step, index) => (
+              <div key={step} className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-soft text-xs font-medium text-brand">
+                  {index + 1}
+                </span>
+                {step}
+              </div>
+            ),
+          )}
+        </div>
 
         {authenticated ? (
           <div className="mt-6 space-y-4">
             <div className="rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted-foreground">
-              Este navegador já está logado
+              Este navegador já tem uma conta aberta
               {sessionEmail ? (
                 <>
                   {" "}
                   como <strong className="text-foreground">{sessionEmail}</strong>
                 </>
               ) : null}
-              . Se esse é o mesmo e-mail do convite, libere o cartão. Se não for, saia desta conta e
-              defina a senha do paciente convidado.
+              . Use este caminho apenas se for o mesmo e-mail do convite. Caso contrário, saia e
+              crie a senha correta do paciente.
             </div>
             {acceptExistingMutation.error && (
               <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -102,7 +154,7 @@ function PatientInvitePage() {
               className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
             >
               <CheckCircle2 className="h-4 w-4" />
-              {acceptExistingMutation.isPending ? "Liberando..." : "Liberar cartão nesta conta"}
+              {acceptExistingMutation.isPending ? "Ativando vínculo..." : "Usar esta conta"}
             </button>
             <button
               type="button"
@@ -115,7 +167,7 @@ function PatientInvitePage() {
               }}
               className="inline-flex w-full items-center justify-center rounded-lg border border-input px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-accent"
             >
-              Sair desta conta e criar senha
+              Sair e criar senha do convite
             </button>
           </div>
         ) : (
@@ -161,7 +213,9 @@ function PatientInvitePage() {
               </div>
             ) : (
               <button
-                disabled={mutation.isPending}
+                disabled={
+                  mutation.isPending || previewLoading || !preview?.found || preview.expired
+                }
                 className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
               >
                 <LockKeyhole className="h-4 w-4" />
@@ -172,6 +226,17 @@ function PatientInvitePage() {
         )}
       </section>
     </main>
+  );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-medium text-foreground">{value}</div>
+    </div>
   );
 }
 

@@ -172,6 +172,39 @@ function AdminReadinessPage() {
           </div>
         )}
       </Card>
+
+      <Card className="mt-5 overflow-hidden">
+        <div className="border-b border-border px-5 py-4">
+          <h2 className="font-display text-xl text-foreground">QA dos fluxos críticos</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Visão simples do que já foi testado com dados reais dentro da plataforma.
+          </p>
+        </div>
+        {isLoading ? (
+          <div className="px-5 py-10 text-sm text-muted-foreground">Carregando QA...</div>
+        ) : (
+          <div className="grid gap-3 p-5 md:grid-cols-2">
+            {(data?.qaChecks ?? []).map((check) => (
+              <div
+                key={check.label}
+                className="flex items-start justify-between gap-4 rounded-xl border border-border bg-surface px-4 py-3"
+              >
+                <div>
+                  <div className="font-medium text-foreground">{check.label}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{check.detail}</div>
+                </div>
+                <span
+                  className={`shrink-0 rounded-md px-2 py-0.5 text-xs ${
+                    check.ready ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
+                  }`}
+                >
+                  {check.ready ? "ok" : "testar"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </>
   );
 }

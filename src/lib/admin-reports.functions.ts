@@ -502,7 +502,19 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     await assertSuperAdminAccess(supabase, userId);
 
-    const [tenants, patients, payments, legalDocuments, invitations, webhooks] = await Promise.all([
+    const [
+      tenants,
+      patients,
+      payments,
+      legalDocuments,
+      staffInvitations,
+      patientInvitations,
+      subscriptions,
+      providers,
+      acceptances,
+      validations,
+      webhooks,
+    ] = await Promise.all([
       supabase
         .from("tenants")
         .select(
@@ -512,6 +524,11 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
       supabase.from("payments").select("id, tenant_id, status, asaas_payment_id"),
       supabase.from("legal_documents").select("id, type, active"),
       supabase.from("staff_invitations").select("id, status"),
+      supabase.from("patient_invitations").select("id, status"),
+      supabase.from("subscriptions").select("id, tenant_id, status"),
+      supabase.from("providers").select("id, tenant_id, active"),
+      supabase.from("legal_acceptances").select("id, tenant_id, patient_id"),
+      supabase.from("card_validations").select("id, tenant_id, outcome"),
       supabase
         .from("asaas_webhook_events")
         .select("id, processed_status, processed_result, error_message, processed_at")
@@ -519,7 +536,19 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
         .limit(20),
     ]);
 
-    for (const result of [tenants, patients, payments, legalDocuments, invitations, webhooks]) {
+    for (const result of [
+      tenants,
+      patients,
+      payments,
+      legalDocuments,
+      staffInvitations,
+      patientInvitations,
+      subscriptions,
+      providers,
+      acceptances,
+      validations,
+      webhooks,
+    ]) {
       if (result.error) throw new Error(result.error.message);
     }
 
@@ -527,8 +556,17 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
     const patientRows = patients.data ?? [];
     const paymentRows = payments.data ?? [];
     const legalRows = legalDocuments.data ?? [];
-    const inviteRows = invitations.data ?? [];
+    const staffInviteRows = staffInvitations.data ?? [];
+    const patientInviteRows = patientInvitations.data ?? [];
+    const subscriptionRows = subscriptions.data ?? [];
+    const providerRows = providers.data ?? [];
+    const acceptanceRows = acceptances.data ?? [];
+    const validationRows = validations.data ?? [];
     const webhookRows = webhooks.data ?? [];
+    const patientsByTenant = groupRowsBy(patientRows, "tenant_id");
+    const paymentsByTenant = groupRowsBy(paymentRows, "tenant_id");
+    const providersByTenant = groupRowsBy(providerRows, "tenant_id");
+    const subscriptionsByTenant = groupRowsBy(subscriptionRows, "tenant_id");
 
     const activeLegalTypes = new Set(
       legalRows.filter((document) => document.active).map((document) => document.type),
@@ -546,6 +584,18 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
           tenant.asaas_onboarding_status !== "active" ? "Asaas ativo" : null,
           !tenant.asaas_saas_subscription_id ? "mensalidade Medyco" : null,
           tenant.saas_billing_status === "overdue" ? "mensalidade em atraso" : null,
+          (patientsByTenant.get(tenant.id) ?? []).length === 0 ? "sem pacientes" : null,
+          !(patientsByTenant.get(tenant.id) ?? []).some((patient) => Boolean(patient.user_id))
+            ? "sem paciente com acesso"
+            : null,
+          !(providersByTenant.get(tenant.id) ?? []).some((provider) => provider.active)
+            ? "sem rede ativa"
+            : null,
+          !(paymentsByTenant.get(tenant.id) ?? []).some((payment) =>
+            Boolean(payment.asaas_payment_id),
+          )
+            ? "sem cobrança Asaas de paciente"
+            : null,
         ].filter(Boolean),
       }))
       .filter((tenant) => tenant.gaps.length > 0);
@@ -566,7 +616,22 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
         linkedPatients: patientRows.filter((patient) => Boolean(patient.user_id)).length,
         payments: paymentRows.length,
         asaasPayments: paymentRows.filter((payment) => Boolean(payment.asaas_payment_id)).length,
-        pendingInvites: inviteRows.filter((invite) => invite.status === "pending").length,
+        pendingInvites:
+          staffInviteRows.filter((invite) => invite.status === "pending").length +
+          patientInviteRows.filter((invite) => invite.status === "pending").length,
+        acceptedPatientInvites: patientInviteRows.filter((invite) => invite.status === "accepted")
+          .length,
+        activeSubscriptions: subscriptionRows.filter(
+          (subscription) => subscription.status === "active",
+        ).length,
+        pastDueSubscriptions: subscriptionRows.filter(
+          (subscription) => subscription.status === "past_due",
+        ).length,
+        activeProviders: providerRows.filter((provider) => provider.active).length,
+        acceptedTerms: acceptanceRows.length,
+        approvedValidations: validationRows.filter(
+          (validation) => validation.outcome === "approved",
+        ).length,
         webhookEvents: webhookRows.length,
         failedWebhooks: webhookRows.filter((event) => event.processed_status === "failed").length,
         ignoredWebhooks: webhookRows.filter((event) => event.processed_status === "ignored").length,
@@ -588,8 +653,66 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
       },
       tenants: tenantRows,
       tenantGaps,
+      qaChecks: [
+        {
+          label: "Clínica criada com dados completos",
+          ready: tenantRows.some((tenant) => tenant.cnpj && tenant.email),
+          detail: `${tenantRows.filter((tenant) => tenant.cnpj && tenant.email).length} clínica(s) com CNPJ e e-mail`,
+        },
+        {
+          label: "Convite de paciente aceito",
+          ready: patientInviteRows.some((invite) => invite.status === "accepted"),
+          detail: `${patientInviteRows.filter((invite) => invite.status === "accepted").length} aceite(s) registrados`,
+        },
+        {
+          label: "Paciente vinculado ao portal",
+          ready: patientRows.some((patient) => Boolean(patient.user_id)),
+          detail: `${patientRows.filter((patient) => Boolean(patient.user_id)).length} paciente(s) com acesso`,
+        },
+        {
+          label: "Termos aceitos",
+          ready: acceptanceRows.length > 0,
+          detail: `${acceptanceRows.length} aceite(s) jurídico(s)`,
+        },
+        {
+          label: "Cobrança de paciente via Asaas",
+          ready: paymentRows.some((payment) => Boolean(payment.asaas_payment_id)),
+          detail: `${paymentRows.filter((payment) => Boolean(payment.asaas_payment_id)).length} cobrança(s) com link Asaas`,
+        },
+        {
+          label: "Baixa automática por webhook",
+          ready: webhookRows.some((event) => event.processed_status === "processed"),
+          detail: `${webhookRows.filter((event) => event.processed_status === "processed").length} evento(s) processado(s)`,
+        },
+        {
+          label: "Inadimplência monitorada",
+          ready:
+            paymentRows.some((payment) => payment.status === "failed") ||
+            subscriptionRows.some((subscription) => subscription.status === "past_due"),
+          detail: `${subscriptionRows.filter((subscription) => subscription.status === "past_due").length} assinatura(s) em atraso`,
+        },
+        {
+          label: "Rede credenciada ativa",
+          ready: providerRows.some((provider) => provider.active),
+          detail: `${providerRows.filter((provider) => provider.active).length} credenciado(s) ativo(s)`,
+        },
+        {
+          label: "Validação QR testada",
+          ready: validationRows.length > 0,
+          detail: `${validationRows.length} validação(ões) registradas`,
+        },
+      ],
     };
   });
+
+function groupRowsBy<T extends Record<string, unknown>>(rows: T[], key: keyof T) {
+  return rows.reduce<Map<string, T[]>>((groups, row) => {
+    const value = row[key];
+    if (typeof value !== "string") return groups;
+    groups.set(value, [...(groups.get(value) ?? []), row]);
+    return groups;
+  }, new Map());
+}
 
 function groupCount<T extends Record<string, unknown>>(rows: T[], key: keyof T) {
   return rows.reduce<Record<string, number>>((groups, row) => {
