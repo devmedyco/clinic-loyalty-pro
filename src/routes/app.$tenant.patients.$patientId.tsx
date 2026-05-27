@@ -452,7 +452,9 @@ function PatientDetailPage() {
                   <div className="mt-4 rounded-xl border border-border bg-surface p-4 text-sm">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <div className="font-medium text-foreground">{subscription.plan}</div>
+                        <div className="font-medium text-foreground">
+                          {planLabel(subscription.plan)}
+                        </div>
                         <div className="text-xs text-muted-foreground">
                           Próximo vencimento:{" "}
                           {subscription.next_due_date
@@ -686,6 +688,13 @@ function statusLabel(status: string) {
       sem: "Sem assinatura",
     }[status] ?? status
   );
+}
+
+function planLabel(plan?: string | null) {
+  const labels: Record<string, string> = {
+    benefits: "Cartão de benefícios",
+  };
+  return labels[plan ?? ""] ?? plan ?? "Cartão de benefícios";
 }
 
 function formatCpf(cpf?: string | null) {

@@ -102,7 +102,7 @@ function PatientSubscriptionPage() {
               </div>
             )}
             <div className="mt-5 grid gap-3 text-sm md:grid-cols-4">
-              <Info label="Plano" value={data.subscription?.plan ?? "benefits"} />
+              <Info label="Plano" value={planLabel(data.subscription?.plan)} />
               <Info
                 label="Próximo vencimento"
                 value={
@@ -339,4 +339,11 @@ function paymentLabel(status: string) {
     canceled: "Cancelado",
   };
   return labels[status] ?? status;
+}
+
+function planLabel(plan?: string | null) {
+  const labels: Record<string, string> = {
+    benefits: "Cartão de benefícios",
+  };
+  return labels[plan ?? ""] ?? plan ?? "Cartão de benefícios";
 }

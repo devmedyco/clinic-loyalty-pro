@@ -478,7 +478,7 @@ function TenantSettingsPage() {
                       <h3 className="text-sm font-medium text-foreground">Asaas marketplace</h3>
                       <p className="mt-1 text-xs text-muted-foreground">
                         Modelo recomendado: a clínica recebe na própria subconta/carteira e a Medyco
-                        recebe o split automático.
+                        recebe o repasse automático.
                       </p>
                     </div>
                     <button

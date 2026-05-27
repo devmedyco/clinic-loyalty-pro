@@ -13,7 +13,7 @@ const included = [
   "Contratos, aceite digital e política de cancelamento",
   "Relatórios de pacientes, pagamentos e atendimentos",
   "Cadastro inteligente com CNPJ e CEP",
-  "Base preparada para Asaas, split, inadimplência e renovação",
+  "Base preparada para Asaas, repasse automático, inadimplência e renovação",
 ];
 
 function PlansPage() {

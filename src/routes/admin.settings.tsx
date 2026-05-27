@@ -101,7 +101,7 @@ function AdminSettingsPage() {
               active={Boolean(data?.asaasMedycoWalletConfigured)}
             />
             <SettingRow
-              label="Split automático"
+              label="Repasse automático"
               value={
                 isLoading
                   ? "verificando"
@@ -116,7 +116,8 @@ function AdminSettingsPage() {
         <Card className="p-6">
           <h2 className="font-display text-xl text-foreground">Modelo comercial padrão</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Usado em novas clínicas e nas cobranças de pacientes quando o split Asaas estiver ativo.
+            Usado em novas clínicas e nas cobranças de pacientes quando o repasse Asaas estiver
+            ativo.
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <MiniMetric label="Mensalidade clínica" value={formatCurrency(DEFAULT_MONTHLY_FEE)} />
@@ -213,7 +214,7 @@ function AdminSettingsPage() {
           </div>
           <div className="mt-5 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted-foreground">
             Não precisa criar produto manual no Asaas. A Medyco cria cobranças por API e envia o
-            split de {formatCurrency(DEFAULT_SPLIT_FIXED_FEE)} +{" "}
+            repasse de {formatCurrency(DEFAULT_SPLIT_FIXED_FEE)} +{" "}
             {formatPercent(DEFAULT_SPLIT_PERCENTAGE)}% para a carteira da Medyco.
           </div>
         </Card>

@@ -82,8 +82,8 @@ function AdminMetricsPage() {
 
 function commercialModelLabel(value?: string) {
   if (value === "custom") return "Contrato customizado";
-  if (value === "base_fixed_plus_split") return "Base + taxa + split";
-  return "Base + split";
+  if (value === "base_fixed_plus_split") return "Mensalidade + participação por paciente";
+  return "Mensalidade + participação";
 }
 
 function BreakdownCard({
@@ -127,7 +127,7 @@ function BreakdownCard({
 
 function metricLabel(value: string) {
   const labels: Record<string, string> = {
-    base_fixed_plus_split: "Mensalidade + taxa por paciente",
+    base_fixed_plus_split: "Mensalidade + participação por paciente",
     base_plus_split: "Mensalidade + participação",
     custom: "Contrato customizado",
     trial: "Teste",

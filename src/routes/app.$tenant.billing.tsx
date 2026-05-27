@@ -244,7 +244,9 @@ function BillingPage() {
                             "Sem contato"}
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-muted-foreground">{subscription.plan}</td>
+                      <td className="px-5 py-4 text-muted-foreground">
+                        {planLabel(subscription.plan)}
+                      </td>
                       <td className="px-5 py-4 text-muted-foreground">
                         {subscription.next_due_date
                           ? formatDate(subscription.next_due_date)
@@ -323,7 +325,7 @@ function BillingPage() {
                       )}
                       {payment.asaas_split_status && (
                         <div className="mt-1 text-xs text-muted-foreground">
-                          Split: {splitStatusLabel(payment.asaas_split_status)}
+                          Repasse Medyco: {splitStatusLabel(payment.asaas_split_status)}
                           {payment.asaas_split_fixed_fee
                             ? ` · ${formatCurrency(payment.asaas_split_fixed_fee)}`
                             : ""}
@@ -522,7 +524,7 @@ function PaymentModal({
               )}
               {asaasConfigured && asaasMode !== "tenant_subaccount_split" && (
                 <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning sm:col-span-2">
-                  Asaas está configurado, mas o split automático ainda não está pronto para esta
+                  Asaas está configurado, mas o repasse automático ainda não está pronto para esta
                   clínica. Configure subconta, secret da clínica e wallet Medyco para separar{" "}
                   {formatCurrency(splitFixedFee)} + {formatPercent(splitPercentage)}%
                   automaticamente.
@@ -655,6 +657,13 @@ function splitStatusLabel(status: string) {
     REFUSED: "recusado",
   };
   return labels[status] ?? status;
+}
+
+function planLabel(plan?: string | null) {
+  const labels: Record<string, string> = {
+    benefits: "Cartão de benefícios",
+  };
+  return labels[plan ?? ""] ?? plan ?? "Cartão de benefícios";
 }
 
 function formatDate(value: string) {
