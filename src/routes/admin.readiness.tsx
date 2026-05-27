@@ -74,6 +74,37 @@ function AdminReadinessPage() {
         />
       </div>
 
+      {!isLoading && (data?.alerts ?? []).length > 0 && (
+        <Card className="mt-6 overflow-hidden">
+          <div className="border-b border-border px-5 py-4">
+            <h2 className="font-display text-xl text-foreground">Ação necessária</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Alertas que merecem atenção antes de colocar mais clientes na plataforma.
+            </p>
+          </div>
+          <div className="grid gap-3 p-5 md:grid-cols-2">
+            {(data?.alerts ?? [])
+              .filter((alert): alert is NonNullable<typeof alert> => Boolean(alert))
+              .map((alert) => (
+                <Link
+                  key={`${alert.title}-${alert.action}`}
+                  to={alert.action as never}
+                  className={`rounded-xl border px-4 py-3 transition hover:bg-surface ${
+                    alert.level === "error"
+                      ? "border-destructive/30 bg-destructive/10"
+                      : alert.level === "warning"
+                        ? "border-warning/30 bg-warning/10"
+                        : "border-border bg-surface"
+                  }`}
+                >
+                  <div className="text-sm font-medium text-foreground">{alert.title}</div>
+                  <div className="mt-1 text-xs leading-5 text-muted-foreground">{alert.detail}</div>
+                </Link>
+              ))}
+          </div>
+        </Card>
+      )}
+
       <div className="mt-6 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
         <Card className="p-6">
           <h2 className="font-display text-xl text-foreground">Checklist principal</h2>

@@ -89,8 +89,8 @@ function PatientInvitePage() {
           Ative seu cartão de benefícios
         </h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Seu cadastro já foi iniciado pela clínica. Esta tela é exclusiva para o e-mail convidado:
-          confira os dados abaixo, crie sua senha e siga para os termos.
+          Seu cadastro já foi iniciado pela clínica. Você não precisa preencher nome, CPF ou
+          escolher clínica: o convite já carrega tudo isso.
         </p>
 
         <div className="mt-5 rounded-xl border border-border bg-surface p-4">
@@ -128,18 +128,14 @@ function PatientInvitePage() {
           )}
         </div>
 
-        <div className="mt-5 grid gap-2 text-sm text-foreground">
-          {["Criar sua senha", "Aceitar o termo de uso", "Pagar a primeira cobrança"].map(
-            (step, index) => (
-              <div key={step} className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-soft text-xs font-medium text-brand">
-                  {index + 1}
-                </span>
-                {step}
-              </div>
-            ),
-          )}
-        </div>
+        <InviteProgress
+          steps={[
+            { label: preview?.alreadyLinked ? "Entrar na conta" : "Criar senha", active: true },
+            { label: "Aceitar termo", active: false },
+            { label: "Pagar cobrança", active: false },
+            { label: "Usar cartão", active: false },
+          ]}
+        />
 
         {authenticated ? (
           <div className="mt-6 space-y-4">
@@ -186,6 +182,20 @@ function PatientInvitePage() {
             >
               Sair e criar senha do convite
             </button>
+          </div>
+        ) : preview?.alreadyLinked ? (
+          <div className="mt-6 space-y-3">
+            <div className="rounded-xl border border-success/20 bg-success/10 px-4 py-3 text-sm text-success">
+              Este convite já foi aceito. Agora o caminho correto é entrar com o e-mail{" "}
+              <strong>{preview.email}</strong> e seguir para termos/assinatura.
+            </div>
+            <Link
+              to="/login"
+              search={{ redirect: `/patient-invite/${token}`, portal: "patient" } as never}
+              className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+            >
+              Entrar como paciente
+            </Link>
           </div>
         ) : (
           <form
@@ -253,6 +263,33 @@ function Info({ label, value }: { label: string; value: string }) {
         {label}
       </div>
       <div className="mt-1 text-sm font-medium text-foreground">{value}</div>
+    </div>
+  );
+}
+
+function InviteProgress({
+  steps,
+}: {
+  steps: Array<{
+    label: string;
+    active: boolean;
+  }>;
+}) {
+  return (
+    <div className="mt-5 grid gap-2 text-sm text-foreground sm:grid-cols-4">
+      {steps.map((step, index) => (
+        <div
+          key={step.label}
+          className={`rounded-xl border px-3 py-2 ${
+            step.active
+              ? "border-brand/30 bg-brand-soft text-brand"
+              : "border-border bg-surface text-muted-foreground"
+          }`}
+        >
+          <div className="text-[11px] font-medium uppercase tracking-wider">Passo {index + 1}</div>
+          <div className="mt-0.5 font-medium">{step.label}</div>
+        </div>
+      ))}
     </div>
   );
 }

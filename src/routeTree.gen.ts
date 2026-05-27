@@ -33,6 +33,7 @@ import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AppTenantRouteImport } from './routes/app.$tenant'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
+import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminReadinessRouteImport } from './routes/admin.readiness'
 import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
@@ -175,6 +176,11 @@ const AdminTenantsRoute = AdminTenantsRouteImport.update({
   path: '/tenants',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSupportRoute = AdminSupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -308,6 +314,7 @@ export interface FileRoutesByFullPath {
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/readiness': typeof AdminReadinessRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/app/$tenant': typeof AppTenantRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
@@ -353,6 +360,7 @@ export interface FileRoutesByTo {
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/readiness': typeof AdminReadinessRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -401,6 +409,7 @@ export interface FileRoutesById {
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/readiness': typeof AdminReadinessRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/support': typeof AdminSupportRoute
   '/admin/tenants': typeof AdminTenantsRoute
   '/app/$tenant': typeof AppTenantRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
@@ -450,6 +459,7 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/admin/readiness'
     | '/admin/settings'
+    | '/admin/support'
     | '/admin/tenants'
     | '/app/$tenant'
     | '/auth/callback'
@@ -495,6 +505,7 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/admin/readiness'
     | '/admin/settings'
+    | '/admin/support'
     | '/admin/tenants'
     | '/auth/callback'
     | '/invite/$token'
@@ -542,6 +553,7 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/admin/readiness'
     | '/admin/settings'
+    | '/admin/support'
     | '/admin/tenants'
     | '/app/$tenant'
     | '/auth/callback'
@@ -758,6 +770,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTenantsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/support': {
+      id: '/admin/support'
+      path: '/support'
+      fullPath: '/admin/support'
+      preLoaderRoute: typeof AdminSupportRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/settings': {
       id: '/admin/settings'
       path: '/settings'
@@ -936,6 +955,7 @@ interface AdminRouteChildren {
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminReadinessRoute: typeof AdminReadinessRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminSupportRoute: typeof AdminSupportRoute
   AdminTenantsRoute: typeof AdminTenantsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -947,6 +967,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminReadinessRoute: AdminReadinessRoute,
   AdminSettingsRoute: AdminSettingsRoute,
+  AdminSupportRoute: AdminSupportRoute,
   AdminTenantsRoute: AdminTenantsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }

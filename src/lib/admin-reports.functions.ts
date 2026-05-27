@@ -596,6 +596,16 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
     const paymentsByTenant = groupRowsBy(paymentRows, "tenant_id");
     const providersByTenant = groupRowsBy(providerRows, "tenant_id");
     const subscriptionsByTenant = groupRowsBy(subscriptionRows, "tenant_id");
+    const failedWebhookRows = webhookRows.filter((event) => event.processed_status === "failed");
+    const ignoredWebhookRows = webhookRows.filter((event) => event.processed_status === "ignored");
+    const operationalErrorRows = operationalRows.filter((event) => event.level === "error");
+    const operationalWarningRows = operationalRows.filter((event) => event.level === "warning");
+    const tenantsWithoutSaasBilling = tenantRows.filter(
+      (tenant) => !tenant.asaas_saas_subscription_id,
+    );
+    const pendingInviteCount =
+      staffInviteRows.filter((invite) => invite.status === "pending").length +
+      patientInviteRows.filter((invite) => invite.status === "pending").length;
 
     const activeLegalTypes = new Set(
       legalRows.filter((document) => document.active).map((document) => document.type),
@@ -645,9 +655,7 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
         linkedPatients: patientRows.filter((patient) => Boolean(patient.user_id)).length,
         payments: paymentRows.length,
         asaasPayments: paymentRows.filter((payment) => Boolean(payment.asaas_payment_id)).length,
-        pendingInvites:
-          staffInviteRows.filter((invite) => invite.status === "pending").length +
-          patientInviteRows.filter((invite) => invite.status === "pending").length,
+        pendingInvites: pendingInviteCount,
         acceptedPatientInvites: patientInviteRows.filter((invite) => invite.status === "accepted")
           .length,
         activeSubscriptions: subscriptionRows.filter(
@@ -662,11 +670,53 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
           (validation) => validation.outcome === "approved",
         ).length,
         webhookEvents: webhookRows.length,
-        failedWebhooks: webhookRows.filter((event) => event.processed_status === "failed").length,
-        ignoredWebhooks: webhookRows.filter((event) => event.processed_status === "ignored").length,
-        operationalErrors: operationalRows.filter((event) => event.level === "error").length,
-        operationalWarnings: operationalRows.filter((event) => event.level === "warning").length,
+        failedWebhooks: failedWebhookRows.length,
+        ignoredWebhooks: ignoredWebhookRows.length,
+        operationalErrors: operationalErrorRows.length,
+        operationalWarnings: operationalWarningRows.length,
       },
+      alerts: [
+        failedWebhookRows.length
+          ? {
+              level: "error",
+              title: "Webhook Asaas com falha",
+              detail: `${failedWebhookRows.length} evento(s) precisam de conferência em Auditoria.`,
+              action: "/admin/audit",
+            }
+          : null,
+        operationalErrorRows.length
+          ? {
+              level: "error",
+              title: "Erro operacional registrado",
+              detail: `${operationalErrorRows.length} erro(s) recentes no monitor operacional.`,
+              action: "/admin/support",
+            }
+          : null,
+        operationalWarningRows.length
+          ? {
+              level: "warning",
+              title: "Alerta operacional",
+              detail: `${operationalWarningRows.length} aviso(s) recentes para acompanhar.`,
+              action: "/admin/support",
+            }
+          : null,
+        tenantsWithoutSaasBilling.length
+          ? {
+              level: "warning",
+              title: "Mensalidade Medyco não ativada",
+              detail: `${tenantsWithoutSaasBilling.length} clínica(s) ainda sem cobrança SaaS.`,
+              action: "/admin/billing",
+            }
+          : null,
+        pendingInviteCount
+          ? {
+              level: "info",
+              title: "Convites pendentes",
+              detail: `${pendingInviteCount} convite(s) ainda aguardando aceite.`,
+              action: "/admin/support",
+            }
+          : null,
+      ].filter(Boolean),
       webhook: {
         lastEventAt: webhookRows[0]?.processed_at ?? null,
         lastResult: webhookRows[0]?.processed_result ?? null,

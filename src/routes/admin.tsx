@@ -48,6 +48,7 @@ function AdminLayout() {
         { to: "/admin/billing", label: "Billing SaaS", icon: Icons.cash },
         { to: "/admin/metrics", label: "Métricas", icon: Icons.chart },
         { to: "/admin/readiness", label: "Prontidão", icon: Icons.list },
+        { to: "/admin/support", label: "Suporte", icon: Icons.staff },
         { to: "/admin/notifications", label: "Notificações", icon: Icons.list },
         { to: "/admin/audit", label: "Auditoria", icon: Icons.shield },
         { to: "/admin/settings", label: "Configurações", icon: Icons.cog },

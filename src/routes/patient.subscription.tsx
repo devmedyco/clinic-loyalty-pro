@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -37,6 +37,35 @@ function PatientSubscriptionPage() {
   const pendingPayments = (data?.payments ?? []).filter((payment) => payment.status === "pending");
   const nextPayment = pendingPayments[0];
   const invoiceUrl = nextPayment?.asaas_invoice_url || nextPayment?.asaas_bank_slip_url;
+  const nextAction = !data?.patient
+    ? null
+    : !data.legal?.accepted
+      ? {
+          title: "Primeiro: aceite o termo de uso",
+          text: "Sem o aceite, o cartão continua bloqueado mesmo que exista cobrança criada.",
+          href: "/patient/terms",
+          label: "Aceitar termo",
+        }
+      : !hasPaidPayment && invoiceUrl
+        ? {
+            title: "Agora falta pagar a primeira cobrança",
+            text: "Depois da confirmação do Asaas, a assinatura fica ativa automaticamente.",
+            href: invoiceUrl,
+            label: "Pagar agora",
+          }
+        : !hasPaidPayment
+          ? {
+              title: "Cobrança ainda precisa ser gerada",
+              text: "A clínica deve gerar ou reenviar a cobrança para liberar seu cartão.",
+              href: null,
+              label: null,
+            }
+          : {
+              title: "Cartão pronto para uso",
+              text: "Apresente seu QR Code ou número do cartão na rede credenciada.",
+              href: "/patient",
+              label: "Ver cartão",
+            };
 
   return (
     <>
@@ -51,6 +80,35 @@ function PatientSubscriptionPage() {
         </Card>
       ) : (
         <div className="grid gap-5 md:grid-cols-3">
+          {nextAction && (
+            <Card className="border-brand/20 bg-brand-soft p-6 md:col-span-3">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">{nextAction.title}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">{nextAction.text}</p>
+                </div>
+                {nextAction.href && nextAction.label ? (
+                  nextAction.href.startsWith("http") ? (
+                    <a
+                      href={nextAction.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+                    >
+                      {nextAction.label}
+                    </a>
+                  ) : (
+                    <Link
+                      to={nextAction.href as never}
+                      className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+                    >
+                      {nextAction.label}
+                    </Link>
+                  )
+                ) : null}
+              </div>
+            </Card>
+          )}
           <StatCard
             label="Status"
             value={active ? "Ativa" : "Pendente"}
