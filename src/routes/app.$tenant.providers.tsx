@@ -5,6 +5,17 @@ import { Building2, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { deleteProvider, listProviders, saveProvider } from "@/lib/providers.functions";
 
 export const Route = createFileRoute("/app/$tenant/providers")({
@@ -175,16 +186,33 @@ function ProvidersPage() {
                   >
                     Editar
                   </button>
-                  <button
-                    disabled={deleteMutation.isPending}
-                    onClick={() => {
-                      if (window.confirm(`Remover ${provider.name}?`))
-                        deleteMutation.mutate(provider.id);
-                    }}
-                    className="rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
-                  >
-                    Remover
-                  </button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        disabled={deleteMutation.isPending}
+                        className="rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
+                      >
+                        Remover
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="border-border bg-surface-elevated">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remover credenciado?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Isso remove {provider.name} da rede visível para pacientes desse programa.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => deleteMutation.mutate(provider.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Remover credenciado
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             ))}

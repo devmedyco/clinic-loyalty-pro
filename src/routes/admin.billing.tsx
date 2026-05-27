@@ -4,6 +4,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   cancelTenantSaasBilling,
   getAdminBilling,
   startTenantSaasBilling,
@@ -163,22 +174,36 @@ function AdminBillingPage() {
                                 Abrir cobrança
                               </a>
                             )}
-                            <button
-                              type="button"
-                              disabled={cancelBillingMutation.isPending}
-                              onClick={() => {
-                                if (
-                                  window.confirm(
-                                    `Cancelar a mensalidade SaaS de ${tenant.name} no Asaas?`,
-                                  )
-                                ) {
-                                  cancelBillingMutation.mutate(tenant.id);
-                                }
-                              }}
-                              className="text-xs font-medium text-destructive hover:underline disabled:opacity-60"
-                            >
-                              Cancelar
-                            </button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button
+                                  type="button"
+                                  disabled={cancelBillingMutation.isPending}
+                                  className="text-xs font-medium text-destructive hover:underline disabled:opacity-60"
+                                >
+                                  Cancelar
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="border-border bg-surface-elevated">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Cancelar mensalidade?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Isso cancela a assinatura SaaS de {tenant.name} no Asaas. A
+                                    clínica deixa de gerar próximas cobranças automáticas da
+                                    mensalidade da plataforma.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Voltar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => cancelBillingMutation.mutate(tenant.id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Cancelar mensalidade
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </div>
                       ) : (

@@ -6,6 +6,17 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   createService,
   deleteService,
   listServices,
@@ -165,18 +176,35 @@ function ServicesPage() {
                           <Pencil className="h-3.5 w-3.5" />
                           Editar
                         </button>
-                        <button
-                          disabled={deleteMutation.isPending}
-                          onClick={() => {
-                            if (window.confirm(`Remover ${service.name}?`)) {
-                              deleteMutation.mutate(service.id);
-                            }
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Remover
-                        </button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button
+                              disabled={deleteMutation.isPending}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Remover
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="border-border bg-surface-elevated">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remover serviço?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Isso remove {service.name} da lista de procedimentos disponíveis
+                                para novos atendimentos e para a rede credenciada.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteMutation.mutate(service.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Remover serviço
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </td>
                   </tr>

@@ -1,10 +1,21 @@
 import { Link, Outlet, createFileRoute, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Eye, Send, Upload } from "lucide-react";
+import { Download, Eye, Send, Trash2, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader } from "@/components/portal/Shell";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { lookupCep } from "@/lib/brasil-data";
 import {
   createPatient,
@@ -329,6 +340,11 @@ function PatientsPage() {
                             ? "Reenviar"
                             : "Convidar"}
                       </button>
+                      <ConfirmRemovePatient
+                        patientName={patient.full_name}
+                        disabled={deleteMutation.isPending}
+                        onConfirm={() => deleteMutation.mutate(patient.id)}
+                      />
                     </div>
                   </div>
                 );
@@ -406,16 +422,11 @@ function PatientsPage() {
                                   ? "Reenviar"
                                   : "Convidar"}
                             </button>
-                            <button
+                            <ConfirmRemovePatient
+                              patientName={patient.full_name}
                               disabled={deleteMutation.isPending}
-                              onClick={() => {
-                                if (window.confirm(`Remover ${patient.full_name}?`))
-                                  deleteMutation.mutate(patient.id);
-                              }}
-                              className="rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
-                            >
-                              Remover
-                            </button>
+                              onConfirm={() => deleteMutation.mutate(patient.id)}
+                            />
                           </div>
                         </td>
                       </tr>
@@ -428,6 +439,48 @@ function PatientsPage() {
         )}
       </Card>
     </>
+  );
+}
+
+function ConfirmRemovePatient({
+  patientName,
+  disabled,
+  onConfirm,
+}: {
+  patientName: string;
+  disabled: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <button
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Remover
+        </button>
+      </AlertDialogTrigger>
+      <AlertDialogContent className="border-border bg-surface-elevated">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Remover paciente?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Isso remove {patientName} da clínica e também bloqueia o uso operacional do cartão
+            vinculado a esse cadastro.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onConfirm}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Remover paciente
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
