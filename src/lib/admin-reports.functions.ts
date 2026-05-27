@@ -299,7 +299,7 @@ export const getAdminAudit = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     await assertSuperAdminAccess(supabase, userId);
 
-    const [validations, executions, invitations, tenants] = await Promise.all([
+    const [validations, executions, invitations, tenants, webhooks] = await Promise.all([
       supabase
         .from("card_validations")
         .select("id, outcome, reason, validated_at, tenants(name, slug)")
@@ -320,9 +320,16 @@ export const getAdminAudit = createServerFn({ method: "GET" })
         .select("id, name, slug, status, created_at")
         .order("created_at", { ascending: false })
         .limit(12),
+      supabase
+        .from("asaas_webhook_events")
+        .select(
+          "id, event, asaas_payment_id, processed_status, processed_result, error_message, processed_at",
+        )
+        .order("processed_at", { ascending: false })
+        .limit(12),
     ]);
 
-    for (const result of [validations, executions, invitations, tenants]) {
+    for (const result of [validations, executions, invitations, tenants, webhooks]) {
       if (result.error) throw new Error(result.error.message);
     }
 
@@ -359,6 +366,21 @@ export const getAdminAudit = createServerFn({ method: "GET" })
           detail: `/${item.slug} • ${item.status}`,
           tenant: item.name,
           created_at: item.created_at,
+        })),
+        ...(webhooks.data ?? []).map((item) => ({
+          id: `webhook-${item.id}`,
+          type: "Webhook Asaas",
+          title: webhookTitle(item.processed_status),
+          detail: [
+            item.event,
+            item.processed_result,
+            item.asaas_payment_id ? `pagamento ${item.asaas_payment_id}` : null,
+            item.error_message,
+          ]
+            .filter(Boolean)
+            .join(" • "),
+          tenant: "Medyco",
+          created_at: item.processed_at,
         })),
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     };
@@ -480,7 +502,7 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     await assertSuperAdminAccess(supabase, userId);
 
-    const [tenants, patients, payments, legalDocuments, invitations] = await Promise.all([
+    const [tenants, patients, payments, legalDocuments, invitations, webhooks] = await Promise.all([
       supabase
         .from("tenants")
         .select(
@@ -490,9 +512,14 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
       supabase.from("payments").select("id, tenant_id, status, asaas_payment_id"),
       supabase.from("legal_documents").select("id, type, active"),
       supabase.from("staff_invitations").select("id, status"),
+      supabase
+        .from("asaas_webhook_events")
+        .select("id, processed_status, processed_result, error_message, processed_at")
+        .order("processed_at", { ascending: false })
+        .limit(20),
     ]);
 
-    for (const result of [tenants, patients, payments, legalDocuments, invitations]) {
+    for (const result of [tenants, patients, payments, legalDocuments, invitations, webhooks]) {
       if (result.error) throw new Error(result.error.message);
     }
 
@@ -501,6 +528,7 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
     const paymentRows = payments.data ?? [];
     const legalRows = legalDocuments.data ?? [];
     const inviteRows = invitations.data ?? [];
+    const webhookRows = webhooks.data ?? [];
 
     const activeLegalTypes = new Set(
       legalRows.filter((document) => document.active).map((document) => document.type),
@@ -539,6 +567,17 @@ export const getAdminReadiness = createServerFn({ method: "GET" })
         payments: paymentRows.length,
         asaasPayments: paymentRows.filter((payment) => Boolean(payment.asaas_payment_id)).length,
         pendingInvites: inviteRows.filter((invite) => invite.status === "pending").length,
+        webhookEvents: webhookRows.length,
+        failedWebhooks: webhookRows.filter((event) => event.processed_status === "failed").length,
+        ignoredWebhooks: webhookRows.filter((event) => event.processed_status === "ignored").length,
+      },
+      webhook: {
+        lastEventAt: webhookRows[0]?.processed_at ?? null,
+        lastResult: webhookRows[0]?.processed_result ?? null,
+        lastStatus: webhookRows[0]?.processed_status ?? null,
+        recentFailures: webhookRows
+          .filter((event) => event.processed_status === "failed")
+          .slice(0, 5),
       },
       legal: {
         patientTerms: activeLegalTypes.has("patient_terms"),
@@ -603,6 +642,13 @@ function statusLabel(status: string) {
     expired: "expirado",
   };
   return labels[status] ?? status;
+}
+
+function webhookTitle(status?: string | null) {
+  if (status === "processed") return "Evento processado";
+  if (status === "ignored") return "Evento ignorado";
+  if (status === "failed") return "Evento com falha";
+  return "Evento recebido";
 }
 
 function formatCurrency(value: number | string) {

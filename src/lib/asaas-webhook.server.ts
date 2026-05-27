@@ -51,54 +51,83 @@ export async function handleAsaasWebhook(request: Request) {
   );
   if (eventError) return json({ error: eventError.message }, 500);
 
-  if (!payment?.id) {
-    return json({ received: true, ignored: "payment_not_found" });
-  }
+  try {
+    if (!payment?.id) {
+      await markWebhookEvent(eventId, "ignored", "payment_not_found");
+      return json({ received: true, ignored: "payment_not_found" });
+    }
 
-  const mappedStatus = mapAsaasStatus(event, payment.status);
-  if (!mappedStatus) {
-    return json({ received: true, ignored: "status_not_mapped" });
-  }
+    const mappedStatus = mapAsaasStatus(event, payment.status);
+    if (!mappedStatus) {
+      await markWebhookEvent(eventId, "ignored", "status_not_mapped");
+      return json({ received: true, ignored: "status_not_mapped" });
+    }
 
-  const paidAt =
-    mappedStatus === "paid"
-      ? (payment.clientPaymentDate ??
-        payment.paymentDate ??
-        payment.confirmedDate ??
-        new Date().toISOString())
-      : null;
-  const firstSplit = payment.split?.[0];
-  const syncedTenantBilling = await syncTenantSaasBillingFromPayment(payment, mappedStatus);
-  if (syncedTenantBilling) {
-    return json({ received: true, synced: "tenant_saas_billing" });
-  }
+    const paidAt =
+      mappedStatus === "paid"
+        ? (payment.clientPaymentDate ??
+          payment.paymentDate ??
+          payment.confirmedDate ??
+          new Date().toISOString())
+        : null;
+    const firstSplit = payment.split?.[0];
+    const syncedTenantBilling = await syncTenantSaasBillingFromPayment(payment, mappedStatus);
+    if (syncedTenantBilling) {
+      await markWebhookEvent(eventId, "processed", "tenant_saas_billing");
+      return json({ received: true, synced: "tenant_saas_billing" });
+    }
 
-  const { data: paymentRow, error: paymentError } = await supabaseAdmin
-    .from("payments")
+    const { data: paymentRow, error: paymentError } = await supabaseAdmin
+      .from("payments")
+      .update({
+        status: mappedStatus,
+        paid_at: paidAt,
+        confirmed_at: paidAt,
+        asaas_invoice_url: payment.invoiceUrl,
+        asaas_bank_slip_url: payment.bankSlipUrl,
+        asaas_net_value: payment.netValue,
+        asaas_split_wallet_id: firstSplit?.walletId,
+        asaas_split_fixed_fee: firstSplit?.fixedValue,
+        asaas_split_percentage: firstSplit?.percentualValue,
+        asaas_split_status: firstSplit?.status,
+        asaas_split_value: firstSplit?.totalValue,
+      })
+      .eq("asaas_payment_id", payment.id)
+      .select("id, tenant_id, patient_id, subscription_id")
+      .maybeSingle();
+
+    if (paymentError) throw new Error(paymentError.message);
+    if (!paymentRow) {
+      await markWebhookEvent(eventId, "ignored", "local_payment_not_found");
+      return json({ received: true, ignored: "local_payment_not_found" });
+    }
+
+    await syncSubscriptionFromPayment(paymentRow, mappedStatus);
+    await markWebhookEvent(eventId, "processed", `patient_payment_${mappedStatus}`);
+    return json({ received: true, synced: "patient_payment" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro desconhecido no webhook.";
+    await markWebhookEvent(eventId, "failed", "processing_error", message);
+    return json({ error: message }, 500);
+  }
+}
+
+async function markWebhookEvent(
+  eventId: string,
+  status: "processed" | "ignored" | "failed",
+  result: string,
+  errorMessage?: string,
+) {
+  const { error } = await supabaseAdmin
+    .from("asaas_webhook_events")
     .update({
-      status: mappedStatus,
-      paid_at: paidAt,
-      confirmed_at: paidAt,
-      asaas_invoice_url: payment.invoiceUrl,
-      asaas_bank_slip_url: payment.bankSlipUrl,
-      asaas_net_value: payment.netValue,
-      asaas_split_wallet_id: firstSplit?.walletId,
-      asaas_split_fixed_fee: firstSplit?.fixedValue,
-      asaas_split_percentage: firstSplit?.percentualValue,
-      asaas_split_status: firstSplit?.status,
-      asaas_split_value: firstSplit?.totalValue,
+      processed_status: status,
+      processed_result: result,
+      error_message: errorMessage ?? null,
+      processed_at: new Date().toISOString(),
     })
-    .eq("asaas_payment_id", payment.id)
-    .select("id, tenant_id, patient_id, subscription_id")
-    .maybeSingle();
-
-  if (paymentError) return json({ error: paymentError.message }, 500);
-  if (!paymentRow) {
-    return json({ received: true, ignored: "local_payment_not_found" });
-  }
-
-  await syncSubscriptionFromPayment(paymentRow, mappedStatus);
-  return json({ received: true });
+    .eq("id", eventId);
+  if (error) throw new Error(error.message);
 }
 
 async function syncTenantSaasBillingFromPayment(

@@ -60,6 +60,12 @@ function AdminReadinessPage() {
           value={isLoading ? "..." : formatNumber(data?.totals.payments)}
           delta={`${formatNumber(data?.totals.asaasPayments)} via Asaas`}
         />
+        <StatCard
+          label="Webhook"
+          value={isLoading ? "..." : formatNumber(data?.totals.webhookEvents)}
+          delta={`${formatNumber(data?.totals.failedWebhooks)} falha(s) recentes`}
+          tone={data?.totals.failedWebhooks ? "warning" : "success"}
+        />
       </div>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
@@ -130,10 +136,73 @@ function AdminReadinessPage() {
           )}
         </Card>
       </div>
+
+      <Card className="mt-5 overflow-hidden">
+        <div className="border-b border-border px-5 py-4">
+          <h2 className="font-display text-xl text-foreground">Monitor do webhook Asaas</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Acompanha se os eventos de pagamento estão chegando e sendo processados.
+          </p>
+        </div>
+        {isLoading ? (
+          <div className="px-5 py-10 text-sm text-muted-foreground">Carregando monitor...</div>
+        ) : (
+          <div className="grid gap-4 p-5 md:grid-cols-3">
+            <MonitorBox
+              label="Último evento"
+              value={
+                data?.webhook.lastEventAt ? formatDate(data.webhook.lastEventAt) : "Sem evento"
+              }
+              detail={data?.webhook.lastResult ?? "Nenhum webhook recebido ainda"}
+            />
+            <MonitorBox
+              label="Status recente"
+              value={webhookStatusLabel(data?.webhook.lastStatus)}
+              detail={`${formatNumber(data?.totals.ignoredWebhooks)} evento(s) ignorado(s) recentemente`}
+            />
+            <MonitorBox
+              label="Falhas"
+              value={formatNumber(data?.totals.failedWebhooks)}
+              detail={
+                data?.totals.failedWebhooks
+                  ? "Abrir Auditoria para ver o motivo"
+                  : "Sem falhas recentes"
+              }
+            />
+          </div>
+        )}
+      </Card>
     </>
   );
 }
 
 function formatNumber(value?: number) {
   return new Intl.NumberFormat("pt-BR").format(value ?? 0);
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function webhookStatusLabel(value?: string | null) {
+  const labels: Record<string, string> = {
+    processed: "processado",
+    ignored: "ignorado",
+    failed: "falhou",
+    received: "recebido",
+  };
+  return labels[value ?? ""] ?? "sem evento";
+}
+
+function MonitorBox({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-4">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 font-medium text-foreground">{value}</div>
+      <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
+    </div>
+  );
 }
