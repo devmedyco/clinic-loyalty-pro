@@ -836,7 +836,8 @@ function initials(name: string) {
 }
 
 async function uploadTenantLogo(tenantId: string, file: File) {
-  const extension = file.name.split(".").pop() || "png";
+  assertTenantLogoFile(file);
+  const extension = safeLogoExtension(file);
   const path = `${tenantId}/logo-${Date.now()}.${extension}`;
   const { error } = await supabase.storage.from("tenant-assets").upload(path, file, {
     upsert: true,
@@ -845,4 +846,24 @@ async function uploadTenantLogo(tenantId: string, file: File) {
   if (error) throw new Error(error.message);
   const { data } = supabase.storage.from("tenant-assets").getPublicUrl(path);
   return data.publicUrl;
+}
+
+function assertTenantLogoFile(file: File) {
+  const allowed = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+  if (!allowed.includes(file.type)) {
+    throw new Error("Envie uma logo em PNG, JPG, WebP ou SVG.");
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error("A logo deve ter no máximo 5 MB.");
+  }
+}
+
+function safeLogoExtension(file: File) {
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  const allowed = new Set(["png", "jpg", "jpeg", "webp", "svg"]);
+  if (extension && allowed.has(extension)) return extension;
+  if (file.type === "image/jpeg") return "jpg";
+  if (file.type === "image/webp") return "webp";
+  if (file.type === "image/svg+xml") return "svg";
+  return "png";
 }

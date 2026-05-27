@@ -133,9 +133,10 @@ function PatientProfilePage() {
 }
 
 async function uploadAvatar(file: File) {
+  assertImageFile(file, false);
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) throw new Error("Sessão não encontrada.");
-  const extension = file.name.split(".").pop() || "png";
+  const extension = safeImageExtension(file);
   const path = `${userData.user.id}/avatar-${Date.now()}.${extension}`;
   const { error } = await supabase.storage.from("profile-avatars").upload(path, file, {
     upsert: true,
@@ -144,6 +145,27 @@ async function uploadAvatar(file: File) {
   if (error) throw new Error(error.message);
   const { data } = supabase.storage.from("profile-avatars").getPublicUrl(path);
   return data.publicUrl;
+}
+
+function assertImageFile(file: File, allowSvg: boolean) {
+  const allowed = allowSvg
+    ? ["image/png", "image/jpeg", "image/webp", "image/svg+xml"]
+    : ["image/png", "image/jpeg", "image/webp"];
+  if (!allowed.includes(file.type)) {
+    throw new Error("Envie uma imagem PNG, JPG ou WebP.");
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error("A imagem deve ter no máximo 5 MB.");
+  }
+}
+
+function safeImageExtension(file: File) {
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  const allowed = new Set(["png", "jpg", "jpeg", "webp"]);
+  if (extension && allowed.has(extension)) return extension;
+  if (file.type === "image/jpeg") return "jpg";
+  if (file.type === "image/webp") return "webp";
+  return "png";
 }
 
 function initials(name: string) {

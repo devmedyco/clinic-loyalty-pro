@@ -100,13 +100,10 @@ async function createSubaccountAccessToken(accountId) {
 }
 
 async function deleteCurrentSubaccount(subaccountApiKey) {
-  await asaasRequest(
-    "/myAccount/?removeReason=Reset%20de%20testes%20Medyco%20sandbox",
-    {
-      method: "DELETE",
-      apiKey: subaccountApiKey,
-    },
-  );
+  await asaasRequest("/myAccount/?removeReason=Reset%20de%20testes%20Medyco%20sandbox", {
+    method: "DELETE",
+    apiKey: subaccountApiKey,
+  });
 }
 
 async function asaasRequest(path, init) {
@@ -141,7 +138,10 @@ function safeJson(text) {
 
 function formatAsaasError(body) {
   if (body && typeof body === "object" && Array.isArray(body.errors)) {
-    return body.errors.map((item) => item.description || item.code).filter(Boolean).join(" ");
+    return body.errors
+      .map((item) => item.description || item.code)
+      .filter(Boolean)
+      .join(" ");
   }
   return null;
 }

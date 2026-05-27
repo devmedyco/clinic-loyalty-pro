@@ -35,10 +35,23 @@ export async function handleAsaasWebhook(request: Request) {
   const tokenError = validateWebhookToken(request);
   if (tokenError) return tokenError;
 
-  const payload = (await request.json()) as AsaasWebhookPayload;
+  const parseResult = await parseWebhookPayload(request);
+  if (!parseResult.ok) return parseResult.response;
+
+  const payload = parseResult.payload;
   const event = payload.event ?? "UNKNOWN";
   const payment = payload.payment;
   const eventId = buildEventId(payload, event);
+
+  const { data: existingEvent, error: existingEventError } = await supabaseAdmin
+    .from("asaas_webhook_events")
+    .select("processed_status, processed_result")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (existingEventError) return json({ error: existingEventError.message }, 500);
+  if (existingEvent?.processed_status === "processed") {
+    return json({ received: true, duplicate: true, result: existingEvent.processed_result });
+  }
 
   const { error: eventError } = await supabaseAdmin.from("asaas_webhook_events").upsert(
     {
@@ -171,11 +184,38 @@ function validateWebhookToken(request: Request) {
     request.headers.get("x-asaas-token") ??
     "";
 
-  if (received !== expected) {
+  if (!constantTimeEqual(received, expected)) {
     return json({ error: "Token inválido." }, 401);
   }
 
   return null;
+}
+
+async function parseWebhookPayload(request: Request) {
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > 256 * 1024) {
+    return { ok: false as const, response: json({ error: "Payload muito grande." }, 413) };
+  }
+
+  try {
+    return { ok: true as const, payload: (await request.json()) as AsaasWebhookPayload };
+  } catch {
+    return { ok: false as const, response: json({ error: "JSON inválido." }, 400) };
+  }
+}
+
+function constantTimeEqual(received: string, expected: string) {
+  const encoder = new TextEncoder();
+  const receivedBytes = encoder.encode(received);
+  const expectedBytes = encoder.encode(expected);
+  const maxLength = Math.max(receivedBytes.length, expectedBytes.length);
+  let diff = receivedBytes.length ^ expectedBytes.length;
+
+  for (let index = 0; index < maxLength; index += 1) {
+    diff |= (receivedBytes[index] ?? 0) ^ (expectedBytes[index] ?? 0);
+  }
+
+  return diff === 0;
 }
 
 function extractTenantId(externalReference?: string) {

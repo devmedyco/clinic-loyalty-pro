@@ -292,7 +292,7 @@ export const createTenantAsaasSubaccount = createServerFn({ method: "POST" })
 
     const apiKeyRef =
       data.api_key_ref || `ASAAS_TENANT_${toSecretSlug(currentTenant.slug)}_API_KEY`;
-    const { data: tenant, error } = await supabase
+    const { data: tenant, error } = await supabaseAdmin
       .from("tenants")
       .update({
         asaas_account_id: subaccount.id,
@@ -471,38 +471,50 @@ export const updateTenantSettings = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertTenantAdmin(supabase, userId, data.id);
-    const { data: tenant, error } = await supabase
+
+    const isSuperAdmin = await checkSuperAdmin(supabase, userId);
+    const commonPayload = {
+      name: data.name,
+      legal_name: data.legal_name,
+      responsible_name: data.responsible_name,
+      responsible_role: data.responsible_role,
+      logo_url: data.logo_url,
+      brand_color: data.brand_color,
+      email: data.email,
+      phone: data.phone,
+      cnpj: data.cnpj,
+      zip_code: data.zip_code,
+      street: data.street,
+      number: data.number,
+      complement: data.complement,
+      neighborhood: data.neighborhood,
+      city: data.city,
+      state: data.state?.toUpperCase(),
+      patient_subscription_suggestion:
+        data.patient_subscription_suggestion ?? DEFAULT_PATIENT_SUBSCRIPTION,
+      dependent_extra_amount: data.dependent_extra_amount ?? 0,
+    };
+    const platformPayload = isSuperAdmin
+      ? {
+          status: data.status,
+          monthly_fee: data.monthly_fee ?? DEFAULT_MONTHLY_FEE,
+          split_fixed_fee: data.split_fixed_fee ?? DEFAULT_SPLIT_FIXED_FEE,
+          split_percentage: data.split_percentage ?? DEFAULT_SPLIT_PERCENTAGE,
+          commercial_model: "base_fixed_plus_split",
+          asaas_account_id: data.asaas_account_id,
+          asaas_wallet_id: data.asaas_wallet_id,
+          asaas_api_key_ref: data.asaas_api_key_ref,
+          asaas_onboarding_status: data.asaas_onboarding_status,
+          asaas_split_enabled: data.asaas_split_enabled,
+        }
+      : {};
+
+    const updateClient = isSuperAdmin ? supabaseAdmin : supabase;
+    const { data: tenant, error } = await updateClient
       .from("tenants")
       .update({
-        name: data.name,
-        legal_name: data.legal_name,
-        responsible_name: data.responsible_name,
-        responsible_role: data.responsible_role,
-        logo_url: data.logo_url,
-        brand_color: data.brand_color,
-        email: data.email,
-        phone: data.phone,
-        cnpj: data.cnpj,
-        zip_code: data.zip_code,
-        street: data.street,
-        number: data.number,
-        complement: data.complement,
-        neighborhood: data.neighborhood,
-        city: data.city,
-        state: data.state?.toUpperCase(),
-        status: data.status,
-        monthly_fee: data.monthly_fee ?? DEFAULT_MONTHLY_FEE,
-        split_fixed_fee: data.split_fixed_fee ?? DEFAULT_SPLIT_FIXED_FEE,
-        split_percentage: data.split_percentage ?? DEFAULT_SPLIT_PERCENTAGE,
-        patient_subscription_suggestion:
-          data.patient_subscription_suggestion ?? DEFAULT_PATIENT_SUBSCRIPTION,
-        dependent_extra_amount: data.dependent_extra_amount ?? 0,
-        commercial_model: "base_fixed_plus_split",
-        asaas_account_id: data.asaas_account_id,
-        asaas_wallet_id: data.asaas_wallet_id,
-        asaas_api_key_ref: data.asaas_api_key_ref,
-        asaas_onboarding_status: data.asaas_onboarding_status,
-        asaas_split_enabled: data.asaas_split_enabled,
+        ...commonPayload,
+        ...platformPayload,
       })
       .eq("id", data.id)
       .select(

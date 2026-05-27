@@ -155,7 +155,18 @@ export const updatePatientPortalProfile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => updatePatientProfileSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { supabase, user, userId } = context as {
+      supabase: SupabaseClient;
+      user: User;
+      userId: string;
+    };
+    const { patient: linkedPatient, error: patientLookupError } = await getOrRepairPatientLink(
+      supabase,
+      userId,
+      user,
+    );
+    if (patientLookupError) throw new Error(patientLookupError.message);
+    if (!linkedPatient) throw new Error("Cadastro de paciente não encontrado.");
 
     const { data: patient, error } = await supabase
       .from("patients")
@@ -164,6 +175,8 @@ export const updatePatientPortalProfile = createServerFn({ method: "POST" })
         phone: data.phone,
         email: data.email,
       })
+      .eq("tenant_id", linkedPatient.tenant_id)
+      .eq("id", linkedPatient.id)
       .eq("user_id", userId)
       .select("id, full_name, email, phone, cpf, status")
       .single();
