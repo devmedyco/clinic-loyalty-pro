@@ -1,13 +1,15 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase-ext/client";
+import { getAuthLinkSearch } from "@/lib/auth-portal";
 
 export const Route = createFileRoute("/_auth/reset-password")({
   component: ResetPasswordPage,
 });
 
 function ResetPasswordPage() {
-  const authSearch = getAuthSearch();
+  const routeSearch = useRouterState({ select: (state) => state.location.search });
+  const authSearch = getAuthLinkSearch(routeSearch);
   const [mode, setMode] = useState<"request" | "update">("request");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -102,17 +104,6 @@ function ResetPasswordPage() {
       </div>
     </div>
   );
-}
-
-function getAuthSearch() {
-  if (typeof window === "undefined") return {};
-  const params = new URLSearchParams(window.location.search);
-  const portal = params.get("portal");
-  const redirect = params.get("redirect");
-  return {
-    ...(portal ? { portal } : {}),
-    ...(redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? { redirect } : {}),
-  };
 }
 
 function Field({

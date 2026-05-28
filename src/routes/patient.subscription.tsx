@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
 import { useRequireSession } from "@/hooks/use-auth-session";
+import { formatDateOnly, formatDateTime } from "@/lib/date-format";
 import { getPatientPortal } from "@/lib/patient-portal.functions";
 
 export const Route = createFileRoute("/patient/subscription")({
@@ -165,7 +166,7 @@ function PatientSubscriptionPage() {
                 label="Próximo vencimento"
                 value={
                   data.subscription?.next_due_date
-                    ? formatDate(data.subscription.next_due_date)
+                    ? formatDateOnly(data.subscription.next_due_date)
                     : "Sem vencimento"
                 }
               />
@@ -269,7 +270,9 @@ function PatientSubscriptionPage() {
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {payment.payment_method} •{" "}
-                        {formatDate(payment.paid_at ?? payment.due_date ?? payment.created_at)}
+                        {payment.paid_at
+                          ? formatDateTime(payment.paid_at)
+                          : formatDateOnly(payment.due_date ?? payment.created_at)}
                       </div>
                       {payment.status !== "paid" && payment.asaas_invoice_url && (
                         <a
@@ -367,14 +370,6 @@ function formatCurrency(value: number | string) {
     style: "currency",
     currency: "BRL",
   }).format(Number(value));
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-  }).format(new Date(value));
 }
 
 function subscriptionLabel(status: string) {

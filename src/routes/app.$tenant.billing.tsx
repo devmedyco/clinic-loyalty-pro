@@ -15,6 +15,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
+import { formatDateOnly, formatDateTime } from "@/lib/date-format";
 import {
   cancelPatientPayment,
   createAsaasCharge,
@@ -65,6 +66,16 @@ type Payment = {
   patients?: { full_name: string } | null;
 };
 
+type PaymentActionRequest = {
+  action: "cancel" | "refund" | "reconcile";
+  payment_id: string;
+  reason?: string;
+};
+
+type ConfirmablePaymentActionRequest = Omit<PaymentActionRequest, "action"> & {
+  action: "cancel" | "refund";
+};
+
 function BillingPage() {
   const { tenant } = Route.useParams();
   const queryClient = useQueryClient();
@@ -78,6 +89,8 @@ function BillingPage() {
   const reconcilePayment = useServerFn(reconcilePatientPayment);
   const renewSubscription = useServerFn(renewPatientSubscription);
   const [paymentFor, setPaymentFor] = useState<Subscription | null>(null);
+  const [paymentActionToConfirm, setPaymentActionToConfirm] =
+    useState<ConfirmablePaymentActionRequest | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["tenant-billing", tenant],
@@ -148,11 +161,7 @@ function BillingPage() {
   });
 
   const paymentActionMutation = useMutation({
-    mutationFn: (input: {
-      action: "cancel" | "refund" | "reconcile";
-      payment_id: string;
-      reason?: string;
-    }) => {
+    mutationFn: (input: PaymentActionRequest) => {
       if (input.action === "cancel") {
         return cancelPayment({
           data: { tenant, payment_id: input.payment_id, reason: input.reason },
@@ -172,6 +181,7 @@ function BillingPage() {
         reconcile: "Pagamento conciliado",
       };
       toast.success(labels[variables.action]);
+      setPaymentActionToConfirm(null);
       await queryClient.invalidateQueries({ queryKey: ["tenant-billing", tenant] });
       await queryClient.invalidateQueries({ queryKey: ["patients", tenant] });
     },
@@ -235,6 +245,14 @@ function BillingPage() {
           onClose={() => setPaymentFor(null)}
           onSubmit={(input) => paymentMutation.mutate(input)}
           onSubmitAsaas={(input) => asaasMutation.mutate(input)}
+        />
+      )}
+      {paymentActionToConfirm && (
+        <PaymentActionConfirmModal
+          action={paymentActionToConfirm.action}
+          loading={paymentActionMutation.isPending}
+          onClose={() => setPaymentActionToConfirm(null)}
+          onConfirm={() => paymentActionMutation.mutate(paymentActionToConfirm)}
         />
       )}
 
@@ -309,7 +327,7 @@ function BillingPage() {
                       </td>
                       <td className="px-5 py-4 text-muted-foreground">
                         {subscription.next_due_date
-                          ? formatDate(subscription.next_due_date)
+                          ? formatDateOnly(subscription.next_due_date)
                           : "Sem vencimento"}
                       </td>
                       <td className="px-5 py-4">
@@ -378,7 +396,9 @@ function BillingPage() {
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {payment.payment_method} •{" "}
-                        {formatDate(payment.paid_at ?? payment.due_date ?? payment.created_at)}
+                        {payment.paid_at
+                          ? formatDateTime(payment.paid_at)
+                          : formatDateOnly(payment.due_date ?? payment.created_at)}
                       </div>
                       {payment.asaas_invoice_url && (
                         <a
@@ -439,14 +459,12 @@ function BillingPage() {
                         {payment.status === "pending" && (
                           <button
                             disabled={paymentActionMutation.isPending}
-                            onClick={() => {
-                              if (confirm("Cancelar esta cobrança pendente?")) {
-                                paymentActionMutation.mutate({
-                                  action: "cancel",
-                                  payment_id: payment.id,
-                                });
-                              }
-                            }}
+                            onClick={() =>
+                              setPaymentActionToConfirm({
+                                action: "cancel",
+                                payment_id: payment.id,
+                              })
+                            }
                             className="inline-flex items-center gap-1 rounded-md border border-destructive/30 px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-60"
                           >
                             <Ban className="h-3 w-3" />
@@ -456,14 +474,12 @@ function BillingPage() {
                         {payment.status === "paid" && payment.asaas_invoice_url && (
                           <button
                             disabled={paymentActionMutation.isPending}
-                            onClick={() => {
-                              if (confirm("Solicitar reembolso desta cobrança paga no Asaas?")) {
-                                paymentActionMutation.mutate({
-                                  action: "refund",
-                                  payment_id: payment.id,
-                                });
-                              }
-                            }}
+                            onClick={() =>
+                              setPaymentActionToConfirm({
+                                action: "refund",
+                                payment_id: payment.id,
+                              })
+                            }
                             className="inline-flex items-center gap-1 rounded-md border border-warning/30 px-2 py-1 text-xs font-medium text-warning hover:bg-warning/10 disabled:opacity-60"
                           >
                             <RotateCcw className="h-3 w-3" />
@@ -486,6 +502,66 @@ function BillingPage() {
         </Card>
       </div>
     </>
+  );
+}
+
+function PaymentActionConfirmModal({
+  action,
+  loading,
+  onClose,
+  onConfirm,
+}: {
+  action: "cancel" | "refund";
+  loading: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const copy = {
+    cancel: {
+      title: "Cancelar cobrança?",
+      description:
+        "A cobrança pendente será cancelada no controle financeiro. Se existir cobrança Asaas vinculada, o sistema também tentará cancelar no gateway.",
+      confirm: "Cancelar cobrança",
+      tone: "destructive",
+    },
+    refund: {
+      title: "Solicitar reembolso?",
+      description:
+        "O sistema vai solicitar reembolso da cobrança paga no Asaas e registrar o evento no histórico financeiro do paciente.",
+      confirm: "Solicitar reembolso",
+      tone: "warning",
+    },
+  }[action];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-xl border border-border bg-surface-elevated p-6 shadow-elegant">
+        <h2 className="font-display text-xl text-foreground">{copy.title}</h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">{copy.description}</p>
+        <div className="mt-6 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-surface disabled:opacity-60"
+          >
+            Voltar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className={
+              copy.tone === "destructive"
+                ? "flex-1 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition hover:opacity-90 disabled:opacity-60"
+                : "flex-1 rounded-lg bg-warning px-4 py-2 text-sm font-medium text-warning-foreground transition hover:opacity-90 disabled:opacity-60"
+            }
+          >
+            {loading ? "Processando..." : copy.confirm}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -783,14 +859,6 @@ function planLabel(plan?: string | null) {
     benefits: "Cartão de benefícios",
   };
   return labels[plan ?? ""] ?? plan ?? "Cartão de benefícios";
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-  }).format(new Date(value));
 }
 
 function downloadPaymentsCsv(payments: Payment[]) {

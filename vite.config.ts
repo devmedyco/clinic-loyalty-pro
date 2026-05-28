@@ -31,6 +31,10 @@ export default defineConfig({
               return "vendor-supabase";
             }
 
+            if (id.includes("/node_modules/recharts/") || /[\\/]node_modules[\\/]d3-/.test(id)) {
+              return "vendor-charts";
+            }
+
             if (id.includes("/node_modules/@radix-ui/")) {
               return "vendor-radix";
             }

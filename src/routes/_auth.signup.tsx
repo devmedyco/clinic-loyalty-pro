@@ -1,10 +1,15 @@
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { Chrome } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase-ext/client";
 import { getPostAuthRoute } from "@/lib/access-routing";
+import {
+  getAuthLinkSearch,
+  getPortalFromAuthSearch,
+  getSafeRedirectFromAuthSearch,
+} from "@/lib/auth-portal";
 import { getMyAccess } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/_auth/signup")({
@@ -15,8 +20,9 @@ function SignupPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fetchAccess = useServerFn(getMyAccess);
-  const copy = getSignupCopy();
-  const authSearch = getAuthSearch();
+  const routeSearch = useRouterState({ select: (state) => state.location.search });
+  const copy = getSignupCopy(getPortalFromAuthSearch(routeSearch));
+  const authSearch = getAuthLinkSearch(routeSearch);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,7 +36,7 @@ function SignupPage() {
     setInfo(null);
     setLoading(true);
     queryClient.clear();
-    const redirect = getSafeRedirect();
+    const redirect = getSafeRedirectFromAuthSearch(routeSearch);
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -57,7 +63,7 @@ function SignupPage() {
 
   async function onGoogleSignup() {
     setError(null);
-    const redirect = getSafeRedirect();
+    const redirect = getSafeRedirectFromAuthSearch(routeSearch);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -134,8 +140,7 @@ function SignupPage() {
   );
 }
 
-function getSignupCopy() {
-  const portal = getPortalContext();
+function getSignupCopy(portal: "clinic" | "patient" | "admin") {
   const copies = {
     clinic: {
       title: "Criar conta",
@@ -157,34 +162,6 @@ function getSignupCopy() {
     },
   };
   return copies[portal];
-}
-
-function getSafeRedirect() {
-  if (typeof window === "undefined") return null;
-  const redirect = new URLSearchParams(window.location.search).get("redirect");
-  if (!redirect || !redirect.startsWith("/") || redirect.startsWith("//")) return null;
-  return redirect;
-}
-
-function getAuthSearch() {
-  if (typeof window === "undefined") return {};
-  const params = new URLSearchParams(window.location.search);
-  const redirect = getSafeRedirect();
-  const portal = params.get("portal");
-  return {
-    ...(portal ? { portal } : {}),
-    ...(redirect ? { redirect } : {}),
-  };
-}
-
-function getPortalContext(): "clinic" | "patient" | "admin" {
-  if (typeof window === "undefined") return "clinic";
-  const params = new URLSearchParams(window.location.search);
-  const portal = params.get("portal");
-  const redirect = params.get("redirect") ?? "";
-  if (portal === "patient" || redirect.startsWith("/patient")) return "patient";
-  if (portal === "admin" || redirect.startsWith("/admin")) return "admin";
-  return "clinic";
 }
 
 function Field({

@@ -1,12 +1,14 @@
-import { Link, Outlet, createFileRoute } from "@tanstack/react-router";
+import { Outlet, createFileRoute, useRouterState } from "@tanstack/react-router";
 import { Logo } from "@/components/brand/Logo";
+import { getPortalFromAuthSearch } from "@/lib/auth-portal";
 
 export const Route = createFileRoute("/_auth")({
   component: AuthLayout,
 });
 
 function AuthLayout() {
-  const context = getAuthContext();
+  const search = useRouterState({ select: (state) => state.location.search });
+  const context = contexts[getPortalFromAuthSearch(search)];
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
@@ -32,26 +34,14 @@ function AuthLayout() {
           </div>
           <Outlet />
           <div className="mt-10 text-center text-xs text-muted-foreground">
-            <Link to="/" className="hover:text-foreground transition">
+            <a href="/" className="hover:text-foreground transition">
               ← Voltar ao site
-            </Link>
+            </a>
           </div>
         </div>
       </div>
     </div>
   );
-}
-
-function getAuthContext() {
-  if (typeof window === "undefined") return contexts.clinic;
-
-  const params = new URLSearchParams(window.location.search);
-  const portal = params.get("portal");
-  const redirect = params.get("redirect") ?? "";
-
-  if (portal === "patient" || redirect.startsWith("/patient")) return contexts.patient;
-  if (portal === "admin" || redirect.startsWith("/admin")) return contexts.admin;
-  return contexts.clinic;
 }
 
 const contexts = {

@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Card, PageHeader, StatCard } from "@/components/portal/Shell";
 import { useRequireSession } from "@/hooks/use-auth-session";
+import { formatDateOnly } from "@/lib/date-format";
 import { getPatientPortal } from "@/lib/patient-portal.functions";
 
 export const Route = createFileRoute("/patient/")({
@@ -126,7 +127,10 @@ function PatientCard() {
             </div>
             <div className="text-xs text-muted-foreground">
               {card.expires_at
-                ? `expira em ${formatDate(card.expires_at)}`
+                ? `expira em ${formatDateOnly(card.expires_at, {
+                    day: "2-digit",
+                    month: "short",
+                  })}`
                 : "sem expiração definida"}
             </div>
           </Card>
@@ -246,11 +250,4 @@ function formatCurrency(value: number) {
     style: "currency",
     currency: "BRL",
   }).format(value);
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-  }).format(new Date(value));
 }

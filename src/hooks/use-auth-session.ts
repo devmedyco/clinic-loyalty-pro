@@ -12,10 +12,12 @@ export function useRequireSession() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const lastUserIdRef = useRef<string | null>(null);
+  const protectedPathRef = useRef<string | null>(null);
   const [state, setState] = useState<AuthState>({ status: "loading" });
 
   useEffect(() => {
     let active = true;
+    protectedPathRef.current = window.location.pathname;
 
     function setAuthenticated(userId: string) {
       if (lastUserIdRef.current && lastUserIdRef.current !== userId) {
@@ -42,8 +44,8 @@ export function useRequireSession() {
       navigate({
         to: "/login",
         search: {
-          redirect: window.location.pathname,
-          portal: getPortalFromPath(window.location.pathname),
+          redirect: protectedPathRef.current ?? window.location.pathname,
+          portal: getPortalFromPath(protectedPathRef.current ?? window.location.pathname),
         } as never,
       });
     });
@@ -58,7 +60,10 @@ export function useRequireSession() {
       setAnonymous();
       navigate({
         to: "/login",
-        search: { portal: getPortalFromPath(window.location.pathname) } as never,
+        search: {
+          redirect: protectedPathRef.current ?? undefined,
+          portal: getPortalFromPath(protectedPathRef.current ?? window.location.pathname),
+        } as never,
       });
     });
 

@@ -8,6 +8,7 @@ import {
   DEFAULT_SPLIT_FIXED_FEE,
   DEFAULT_SPLIT_PERCENTAGE,
 } from "@/lib/commercial-model";
+import { findAuthUserByEmail, listAllAuthUsers } from "@/lib/auth-admin.server";
 import {
   createAsaasCustomer,
   createAsaasSubscription,
@@ -447,11 +448,10 @@ export const listSuperAdmins = createServerFn({ method: "GET" })
       : { data: [], error: null };
     if (profilesError) throw new Error(profilesError.message);
 
-    const usersResult = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    if (usersResult.error) throw new Error(usersResult.error.message);
+    const users = await listAllAuthUsers();
 
     const profilesById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
-    const usersById = new Map((usersResult.data.users ?? []).map((user) => [user.id, user]));
+    const usersById = new Map(users.map((user) => [user.id, user]));
 
     return {
       admins: (roles ?? []).map((role) => {
@@ -477,12 +477,7 @@ export const grantSuperAdmin = createServerFn({ method: "POST" })
     await assertSuperAdminAccess(supabase, userId);
 
     const email = data.email.trim().toLowerCase();
-    const usersResult = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    if (usersResult.error) throw new Error(usersResult.error.message);
-
-    const user = usersResult.data.users.find(
-      (candidate) => candidate.email?.toLowerCase() === email,
-    );
+    const user = await findAuthUserByEmail(email);
     if (!user) {
       throw new Error(
         "Esse e-mail ainda não tem conta. Peça para criar uma conta antes de promover.",

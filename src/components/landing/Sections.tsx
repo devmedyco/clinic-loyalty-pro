@@ -128,7 +128,7 @@ export function Solution() {
           </div>
 
           {/* Visual: cartão + QR */}
-          <div className="relative">
+          <div className="relative overflow-hidden">
             <div
               className="absolute -inset-8 -z-10 bg-gradient-to-br from-brand/15 to-transparent blur-3xl"
               aria-hidden

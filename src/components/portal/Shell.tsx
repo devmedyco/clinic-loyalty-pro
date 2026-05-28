@@ -38,8 +38,9 @@ export function PortalShell({
     href: resolve(item.to, item.params),
   }));
   const currentItem =
-    resolvedItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)) ??
-    resolvedItems[0];
+    [...resolvedItems]
+      .sort((a, b) => b.href.length - a.href.length)
+      .find((item) => isActiveRoute(pathname, item.href)) ?? resolvedItems[0];
   const currentHref = currentItem?.href;
 
   useEffect(() => {
@@ -93,7 +94,7 @@ export function PortalShell({
         <nav className="flex-1 space-y-0.5 p-3">
           {items.map((it) => {
             const href = resolve(it.to, it.params);
-            const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+            const active = isActiveRoute(pathname, href);
             return (
               <Link
                 key={href}
@@ -183,7 +184,7 @@ export function PortalShell({
         <nav className="fixed inset-x-0 bottom-0 z-20 flex gap-1 overflow-x-auto border-t border-border bg-background/95 px-2 py-2 backdrop-blur lg:hidden">
           {resolvedItems.map((it) => {
             const href = it.href;
-            const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+            const active = isActiveRoute(pathname, href);
             return (
               <Link
                 key={href}
@@ -209,6 +210,12 @@ function resolve(to: string, params?: Record<string, string>) {
   let out = to;
   for (const [k, v] of Object.entries(params)) out = out.replace(`$${k}`, v);
   return out;
+}
+
+function isActiveRoute(pathname: string, href: string) {
+  if (pathname === href) return true;
+  if (href === "/" || href === "/admin" || href === "/patient") return false;
+  return pathname.startsWith(`${href}/`);
 }
 
 export function PageHeader({

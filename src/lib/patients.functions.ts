@@ -5,6 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase-ext/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase-ext/client.server";
+import { findAuthUserByEmail } from "@/lib/auth-admin.server";
 import { patientInviteEmail } from "@/lib/email-templates";
 import { sendEmail } from "@/lib/email.server";
 
@@ -773,13 +774,6 @@ async function createOrUpdatePatientUser({
   });
   if (error) throw new Error(error.message);
   return data.user?.id ?? existingUser.id;
-}
-
-async function findAuthUserByEmail(email: string) {
-  const normalizedEmail = email.toLowerCase();
-  const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  if (error) throw new Error(error.message);
-  return data.users.find((user) => user.email?.toLowerCase() === normalizedEmail) ?? null;
 }
 
 async function ensurePatientRole(userId: string, tenantId: string) {

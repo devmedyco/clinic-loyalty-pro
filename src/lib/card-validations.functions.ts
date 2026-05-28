@@ -47,13 +47,7 @@ export const validateCard = createServerFn({ method: "POST" })
     const tenant = await resolveTenant(supabase, data.tenant);
     const token = normalizeToken(data.token);
 
-    const { data: card, error: cardError } = await supabase
-      .from("benefit_cards")
-      .select(
-        "id, tenant_id, patient_id, card_number, qr_token, active, expires_at, patients(id, user_id, full_name, cpf, status, email, phone)",
-      )
-      .or(`qr_token.eq.${token},card_number.eq.${token}`)
-      .maybeSingle();
+    const { card, error: cardError } = await findCardByTokenOrNumber(supabase, token);
 
     if (cardError) throw new Error(cardError.message);
 
@@ -120,6 +114,30 @@ async function resolveTenant(supabase: SupabaseClient, slug: string) {
 
 function normalizeToken(token: string) {
   return token.trim();
+}
+
+async function findCardByTokenOrNumber(supabase: SupabaseClient, token: string) {
+  const select =
+    "id, tenant_id, patient_id, card_number, qr_token, active, expires_at, patients(id, user_id, full_name, cpf, status, email, phone)";
+
+  const byQrToken = await supabase
+    .from("benefit_cards")
+    .select(select)
+    .eq("qr_token", token)
+    .limit(1)
+    .maybeSingle();
+  if (byQrToken.error || byQrToken.data) {
+    return { card: byQrToken.data, error: byQrToken.error };
+  }
+
+  const byCardNumber = await supabase
+    .from("benefit_cards")
+    .select(select)
+    .eq("card_number", token)
+    .limit(1)
+    .maybeSingle();
+
+  return { card: byCardNumber.data, error: byCardNumber.error };
 }
 
 function getDenialReason(
